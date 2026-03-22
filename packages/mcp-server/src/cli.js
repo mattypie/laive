@@ -55,7 +55,7 @@ async function main() {
   const session = await createSession(options);
   const server = new LaiveMcpServer({
     stateAdapter: createStateAdapter(session),
-    bridgeAdapter: createBridgeAdapter(session.bridgeClient),
+    bridgeAdapter: createBridgeAdapter(session),
       policyAdapter: createAllowAllPolicyAdapter()
   });
   let lineReader = null;

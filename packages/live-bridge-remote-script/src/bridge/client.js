@@ -55,7 +55,11 @@ export class BridgeClient extends EventEmitter {
 
     this.socket.on("data", (chunk) => parser.push(Buffer.from(chunk)));
     this.socket.on("end", () => parser.end());
-    this.socket.on("error", (error) => this.emit("error", error));
+    this.socket.on("error", (error) => {
+      if (this.listenerCount("error") > 0) {
+        this.emit("error", error);
+      }
+    });
     this.socket.on("close", () => {
       this.socket = null;
       this.emit("close");

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.2 - 2026-03-22
+
+- Fixed an MCP transport crash when the Live bridge socket is unreachable by preventing the bridge client from raising an unhandled `error` event during lazy connection attempts. Tool calls now return structured MCP errors instead of closing the server process.
+
 ## v0.1.1 - 2026-03-22
 
 - Fixed MCP startup compatibility by implementing the `initialize` handshake, ignoring `notifications/initialized`, and deferring Live bridge connection until the first real tool call so the server can start before Ableton is reachable.

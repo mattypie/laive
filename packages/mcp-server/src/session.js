@@ -158,18 +158,23 @@ export function createAllowAllPolicyAdapter() {
   };
 }
 
-export function createBridgeAdapter(bridgeClient) {
+async function resolveBridgeClient(target) {
+  if (target && typeof target.ensureConnected === "function") {
+    await target.ensureConnected();
+    return target.bridgeClient;
+  }
+
+  return target;
+}
+
+export function createBridgeAdapter(target) {
   return {
     async getCapabilities() {
-      if (typeof bridgeClient.ensureConnected === "function") {
-        await bridgeClient.ensureConnected();
-      }
+      const bridgeClient = await resolveBridgeClient(target);
       return (await bridgeClient.request("capabilities")).result;
     },
     async setTempo(tempo, options = {}) {
-      if (typeof bridgeClient.ensureConnected === "function") {
-        await bridgeClient.ensureConnected();
-      }
+      const bridgeClient = await resolveBridgeClient(target);
       return (
         await bridgeClient.request(
           "set",
@@ -180,9 +185,7 @@ export function createBridgeAdapter(bridgeClient) {
       ).result;
     },
     async createTrack(kind, options = {}) {
-      if (typeof bridgeClient.ensureConnected === "function") {
-        await bridgeClient.ensureConnected();
-      }
+      const bridgeClient = await resolveBridgeClient(target);
       const result = (
         await bridgeClient.request(
           "call",
@@ -198,9 +201,7 @@ export function createBridgeAdapter(bridgeClient) {
       };
     },
     async createClip(payload) {
-      if (typeof bridgeClient.ensureConnected === "function") {
-        await bridgeClient.ensureConnected();
-      }
+      const bridgeClient = await resolveBridgeClient(target);
       const result = (
         await bridgeClient.request(
           "call",
@@ -221,9 +222,7 @@ export function createBridgeAdapter(bridgeClient) {
       };
     },
     async setParameter(payload, options = {}) {
-      if (typeof bridgeClient.ensureConnected === "function") {
-        await bridgeClient.ensureConnected();
-      }
+      const bridgeClient = await resolveBridgeClient(target);
       const result = (
         await bridgeClient.request(
           "set",

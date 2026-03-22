@@ -87,3 +87,118 @@ test("root laive mcp command initializes without a live bridge connection", asyn
 
   child.kill("SIGTERM");
 });
+
+test("root laive mcp command returns a structured tool error when the live bridge is unavailable", async () => {
+  const child = spawn("node", [binPath, "mcp", "--host", "127.0.0.1", "--port", "9"], {
+    cwd: repoRoot,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  const responsePromise = new Promise((resolve, reject) => {
+    let buffer = "";
+    child.stdout.on("data", (chunk) => {
+      buffer += chunk.toString("utf8");
+      const lines = buffer.split("\n").filter(Boolean);
+      if (lines.length < 2) {
+        return;
+      }
+      resolve(lines.map((line) => JSON.parse(line)));
+    });
+    child.once("error", reject);
+    child.stderr.on("data", (chunk) => {
+      reject(new Error(chunk.toString("utf8")));
+    });
+  });
+
+  child.stdin.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        clientInfo: {
+          name: "codex-test",
+          version: "1.0.0"
+        }
+      }
+    })}\n`
+  );
+
+  child.stdin.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "get_project_summary",
+        arguments: {}
+      }
+    })}\n`
+  );
+
+  const [initializeResponse, toolResponse] = await responsePromise;
+  assert.equal(initializeResponse.result.serverInfo.name, "laive-mcp");
+  assert.equal(toolResponse.id, 2);
+  assert.equal(typeof toolResponse.error.message, "string");
+
+  child.kill("SIGTERM");
+});
+
+test("root laive mcp command resolves bridge-backed tools through the lazy session", async () => {
+  const child = spawn("node", [binPath, "mcp", "--host", "127.0.0.1", "--port", "9"], {
+    cwd: repoRoot,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  const responsePromise = new Promise((resolve, reject) => {
+    let buffer = "";
+    child.stdout.on("data", (chunk) => {
+      buffer += chunk.toString("utf8");
+      const lines = buffer.split("\n").filter(Boolean);
+      if (lines.length < 2) {
+        return;
+      }
+      resolve(lines.map((line) => JSON.parse(line)));
+    });
+    child.once("error", reject);
+    child.stderr.on("data", (chunk) => {
+      reject(new Error(chunk.toString("utf8")));
+    });
+  });
+
+  child.stdin.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        clientInfo: {
+          name: "codex-test",
+          version: "1.0.0"
+        }
+      }
+    })}\n`
+  );
+
+  child.stdin.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "get_capabilities",
+        arguments: {}
+      }
+    })}\n`
+  );
+
+  const [initializeResponse, toolResponse] = await responsePromise;
+  assert.equal(initializeResponse.result.serverInfo.name, "laive-mcp");
+  assert.equal(toolResponse.id, 2);
+  assert.equal(typeof toolResponse.error.message, "string");
+  assert.equal(toolResponse.error.message.includes("ensureConnected"), false);
+
+  child.kill("SIGTERM");
+});

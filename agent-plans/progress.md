@@ -55,3 +55,4 @@
 - Renamed the published npm package to `laive-mcp` after confirming `laive` is already taken on npm, while keeping the Live control surface name as `laive`.
 - Corrected the root npm `bin` metadata for the renamed `laive-mcp` package after npm publish validation reported the previous object form as invalid.
 - Fixed the MCP server startup path to support a real MCP `initialize` handshake and lazy bridge connection so agent clients can start the server before Ableton Live is reachable.
+- Fixed the lazy bridge-connect crash path so unreachable Live sockets now surface as structured MCP tool errors rather than terminating the MCP transport.
