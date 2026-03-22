@@ -1,3 +1,4 @@
+import rootPackage from "../../../package.json" with { type: "json" };
 import { ToolRegistry } from "./tool-registry.js";
 import { buildDefaultTools } from "./default-tools.js";
 import { McpServerError, toErrorShape } from "./errors.js";
@@ -6,7 +7,7 @@ export class LaiveMcpServer {
   constructor({ stateAdapter, bridgeAdapter, policyAdapter, serverInfo } = {}) {
     this.serverInfo = serverInfo ?? {
       name: "laive-mcp",
-      version: "0.1.0"
+      version: rootPackage.version
     };
     this.stateAdapter = stateAdapter ?? createUnsupportedAdapter("state");
     this.bridgeAdapter = bridgeAdapter ?? createUnsupportedAdapter("bridge");
@@ -37,6 +38,39 @@ export class LaiveMcpServer {
   async handleRpcMessage(message) {
     if (!message || typeof message !== "object") {
       throw new McpServerError("invalid_request", "Message must be an object");
+    }
+
+    if (message.method === "initialize") {
+      const requestedProtocolVersion =
+        typeof message.params?.protocolVersion === "string"
+          ? message.params.protocolVersion
+          : null;
+
+      return {
+        jsonrpc: "2.0",
+        id: message.id ?? null,
+        result: {
+          protocolVersion: requestedProtocolVersion ?? "2024-11-05",
+          capabilities: {
+            tools: {
+              listChanged: false
+            }
+          },
+          serverInfo: this.serverInfo
+        }
+      };
+    }
+
+    if (message.method === "ping") {
+      return {
+        jsonrpc: "2.0",
+        id: message.id ?? null,
+        result: {}
+      };
+    }
+
+    if (typeof message.method === "string" && message.method.startsWith("notifications/")) {
+      return null;
     }
 
     if (message.method === "tools/list") {

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.1 - 2026-03-22
+
+- Fixed MCP startup compatibility by implementing the `initialize` handshake, ignoring `notifications/initialized`, and deferring Live bridge connection until the first real tool call so the server can start before Ableton is reachable.
+
 ## v0.1.0 - 2026-03-22
 
 - Renamed the published npm package from `laive` to `laive-mcp` because `laive` is already taken on npm. The Ableton-side control surface name remains `laive`.
@@ -11,3 +15,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+

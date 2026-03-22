@@ -99,6 +99,40 @@ test("tools/list returns registered tools", async () => {
   assert.ok(response.result.tools.some((tool) => tool.name === "get_project_summary"));
 });
 
+test("initialize returns MCP server info and tool capability metadata", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 0,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      clientInfo: {
+        name: "codex-test",
+        version: "1.0.0"
+      }
+    }
+  });
+
+  assert.equal(response.result.protocolVersion, "2024-11-05");
+  assert.equal(response.result.serverInfo.name, "laive-mcp");
+  assert.deepEqual(response.result.capabilities, {
+    tools: {
+      listChanged: false
+    }
+  });
+});
+
+test("initialized notifications do not emit a response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    method: "notifications/initialized"
+  });
+
+  assert.equal(response, null);
+});
+
 test("set_tempo returns structured mutation response", async () => {
   const server = createServer();
   const response = await server.safeHandleRpcMessage({

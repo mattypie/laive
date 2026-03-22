@@ -1,6 +1,6 @@
 {
   "name": "laive-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local MCP, install tooling, and helper assets for controlling Ableton Live.",
   "license": "GPL-3.0-only",
   "type": "module",
@@ -13,7 +13,9 @@
   "publishConfig": {
     "access": "public"
   },
-  "bin": "./bin/laive.mjs",
+  "bin": {
+    "laive-mcp": "bin/laive.mjs"
+  },
   "files": [
     "bin/",
     "README.md",

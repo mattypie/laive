@@ -44,7 +44,7 @@ async function createSession(options) {
     return LaiveFixtureSession.create();
   }
 
-  return LaiveBridgeSession.connect({
+  return LaiveBridgeSession.createLazy({
     host: options.host,
     port: options.port
   });
@@ -101,7 +101,9 @@ async function main() {
     }
 
     const response = await server.safeHandleRpcMessage(message);
-    process.stdout.write(`${JSON.stringify(response)}\n`);
+    if (response) {
+      process.stdout.write(`${JSON.stringify(response)}\n`);
+    }
   }
 
   await session.close();

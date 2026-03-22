@@ -1,3 +1,4 @@
+import rootPackage from "../../../package.json" with { type: "json" };
 import {
   BridgeClient,
   BridgeServer,
@@ -60,7 +61,7 @@ function normalizeTrack(track) {
 function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks }) {
   return {
     observed_at: new Date().toISOString(),
-    bridge_version: "0.1.0",
+    bridge_version: rootPackage.version,
     live_version: liveVersion,
     application: parseLiveVersion(liveVersion),
     song: {
@@ -160,9 +161,15 @@ export function createAllowAllPolicyAdapter() {
 export function createBridgeAdapter(bridgeClient) {
   return {
     async getCapabilities() {
+      if (typeof bridgeClient.ensureConnected === "function") {
+        await bridgeClient.ensureConnected();
+      }
       return (await bridgeClient.request("capabilities")).result;
     },
     async setTempo(tempo, options = {}) {
+      if (typeof bridgeClient.ensureConnected === "function") {
+        await bridgeClient.ensureConnected();
+      }
       return (
         await bridgeClient.request(
           "set",
@@ -173,6 +180,9 @@ export function createBridgeAdapter(bridgeClient) {
       ).result;
     },
     async createTrack(kind, options = {}) {
+      if (typeof bridgeClient.ensureConnected === "function") {
+        await bridgeClient.ensureConnected();
+      }
       const result = (
         await bridgeClient.request(
           "call",
@@ -188,6 +198,9 @@ export function createBridgeAdapter(bridgeClient) {
       };
     },
     async createClip(payload) {
+      if (typeof bridgeClient.ensureConnected === "function") {
+        await bridgeClient.ensureConnected();
+      }
       const result = (
         await bridgeClient.request(
           "call",
@@ -208,6 +221,9 @@ export function createBridgeAdapter(bridgeClient) {
       };
     },
     async setParameter(payload, options = {}) {
+      if (typeof bridgeClient.ensureConnected === "function") {
+        await bridgeClient.ensureConnected();
+      }
       const result = (
         await bridgeClient.request(
           "set",
@@ -246,6 +262,9 @@ export function createStateAdapter(session) {
 
   return {
     async getProjectSummary() {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
       const summary = session.stateEngine.query.summarizeProject();
       return {
         ...summary,
@@ -254,6 +273,9 @@ export function createStateAdapter(session) {
       };
     },
     async getSelectedContext() {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
       const context = session.stateEngine.query.getSelectedContext() ?? {};
       return {
         stateVersion: stateVersion(),
@@ -261,9 +283,15 @@ export function createStateAdapter(session) {
       };
     },
     async listTracks() {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
       return trackList();
     },
     async getTrackDetails(target) {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
       const track =
         session.stateEngine.getState().tracks[target] ?? session.stateEngine.query.findTrack(target);
 
@@ -280,6 +308,9 @@ export function createStateAdapter(session) {
       };
     },
     async getDeviceTree(trackId) {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
       const details = session.stateEngine.query.getTrackDetails(trackId);
       if (!details) {
         throw new Error(`Track not found: ${trackId}`);
@@ -292,6 +323,9 @@ export function createStateAdapter(session) {
       };
     },
     async refreshState(target) {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
       const previousStateVersion = stateVersion();
       await session.syncSnapshot();
       return {
@@ -336,6 +370,10 @@ export class LaiveBridgeSession {
     const session = new LaiveBridgeSession({ bridgeClient });
     await session.start();
     return session;
+  }
+
+  static createLazy(options = {}) {
+    return new LaiveLazySession(options);
   }
 
   async start() {
@@ -391,6 +429,58 @@ export class LaiveFixtureSession extends LaiveBridgeSession {
     });
     await session.start();
     return session;
+  }
+}
+
+export class LaiveLazySession {
+  constructor({
+    host = process.env.LAIVE_BRIDGE_HOST ?? "127.0.0.1",
+    port = Number.parseInt(process.env.LAIVE_BRIDGE_PORT ?? "7612", 10),
+    clientId = process.env.LAIVE_BRIDGE_CLIENT_ID ?? "laive-mcp-session",
+    socketFactory = null
+  } = {}) {
+    this.connectionOptions = {
+      host,
+      port,
+      clientId,
+      socketFactory
+    };
+    this.stateEngine = createStateEngine();
+    this.bridgeClient = null;
+    this.activeSession = null;
+    this.connectingPromise = null;
+  }
+
+  async ensureConnected() {
+    if (this.activeSession) {
+      return this.activeSession;
+    }
+
+    if (!this.connectingPromise) {
+      this.connectingPromise = LaiveBridgeSession.connect(this.connectionOptions)
+        .then((session) => {
+          this.activeSession = session;
+          this.bridgeClient = session.bridgeClient;
+          this.stateEngine = session.stateEngine;
+          return session;
+        })
+        .finally(() => {
+          this.connectingPromise = null;
+        });
+    }
+
+    return await this.connectingPromise;
+  }
+
+  async syncSnapshot() {
+    const session = await this.ensureConnected();
+    return await session.syncSnapshot();
+  }
+
+  async close() {
+    if (this.activeSession) {
+      await this.activeSession.close();
+    }
   }
 }
 
