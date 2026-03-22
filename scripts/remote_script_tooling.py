@@ -6,6 +6,7 @@ import argparse
 import json
 import shutil
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List
@@ -57,6 +58,21 @@ def ensure_source_exists(source_root: Path = REMOTE_SCRIPT_SOURCE) -> Path:
     return source_root
 
 
+def remove_tree(path: Path, attempts: int = 3, delay_seconds: float = 0.05) -> None:
+    last_error = None
+    for _attempt in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except OSError as error:
+            last_error = error
+            time.sleep(delay_seconds)
+    if last_error is not None:
+        raise last_error
+
+
 def stage_remote_script(
     source_root: Path = REMOTE_SCRIPT_SOURCE,
     artifacts_dir: Path = DEFAULT_ARTIFACTS_DIR,
@@ -68,7 +84,7 @@ def stage_remote_script(
     target_dir = staging_root / source_root.name
 
     if target_dir.exists():
-        shutil.rmtree(target_dir)
+        remove_tree(target_dir)
 
     shutil.copytree(source_root, target_dir)
     archive_path = shutil.make_archive(
