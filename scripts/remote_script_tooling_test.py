@@ -39,6 +39,17 @@ class RemoteScriptToolingTests(unittest.TestCase):
             self.assertTrue(Path(payload["staging_dir"]).exists())
             self.assertTrue(Path(payload["archive_path"]).exists())
 
+    def test_stage_remote_script_can_reuse_existing_staging_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifacts_dir = Path(temp_dir)
+
+            first_payload = stage_remote_script(artifacts_dir=artifacts_dir)
+            second_payload = stage_remote_script(artifacts_dir=artifacts_dir)
+
+            self.assertEqual(first_payload["staging_dir"], second_payload["staging_dir"])
+            self.assertTrue(Path(second_payload["staging_dir"]).exists())
+            self.assertTrue(Path(second_payload["archive_path"]).exists())
+
     def test_install_remote_script_dry_run_reports_target(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             app_path = Path(temp_dir) / "Ableton Live 11 Suite.app"

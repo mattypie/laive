@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-- Fixed MIDI note insertion for Live bridge sessions when the installed Remote Script exposes `set_notes` instead of `add_new_notes`, so `insert_notes` and the current sidecar note-replace path now send Live note-spec dictionaries instead of legacy tuples.
+## v0.2.1 - 2026-03-22
 
-- Fixed Remote Script MIDI note insertion to send Live's dictionary note-spec payload (`{"notes": [...]}` with `start_time`/`duration`) instead of Python tuples, which resolves real-session `NPythonClip::TNoteSpecification` conversion failures when calling `insert_notes`.
+- Fixed Remote Script MIDI note insertion to send Live note-spec dictionaries instead of legacy Python tuples, covering both `add_new_notes` and `set_notes` bridge paths and resolving real-session `NPythonClip::TNoteSpecification` conversion failures for `insert_notes`.
+- Fixed Remote Script packaging to safely restage into an existing staging directory, avoiding follow-on packaging failures during repeated local package/install flows.
 
 ## v0.2.0 - 2026-03-22
 

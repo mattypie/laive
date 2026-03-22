@@ -81,12 +81,13 @@ def stage_remote_script(
     source_root = ensure_source_exists(source_root)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     staging_root = artifacts_dir / "staging"
+    staging_root.mkdir(parents=True, exist_ok=True)
     target_dir = staging_root / source_root.name
 
     if target_dir.exists():
         remove_tree(target_dir)
 
-    shutil.copytree(source_root, target_dir)
+    shutil.copytree(source_root, target_dir, dirs_exist_ok=True)
     archive_path = shutil.make_archive(
         str(artifacts_dir / archive_name), "zip", root_dir=staging_root, base_dir=source_root.name
     )
