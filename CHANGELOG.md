@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.2.0 - 2026-03-22
+
 - Updated the README to advertise the currently proven live MCP capabilities separately from lower-level bridge capabilities that are not yet surfaced as first-class MCP tools.
 - Expanded the MCP server to expose the remaining control-surface bridge tools for transport control, scene creation, and MIDI note insertion.
 - Added optional sidecar and UI-helper MCP workflow tools plus `get_component_status`, with structured setup instructions when those optional components are unavailable.
@@ -32,3 +34,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
