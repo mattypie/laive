@@ -200,6 +200,40 @@ export function createBridgeAdapter(target) {
         affectedObjects: result.track ? [result.track.id] : []
       };
     },
+    async playTransport(options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      return (
+        await bridgeClient.request("call", "transport.play", {}, {
+          dryRun: Boolean(options.dryRun)
+        })
+      ).result;
+    },
+    async stopTransport(options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      return (
+        await bridgeClient.request("call", "transport.stop", {}, {
+          dryRun: Boolean(options.dryRun)
+        })
+      ).result;
+    },
+    async createScene(name = null, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "create_scene",
+          {
+            name
+          },
+          { dryRun: Boolean(options.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: result.scene ? [result.scene.id] : ["scenes"]
+      };
+    },
     async createClip(payload) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (
@@ -219,6 +253,31 @@ export function createBridgeAdapter(target) {
       return {
         ...result,
         affectedObjects: result.clip ? [payload.trackId, result.clip.id] : [payload.trackId]
+      };
+    },
+    async insertNotes(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "insert_notes",
+          {
+            clip_id: payload.clipId,
+            notes: (payload.notes ?? []).map((note) => ({
+              pitch: note.pitch,
+              start_beats: note.startBeats ?? note.start_beats,
+              duration_beats: note.durationBeats ?? note.duration_beats,
+              velocity: note.velocity,
+              mute: note.mute ?? false
+            }))
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
       };
     },
     async setParameter(payload, options = {}) {

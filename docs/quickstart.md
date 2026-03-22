@@ -67,6 +67,14 @@ Default installed sidecar path:
 node ./bin/laive.mjs mcp
 ```
 
+The MCP surface includes:
+
+- project, track, clip, device, and parameter reads
+- tempo and transport control
+- track, scene, and clip creation
+- note insertion
+- optional sidecar and UI-helper workflow tools that return setup guidance if those components are not ready
+
 If your MCP client needs an explicit command definition, use:
 
 ```json

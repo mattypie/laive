@@ -8,3 +8,7 @@ export {
   createBridgeAdapter,
   createStateAdapter
 } from "./session.js";
+export {
+  createSidecarAdapter,
+  createUiAutomationAdapter
+} from "./optional-adapters.js";

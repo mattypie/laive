@@ -84,9 +84,31 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       true
     );
 
-    const trackDetails = await server.safeHandleRpcMessage({
+    const insertNotesResponse = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
       id: 5,
+      method: "tools/call",
+      params: {
+        name: "insert_notes",
+        arguments: {
+          clipId: "clip:session:track:2:slot:1",
+          notes: [
+            {
+              pitch: 60,
+              startBeats: 0,
+              durationBeats: 1,
+              velocity: 100
+            }
+          ]
+        }
+      }
+    });
+
+    assert.equal(insertNotesResponse.result.isError, false);
+
+    const trackDetails = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 6,
       method: "tools/call",
       params: {
         name: "get_track_details",
@@ -98,6 +120,7 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
 
     assert.equal(trackDetails.result.structuredContent.track.sessionClips.length, 1);
     assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].name, "Bassline");
+    assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].noteCount, 1);
   } finally {
     await session.close();
   }
@@ -125,10 +148,31 @@ test("real bridge session can connect to a live bridge socket and refresh state"
     assert.equal(summary.song.tempo, 124);
 
     await createBridgeAdapter(session.bridgeClient).setTempo(140);
+    await createBridgeAdapter(session.bridgeClient).playTransport();
+    await createBridgeAdapter(session.bridgeClient).stopTransport();
+    await createBridgeAdapter(session.bridgeClient).createScene("Bridge Scene");
 
     const eventPromise = once(session.bridgeClient, "event:transport.changed");
     await createBridgeAdapter(session.bridgeClient).setTempo(142);
     await eventPromise;
+
+    const clip = await createBridgeAdapter(session.bridgeClient).createClip({
+      trackId: "track:2",
+      slotIndex: 0,
+      lengthBeats: 4,
+      name: "Runtime Clip"
+    });
+    await createBridgeAdapter(session.bridgeClient).insertNotes({
+      clipId: clip.clip.id,
+      notes: [
+        {
+          pitch: 67,
+          startBeats: 0,
+          durationBeats: 0.5,
+          velocity: 100
+        }
+      ]
+    });
 
     const refresh = await createStateAdapter(session).refreshState("song");
     assert.equal(refresh.stateVersion > refresh.previousStateVersion, true);

@@ -24,6 +24,15 @@ function requireString(value, fieldName) {
   }
 }
 
+function requireNotes(notes) {
+  if (!Array.isArray(notes) || notes.length === 0) {
+    throw new McpServerError(
+      "invalid_request",
+      "notes must be a non-empty array of MIDI note objects"
+    );
+  }
+}
+
 function buildMutationResult(summary, affectedObjects, beforeVersion, afterVersion, warnings = []) {
   return {
     summary,
@@ -35,7 +44,78 @@ function buildMutationResult(summary, affectedObjects, beforeVersion, afterVersi
   };
 }
 
-export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }) {
+function buildInformationalResult(summary, payload = {}, nextActions = []) {
+  return {
+    summary,
+    affected_objects: payload.affected_objects ?? [],
+    state_version_before: payload.state_version_before ?? null,
+    state_version_after: payload.state_version_after ?? null,
+    warnings: payload.warnings ?? [],
+    next_suggested_actions: nextActions,
+    ...payload
+  };
+}
+
+function buildWorkflowSchema(description) {
+  return {
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        description
+      },
+      parameters: {
+        type: "object",
+        description: "Workflow-specific parameters.",
+        additionalProperties: true
+      }
+    },
+    required: ["name"],
+    additionalProperties: false
+  };
+}
+
+const noteItemSchema = {
+  type: "object",
+  properties: {
+    pitch: {
+      type: "integer",
+      minimum: 0,
+      maximum: 127
+    },
+    startBeats: {
+      type: "number",
+      minimum: 0
+    },
+    durationBeats: {
+      type: "number",
+      exclusiveMinimum: 0
+    },
+    velocity: {
+      type: "integer",
+      minimum: 1,
+      maximum: 127
+    },
+    mute: {
+      type: "boolean"
+    }
+  },
+  required: ["pitch", "startBeats", "durationBeats", "velocity"],
+  additionalProperties: false
+};
+
+const dryRunProperty = {
+  type: "boolean",
+  description: "If true, preview the action without mutating Live."
+};
+
+export function buildDefaultTools({
+  stateAdapter,
+  bridgeAdapter,
+  policyAdapter,
+  sidecarAdapter,
+  uiAutomationAdapter
+}) {
   return [
     {
       name: "get_project_summary",
@@ -159,6 +239,35 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
       }
     },
     {
+      name: "get_component_status",
+      description:
+        "Report control-surface, Max sidecar, and UI-helper availability, including setup guidance for optional components.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const [bridgeCapabilities, sidecarStatus, uiHelperStatus] = await Promise.all([
+          bridgeAdapter.getCapabilities(),
+          sidecarAdapter.getStatus(),
+          uiAutomationAdapter.getStatus()
+        ]);
+
+        return buildInformationalResult(
+          "Component status loaded.",
+          {
+            affected_objects: ["bridge", "sidecar", "ui_helper"],
+            components: {
+              bridge: {
+                available: true,
+                capabilities: bridgeCapabilities
+              },
+              sidecar: sidecarStatus,
+              ui_helper: uiHelperStatus
+            }
+          },
+          ["get_capabilities", "list_sidecar_workflows", "list_ui_workflows"]
+        );
+      }
+    },
+    {
       name: "set_tempo",
       description: "Update the current song tempo.",
       inputSchema: createObjectSchema({
@@ -195,6 +304,56 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
       }
     },
     {
+      name: "play_transport",
+      description: "Start Ableton Live transport playback.",
+      inputSchema: createObjectSchema({
+        properties: {
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        }
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("play_transport", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.playTransport({ dryRun: Boolean(args.dryRun) });
+        const after = await stateAdapter.refreshState("song");
+        return buildMutationResult(
+          `Transport ${args.dryRun ? "play previewed" : "started"}.`,
+          ["song"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "stop_transport",
+      description: "Stop Ableton Live transport playback.",
+      inputSchema: createObjectSchema({
+        properties: {
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        }
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("stop_transport", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.stopTransport({ dryRun: Boolean(args.dryRun) });
+        const after = await stateAdapter.refreshState("song");
+        return buildMutationResult(
+          `Transport ${args.dryRun ? "stop previewed" : "stopped"}.`,
+          ["song"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "create_track",
       description: "Create a new track.",
       inputSchema: createObjectSchema({
@@ -219,6 +378,37 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
         return buildMutationResult(
           `${kind} track ${args.dryRun ? "previewed" : "created"}.`,
           created.affectedObjects ?? ["tracks"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "create_scene",
+      description: "Create a new scene.",
+      inputSchema: createObjectSchema({
+        properties: {
+          name: {
+            type: "string",
+            description: "Optional scene name."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        }
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("create_scene", args);
+        const before = await stateAdapter.getProjectSummary();
+        const created = await bridgeAdapter.createScene(args.name ?? null, {
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState("scenes");
+        return buildMutationResult(
+          `Scene ${args.dryRun ? "previewed" : "created"}.`,
+          created.affectedObjects ?? ["scenes"],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []
@@ -274,6 +464,50 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
         return buildMutationResult(
           `Clip ${args.dryRun ? "previewed" : "created"} on ${args.trackId}.`,
           created.affectedObjects ?? [args.trackId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "insert_notes",
+      description: "Insert or replace notes in a target MIDI clip.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id such as clip:session:track:8:slot:1."
+          },
+          notes: {
+            type: "array",
+            items: noteItemSchema,
+            description: "Note payload to apply to the clip."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        },
+        required: ["clipId", "notes"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireNotes(args.notes);
+
+        await policyAdapter.assertAllowed("insert_notes", args);
+        const before = await stateAdapter.getProjectSummary();
+        const inserted = await bridgeAdapter.insertNotes(
+          {
+            clipId: args.clipId,
+            notes: args.notes
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Notes ${args.dryRun ? "previewed" : "inserted"} for ${args.clipId}.`,
+          inserted.affectedObjects ?? [args.clipId],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []
@@ -340,6 +574,288 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
       }
     },
     {
+      name: "list_sidecar_workflows",
+      description: "List optional Max for Live sidecar workflows and current availability.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const result = await sidecarAdapter.listWorkflows();
+        return buildInformationalResult(
+          "Sidecar workflow status loaded.",
+          {
+            affected_objects: ["sidecar"],
+            sidecar: result
+          },
+          ["run_sidecar_workflow", "get_component_status"]
+        );
+      }
+    },
+    {
+      name: "sidecar_snapshot_selection_context",
+      description:
+        "Read selected track, clip, and device context through the optional Max for Live sidecar, or return setup instructions if it is unavailable.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const result = await sidecarAdapter.snapshotSelectionContext();
+        return buildInformationalResult(
+          "Sidecar selection context loaded.",
+          {
+            affected_objects: Object.values(result.context ?? {})
+              .filter(Boolean)
+              .map((value) => value.id ?? value),
+            sidecar_workflow: result
+          },
+          ["get_selected_context", "get_component_status"]
+        );
+      }
+    },
+    {
+      name: "sidecar_replace_clip_notes",
+      description:
+        "Apply a note payload through the optional Max for Live sidecar, or return setup instructions if it is unavailable.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id such as clip:session:track:8:slot:1."
+          },
+          notes: {
+            type: "array",
+            items: noteItemSchema,
+            description: "Note payload to apply to the clip."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "notes"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireNotes(args.notes);
+        await policyAdapter.assertAllowed("sidecar_replace_clip_notes", args);
+        const before = await stateAdapter.getProjectSummary();
+        const replaced = await sidecarAdapter.replaceClipNotes({
+          clipId: args.clipId,
+          notes: args.notes,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Sidecar note replacement ${args.dryRun ? "previewed" : "applied"} for ${args.clipId}.`,
+          replaced.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "sidecar_observe_device_parameters",
+      description:
+        "Capture a selected-device parameter snapshot through the optional Max for Live sidecar, or return setup instructions if it is unavailable.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Optional track identifier when no track is selected in Live."
+          }
+        }
+      }),
+      async execute(args) {
+        const result = await sidecarAdapter.observeDeviceParameters({
+          trackId: args.trackId ?? null
+        });
+        return buildInformationalResult(
+          "Sidecar device parameter snapshot loaded.",
+          {
+            affected_objects: [
+              result.deviceTree?.trackId,
+              ...(result.deviceTree?.devices ?? []).map((device) => device.id)
+            ].filter(Boolean),
+            warnings: result.warnings ?? [],
+            sidecar_workflow: result
+          },
+          ["get_device_tree", "get_component_status"]
+        );
+      }
+    },
+    {
+      name: "run_sidecar_workflow",
+      description:
+        "Execute an optional Max for Live sidecar workflow, or return setup instructions if the sidecar is unavailable.",
+      inputSchema: buildWorkflowSchema(
+        "Sidecar workflow name, for example snapshotSelectionContext or replaceClipNotes."
+      ),
+      async execute(args) {
+        const result = await sidecarAdapter.executeWorkflow(args.name, args.parameters ?? {});
+        return buildInformationalResult(
+          `Sidecar workflow ${args.name} completed.`,
+          {
+            affected_objects: ["sidecar"],
+            sidecar_workflow: result
+          },
+          ["get_selected_context", "refresh_state"]
+        );
+      }
+    },
+    {
+      name: "list_ui_workflows",
+      description: "List optional UI-helper workflows and current availability.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const result = await uiAutomationAdapter.listWorkflows();
+        return buildInformationalResult(
+          "UI workflow status loaded.",
+          {
+            affected_objects: ["ui_helper"],
+            ui_helper: result
+          },
+          ["run_ui_workflow", "get_component_status"]
+        );
+      }
+    },
+    {
+      name: "ui_capture_context",
+      description:
+        "Capture frontmost-app context through the optional UI helper, or return setup instructions if it is unavailable.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const result = await uiAutomationAdapter.executeWorkflow("captureContext");
+        return buildInformationalResult(
+          "UI helper context captured.",
+          {
+            affected_objects: ["ui_helper"],
+            ui_workflow: result
+          },
+          ["get_component_status"]
+        );
+      }
+    },
+    {
+      name: "ui_focus_section",
+      description:
+        "Focus a named Live section through the optional UI helper, or return setup instructions if it is unavailable.",
+      inputSchema: createObjectSchema({
+        properties: {
+          sectionName: {
+            type: "string",
+            description: "Target Live section name."
+          }
+        },
+        required: ["sectionName"]
+      }),
+      async execute(args) {
+        requireString(args.sectionName, "sectionName");
+        const result = await uiAutomationAdapter.executeWorkflow("focusSection", {
+          sectionName: args.sectionName
+        });
+        return buildInformationalResult(
+          `UI helper focused ${args.sectionName}.`,
+          {
+            affected_objects: ["ui_helper"],
+            ui_workflow: result
+          },
+          ["get_component_status"]
+        );
+      }
+    },
+    {
+      name: "ui_browser_search_and_load",
+      description:
+        "Search Ableton's browser and trigger a load action through the optional UI helper, or return setup instructions if it is unavailable.",
+      inputSchema: createObjectSchema({
+        properties: {
+          query: {
+            type: "string",
+            description: "Browser search query."
+          }
+        },
+        required: ["query"]
+      }),
+      async execute(args) {
+        requireString(args.query, "query");
+        const result = await uiAutomationAdapter.executeWorkflow("browserSearchAndLoad", {
+          query: args.query
+        });
+        return buildInformationalResult(
+          `UI helper searched the browser for ${args.query}.`,
+          {
+            affected_objects: ["ui_helper"],
+            ui_workflow: result
+          },
+          ["get_component_status", "refresh_state"]
+        );
+      }
+    },
+    {
+      name: "ui_export_audio_video",
+      description:
+        "Open Ableton's Export Audio/Video dialog through the optional UI helper, or return setup instructions if it is unavailable.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const result = await uiAutomationAdapter.executeWorkflow("exportAudioVideo");
+        return buildInformationalResult(
+          "UI helper opened the Export Audio/Video flow.",
+          {
+            affected_objects: ["ui_helper"],
+            ui_workflow: result
+          },
+          ["get_component_status"]
+        );
+      }
+    },
+    {
+      name: "ui_export_with_preset",
+      description:
+        "Apply an export preset through the optional UI helper, or return setup instructions if it is unavailable.",
+      inputSchema: createObjectSchema({
+        properties: {
+          presetName: {
+            type: "string",
+            description: "Preset name to enter in the export dialog."
+          },
+          outputPath: {
+            type: "string",
+            description: "Output folder to enter in the export dialog."
+          }
+        },
+        required: ["presetName", "outputPath"]
+      }),
+      async execute(args) {
+        requireString(args.presetName, "presetName");
+        requireString(args.outputPath, "outputPath");
+        const result = await uiAutomationAdapter.executeWorkflow("exportWithPreset", {
+          presetName: args.presetName,
+          outputPath: args.outputPath
+        });
+        return buildInformationalResult(
+          `UI helper staged export preset ${args.presetName}.`,
+          {
+            affected_objects: ["ui_helper"],
+            ui_workflow: result
+          },
+          ["get_component_status"]
+        );
+      }
+    },
+    {
+      name: "run_ui_workflow",
+      description:
+        "Execute an optional UI-helper workflow, or return setup instructions if the UI helper is unavailable.",
+      inputSchema: buildWorkflowSchema(
+        "UI workflow name, for example exportAudioVideo, browserSearchAndLoad, or captureContext."
+      ),
+      async execute(args) {
+        const result = await uiAutomationAdapter.executeWorkflow(args.name, args.parameters ?? {});
+        return buildInformationalResult(
+          `UI workflow ${args.name} completed.`,
+          {
+            affected_objects: ["ui_helper"],
+            ui_workflow: result
+          },
+          ["get_component_status", "refresh_state"]
+        );
+      }
+    },
+    {
       name: "refresh_state",
       description: "Force a state refresh for a target scope.",
       inputSchema: createObjectSchema({
@@ -369,15 +885,25 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
       description: "Return bridge and server capabilities.",
       inputSchema: EMPTY_OBJECT_SCHEMA,
       async execute() {
-        const capabilities = await bridgeAdapter.getCapabilities();
+        const [capabilities, sidecarStatus, uiHelperStatus] = await Promise.all([
+          bridgeAdapter.getCapabilities(),
+          sidecarAdapter.getStatus(),
+          uiAutomationAdapter.getStatus()
+        ]);
         return {
           summary: "Capabilities loaded.",
           affected_objects: ["bridge", "server"],
           state_version_before: null,
           state_version_after: null,
           warnings: [],
-          next_suggested_actions: ["get_project_summary"],
-          capabilities
+          next_suggested_actions: ["get_project_summary", "get_component_status"],
+          capabilities: {
+            ...capabilities,
+            optional_components: {
+              sidecar: sidecarStatus,
+              ui_helper: uiHelperStatus
+            }
+          }
         };
       }
     }

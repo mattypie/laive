@@ -92,6 +92,7 @@ Minimum validation sequence:
 4. `get song`
 5. `get tracks`
 6. `get scenes`
+7. `get_component_status`
 
 ## 6. Validate Core Runtime Reads
 
@@ -121,6 +122,7 @@ Run these in order:
 5. insert notes into the new clip
 6. set one device parameter
 7. play and stop transport
+8. confirm optional sidecar/UI-helper tools either execute or return setup guidance
 
 For each write:
 
@@ -174,7 +176,11 @@ Once the real bridge is active, run a full vertical slice:
 5. `create_track`
 6. `create_clip`
 7. `set_parameter`
-8. optional UI fallback action
+8. `create_scene`
+9. `insert_notes`
+10. `get_component_status`
+11. optional `run_ui_workflow`
+12. optional `run_sidecar_workflow`
 
 The expected result is:
 

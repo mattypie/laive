@@ -4,6 +4,11 @@ import process from "node:process";
 
 import { LaiveMcpServer } from "./server.js";
 import {
+  createIntegrationStatusAdapter,
+  createSidecarAdapter,
+  createUiAutomationAdapter
+} from "./optional-adapters.js";
+import {
   LaiveBridgeSession,
   LaiveFixtureSession,
   createAllowAllPolicyAdapter,
@@ -53,10 +58,23 @@ async function createSession(options) {
 async function main() {
   const options = parseArgs();
   const session = await createSession(options);
+  const stateAdapter = createStateAdapter(session);
+  const bridgeAdapter = createBridgeAdapter(session);
+  const sidecarAdapter = createSidecarAdapter({
+    stateAdapter,
+    bridgeAdapter
+  });
+  const uiAutomationAdapter = createUiAutomationAdapter();
   const server = new LaiveMcpServer({
-    stateAdapter: createStateAdapter(session),
-    bridgeAdapter: createBridgeAdapter(session),
-      policyAdapter: createAllowAllPolicyAdapter()
+    stateAdapter,
+    bridgeAdapter,
+    sidecarAdapter,
+    uiAutomationAdapter,
+    integrationStatusAdapter: createIntegrationStatusAdapter({
+      sidecarAdapter,
+      uiAutomationAdapter
+    }),
+    policyAdapter: createAllowAllPolicyAdapter()
   });
   let lineReader = null;
 

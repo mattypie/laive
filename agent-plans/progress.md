@@ -58,3 +58,5 @@
 - Fixed the lazy bridge-connect crash path so unreachable Live sockets now surface as structured MCP tool errors rather than terminating the MCP transport.
 - Fixed the MCP `tools/call` response envelope so Codex-compatible clients receive proper `CallToolResult` objects instead of raw internal payloads.
 - Fixed MCP `tools/list` metadata so argument-bearing tools now advertise explicit JSON Schemas instead of empty parameter objects, allowing Codex to send required arguments like `tempo`, `trackId`, and `slotIndex`.
+- Expanded the MCP tool surface to expose the remaining control-surface bridge actions for transport, scene creation, and note insertion.
+- Added MCP-side optional component tooling for the Max sidecar and UI helper, including structured setup instructions when those optional components are unavailable in the current session.

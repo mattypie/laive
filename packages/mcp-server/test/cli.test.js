@@ -49,14 +49,23 @@ test("mcp cli handles initialize and initialized notification in fixture mode", 
   });
 
   const lines = [];
-  child.stdout.on("data", (chunk) => {
-    lines.push(
-      ...chunk
-        .toString("utf8")
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-    );
+  const linePromise = new Promise((resolve, reject) => {
+    let buffer = "";
+    child.stdout.on("data", (chunk) => {
+      buffer += chunk.toString("utf8");
+      const nextLines = buffer.split("\n");
+      buffer = nextLines.pop() ?? "";
+      for (const line of nextLines.map((entry) => entry.trim()).filter(Boolean)) {
+        lines.push(line);
+        if (lines.length === 1) {
+          resolve(line);
+        }
+      }
+    });
+    child.once("error", reject);
+    child.stderr.on("data", (chunk) => {
+      reject(new Error(chunk.toString("utf8")));
+    });
   });
 
   child.stdin.write(
@@ -74,7 +83,7 @@ test("mcp cli handles initialize and initialized notification in fixture mode", 
     })}\n`
   );
 
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await linePromise;
   child.stdin.write(
     `${JSON.stringify({
       jsonrpc: "2.0",
@@ -82,7 +91,6 @@ test("mcp cli handles initialize and initialized notification in fixture mode", 
     })}\n`
   );
 
-  await new Promise((resolve) => setTimeout(resolve, 50));
   child.kill("SIGTERM");
 
   assert.equal(lines.length, 1);

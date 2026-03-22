@@ -2,15 +2,41 @@ import rootPackage from "../../../package.json" with { type: "json" };
 import { ToolRegistry } from "./tool-registry.js";
 import { buildDefaultTools } from "./default-tools.js";
 import { McpServerError, toErrorShape } from "./errors.js";
+import {
+  createIntegrationStatusAdapter,
+  createSidecarAdapter,
+  createUiAutomationAdapter
+} from "./optional-adapters.js";
 
 export class LaiveMcpServer {
-  constructor({ stateAdapter, bridgeAdapter, policyAdapter, serverInfo } = {}) {
+  constructor({
+    stateAdapter,
+    bridgeAdapter,
+    policyAdapter,
+    sidecarAdapter,
+    uiAutomationAdapter,
+    integrationStatusAdapter,
+    serverInfo
+  } = {}) {
     this.serverInfo = serverInfo ?? {
       name: "laive-mcp",
       version: rootPackage.version
     };
     this.stateAdapter = stateAdapter ?? createUnsupportedAdapter("state");
     this.bridgeAdapter = bridgeAdapter ?? createUnsupportedAdapter("bridge");
+    this.sidecarAdapter =
+      sidecarAdapter ??
+      createSidecarAdapter({
+        stateAdapter: this.stateAdapter,
+        bridgeAdapter: this.bridgeAdapter
+      });
+    this.uiAutomationAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
+    this.integrationStatusAdapter =
+      integrationStatusAdapter ??
+      createIntegrationStatusAdapter({
+        sidecarAdapter: this.sidecarAdapter,
+        uiAutomationAdapter: this.uiAutomationAdapter
+      });
     this.policyAdapter = policyAdapter ?? {
       async assertAllowed() {
         return true;
@@ -21,7 +47,10 @@ export class LaiveMcpServer {
     for (const tool of buildDefaultTools({
       stateAdapter: this.stateAdapter,
       bridgeAdapter: this.bridgeAdapter,
-      policyAdapter: this.policyAdapter
+      policyAdapter: this.policyAdapter,
+      sidecarAdapter: this.sidecarAdapter,
+      uiAutomationAdapter: this.uiAutomationAdapter,
+      integrationStatusAdapter: this.integrationStatusAdapter
     })) {
       this.tools.register(tool);
     }

@@ -22,20 +22,24 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - read a track's device tree and parameter state
 - refresh the mirrored project state
 - set song tempo
+- start and stop transport
 - create MIDI or audio tracks
+- create scenes
 - create MIDI clips in session slots
+- insert MIDI notes into clips
 - set device parameter values
+- report optional sidecar and UI-helper availability with setup guidance
+- list and invoke optional sidecar workflows
+- list and invoke optional UI-helper workflows
 
 These capabilities have been validated against a live Ableton session through the published `laive-mcp` package, not just fixture mode.
 
-The bridge also reports lower-level support for:
+The optional components are intentionally soft-failable:
 
-- transport control
-- scene creation
-- MIDI note insertion
-- subscriptions / event streaming
+- if the Max for Live sidecar is not installed or not connected, the MCP tools return structured setup instructions for the agent to relay
+- if the macOS UI helper is not installed or Accessibility is not granted, the MCP tools return setup instructions instead of silently failing
 
-Those lower-level bridge capabilities exist today, but not all of them are surfaced as first-class MCP tools in the current release yet.
+The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP tool in the current release.
 
 If you are using this as an end user, the published npm entrypoint is `laive-mcp`. The Ableton-side control surface name remains `laive`.
 

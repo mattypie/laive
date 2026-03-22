@@ -144,13 +144,14 @@ class LiveSetAdapter(object):
 
     def insert_notes(self, clip_id, notes, dry_run=False):
         clip, track_id, slot_index = self._find_clip(clip_id)
+        normalized_notes = [self._tuple_note(note) for note in notes]
         if not dry_run:
             if hasattr(clip, "add_new_notes"):
-                clip.add_new_notes(notes)
+                clip.add_new_notes(tuple(normalized_notes))
             elif hasattr(clip, "set_notes"):
-                clip.set_notes(tuple(self._tuple_note(note) for note in notes))
+                clip.set_notes(tuple(normalized_notes))
             else:
-                clip.notes.extend(notes)
+                clip.notes.extend(normalized_notes)
         note_count = len(notes)
         clip_state = self._serialize_clip(clip, track_id, slot_index)
         clip_state["note_count"] = len(getattr(clip, "notes", [])) if not dry_run else note_count
@@ -265,8 +266,8 @@ class LiveSetAdapter(object):
     def _tuple_note(self, note):
         return (
             note.get("pitch", 60),
-            note.get("start_beats", 0.0),
-            note.get("duration_beats", 0.25),
+            note.get("start_beats", note.get("startBeats", 0.0)),
+            note.get("duration_beats", note.get("durationBeats", 0.25)),
             note.get("velocity", 100),
             bool(note.get("mute", False)),
         )

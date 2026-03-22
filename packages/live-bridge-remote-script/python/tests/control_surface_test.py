@@ -58,7 +58,7 @@ class LaiveControlSurfaceTests(unittest.TestCase):
                 arguments={
                     "clip_id": clip_id,
                     "notes": [
-                        {"pitch": 48, "start_beats": 0.0, "duration_beats": 1.0, "velocity": 100}
+                        {"pitch": 48, "startBeats": 0.0, "durationBeats": 1.0, "velocity": 100}
                     ],
                 },
                 request_id="notes-1",

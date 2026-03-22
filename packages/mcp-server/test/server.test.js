@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LaiveMcpServer } from "../src/index.js";
+import { LaiveMcpServer, McpServerError } from "../src/index.js";
 
 function createServer() {
   let stateVersion = 3;
@@ -61,11 +61,32 @@ function createServer() {
     async setTempo(tempo, options) {
       return { tempo, options };
     },
+    async playTransport(options) {
+      return { options, target: "transport.play" };
+    },
+    async stopTransport(options) {
+      return { options, target: "transport.stop" };
+    },
     async createTrack(kind, options) {
       return { kind, options, affectedObjects: [`track:new:${kind}`] };
     },
+    async createScene(name, options) {
+      return {
+        name,
+        options,
+        affectedObjects: ["scene:new"],
+        scene: { id: "scene:new", name: name ?? "Scene 3" }
+      };
+    },
     async createClip(payload) {
       return { affectedObjects: [payload.trackId, `clip:${payload.slotIndex}`] };
+    },
+    async insertNotes(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId]
+      };
     },
     async setParameter(payload) {
       return payload;
@@ -84,7 +105,87 @@ function createServer() {
     }
   };
 
-  return new LaiveMcpServer({ stateAdapter, bridgeAdapter, policyAdapter });
+  const sidecarAdapter = {
+    async getStatus() {
+      return {
+        configured: false,
+        devicePath: "/Users/test/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd",
+        workflows: [
+          {
+            name: "replaceClipNotes",
+            description: "Apply notes to a clip."
+          }
+        ],
+        setup_instructions: ["Install the sidecar device."]
+      };
+    },
+    async listWorkflows() {
+      return await this.getStatus();
+    },
+    async snapshotSelectionContext() {
+      throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+        component: "sidecar",
+        setup_instructions: ["Install the sidecar device."]
+      });
+    },
+    async replaceClipNotes() {
+      throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+        component: "sidecar",
+        setup_instructions: ["Install the sidecar device."]
+      });
+    },
+    async observeDeviceParameters() {
+      throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+        component: "sidecar",
+        setup_instructions: ["Install the sidecar device."]
+      });
+    },
+    async executeWorkflow(name) {
+      if (name === "replaceClipNotes") {
+        return await this.replaceClipNotes();
+      }
+      if (name === "snapshotSelectionContext") {
+        return await this.snapshotSelectionContext();
+      }
+      return await this.observeDeviceParameters();
+    }
+  };
+
+  const uiAutomationAdapter = {
+    async getStatus() {
+      return {
+        configured: true,
+        appBundleRoot: "/Users/test/Applications/laive-ui-helper.app",
+        executablePath: "/Users/test/Applications/laive-ui-helper.app/Contents/MacOS/laive-ui-helper",
+        workflows: [
+          {
+            name: "captureContext",
+            description: "Capture focused app metadata.",
+            parameters: []
+          }
+        ],
+        setup_instructions: []
+      };
+    },
+    async listWorkflows() {
+      return await this.getStatus();
+    },
+    async executeWorkflow(name, parameters) {
+      return {
+        configured: true,
+        workflow: name,
+        parameters
+      };
+    }
+  };
+
+  return new LaiveMcpServer({
+    stateAdapter,
+    bridgeAdapter,
+    policyAdapter,
+    sidecarAdapter,
+    uiAutomationAdapter
+  });
 }
 
 test("tools/list returns registered tools", async () => {
@@ -125,6 +226,23 @@ test("tools/list returns registered tools", async () => {
     byName.get("get_track_details").inputSchema.properties.index.type,
     "integer"
   );
+  assert.ok(byName.has("play_transport"));
+  assert.ok(byName.has("stop_transport"));
+  assert.ok(byName.has("create_scene"));
+  assert.ok(byName.has("insert_notes"));
+  assert.ok(byName.has("get_component_status"));
+  assert.ok(byName.has("list_sidecar_workflows"));
+  assert.ok(byName.has("sidecar_snapshot_selection_context"));
+  assert.ok(byName.has("sidecar_replace_clip_notes"));
+  assert.ok(byName.has("sidecar_observe_device_parameters"));
+  assert.ok(byName.has("run_sidecar_workflow"));
+  assert.ok(byName.has("list_ui_workflows"));
+  assert.ok(byName.has("ui_capture_context"));
+  assert.ok(byName.has("ui_focus_section"));
+  assert.ok(byName.has("ui_browser_search_and_load"));
+  assert.ok(byName.has("ui_export_audio_video"));
+  assert.ok(byName.has("ui_export_with_preset"));
+  assert.ok(byName.has("run_ui_workflow"));
 });
 
 test("initialize returns MCP server info and tool capability metadata", async () => {
@@ -193,4 +311,133 @@ test("create_clip validates required arguments", async () => {
 
   assert.equal(response.result.isError, true);
   assert.equal(response.result.structuredContent.error.code, "invalid_request");
+});
+
+test("play_transport returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 4,
+    method: "tools/call",
+    params: {
+      name: "play_transport",
+      arguments: {}
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.summary, "Transport started.");
+});
+
+test("insert_notes validates and returns mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 5,
+    method: "tools/call",
+    params: {
+      name: "insert_notes",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        notes: [
+          {
+            pitch: 60,
+            startBeats: 0,
+            durationBeats: 1,
+            velocity: 100
+          }
+        ]
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Notes inserted for clip:session:track:2:slot:1."
+  );
+});
+
+test("run_sidecar_workflow surfaces setup instructions when sidecar is unavailable", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 6,
+    method: "tools/call",
+    params: {
+      name: "run_sidecar_workflow",
+      arguments: {
+        name: "replaceClipNotes"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, true);
+  assert.equal(response.result.structuredContent.error.code, "setup_required");
+  assert.equal(
+    response.result.structuredContent.error.data.component,
+    "sidecar"
+  );
+});
+
+test("get_component_status reports bridge and optional component state", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 7,
+    method: "tools/call",
+    params: {
+      name: "get_component_status",
+      arguments: {}
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.components.bridge.available, true);
+  assert.equal(response.result.structuredContent.components.sidecar.configured, false);
+  assert.equal(response.result.structuredContent.components.ui_helper.configured, true);
+});
+
+test("run_ui_workflow executes available optional workflows", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 8,
+    method: "tools/call",
+    params: {
+      name: "run_ui_workflow",
+      arguments: {
+        name: "captureContext"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.ui_workflow.workflow, "captureContext");
+});
+
+test("sidecar_replace_clip_notes surfaces setup instructions when sidecar is unavailable", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 9,
+    method: "tools/call",
+    params: {
+      name: "sidecar_replace_clip_notes",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        notes: [
+          {
+            pitch: 60,
+            startBeats: 0,
+            durationBeats: 1,
+            velocity: 100
+          }
+        ]
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, true);
+  assert.equal(response.result.structuredContent.error.code, "setup_required");
 });
