@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Ableton>
+  <LiveSet>
+    <MasterTrack Id="master-1" Name="Master" />
+    <Tempo>
+      <Manual Value="128" />
+    </Tempo>
+    <Scene>
+      <Name Value="Intro" />
+    </Scene>
+    <Scene>
+      <Name Value="Verse" />
+    </Scene>
+    <Scene>
+      <Name Value="Chorus" />
+    </Scene>
+    <AudioTrack Id="audio-1" Name="Drums">
+      <AudioClip Id="clip-a-1" />
+      <AudioClip Id="clip-a-2" />
+    </AudioTrack>
+    <AudioTrack Id="audio-2" Name="Vocals" />
+    <MidiTrack Id="midi-1" Name="Bass">
+      <MidiClip Id="clip-m-1" />
+    </MidiTrack>
+    <ReturnTrack Id="return-1" Name="Reverb" />
+    <Locator>
+      <Name Value="Drop" />
+    </Locator>
+  </LiveSet>
+</Ableton>

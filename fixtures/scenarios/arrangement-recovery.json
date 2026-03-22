@@ -1,0 +1,24 @@
+{
+  "id": "scenario-arrangement-recovery",
+  "name": "Arrangement Recovery",
+  "description": "Compare runtime state with a saved set summary after reconnect and identify drift before editing.",
+  "risk_class": "safe-read",
+  "steps": [
+    {
+      "tool": "get_project_summary",
+      "arguments": {},
+      "expect": {
+        "warnings_max": 0
+      }
+    },
+    {
+      "tool": "refresh_state",
+      "arguments": {
+        "target": "project"
+      },
+      "expect": {
+        "affected_objects_count": 1
+      }
+    }
+  ]
+}

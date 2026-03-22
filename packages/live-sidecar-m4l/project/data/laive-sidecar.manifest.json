@@ -1,0 +1,8 @@
+{
+  "name": "laive-sidecar",
+  "project_file": "laive-sidecar.maxproj",
+  "patcher": "laive-sidecar.maxpat",
+  "node_script": "laive-sidecar-node.js",
+  "source_only": true,
+  "description": "Source project for the laive Max for Live sidecar."
+}

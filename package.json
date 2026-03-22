@@ -1,0 +1,66 @@
+{
+  "name": "laive-mcp",
+  "version": "0.1.0",
+  "description": "Local MCP, install tooling, and helper assets for controlling Ableton Live.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": "./bin/laive.mjs",
+  "files": [
+    "bin/",
+    "README.md",
+    "CHANGELOG.md",
+    "AGENTS.md",
+    "scripts/install-remote-script.py",
+    "scripts/install-ui-helper.mjs",
+    "scripts/package-remote-script.py",
+    "scripts/package-ui-helper.mjs",
+    "scripts/remote_script_tooling.py",
+    "packages/common/src/",
+    "packages/live-bridge-remote-script/src/",
+    "packages/live-bridge-remote-script/python/laive/__init__.py",
+    "packages/live-bridge-remote-script/python/laive/control_surface.py",
+    "packages/live-bridge-remote-script/python/laive/fake_live.py",
+    "packages/live-bridge-remote-script/python/laive/listeners.py",
+    "packages/live-bridge-remote-script/python/laive/live_access.py",
+    "packages/live-bridge-remote-script/python/laive/protocol.py",
+    "packages/live-bridge-remote-script/python/laive/server.py",
+    "packages/live-bridge-remote-script/python/laive/task_queue.py",
+    "packages/live-sidecar-m4l/src/",
+    "packages/live-sidecar-m4l/project/",
+    "packages/live-sidecar-m4l/device/",
+    "packages/mcp-server/src/",
+    "packages/state-engine/src/",
+    "packages/ui-automation/src/",
+    "packages/als-parser/src/"
+  ],
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "node ./scripts/check-workspace.mjs",
+    "test": "node --test ./packages/*/test/*.test.js ./scripts/*.test.mjs",
+    "test:python": "npm --workspace @laive/live-bridge-remote-script run test:python",
+    "test:delivery": "node --test ./scripts/*.test.mjs && python3 -m unittest ./scripts/remote_script_tooling_test.py",
+    "test:state": "node --test ./packages/state-engine/test/*.test.js",
+    "test:mcp": "node --test ./packages/mcp-server/test/*.test.js",
+    "doctor": "node ./bin/laive.mjs doctor",
+    "mcp": "node ./bin/laive.mjs mcp",
+    "mcp-config": "node ./bin/laive.mjs mcp-config --json",
+    "package:delivery": "node ./bin/laive.mjs package",
+    "package:remote-script": "node ./bin/laive.mjs package",
+    "package:ui-helper": "node ./bin/laive.mjs package-ui-helper",
+    "install:remote-script": "node ./bin/laive.mjs install",
+    "pack:dry-run": "npm pack --dry-run",
+    "release:check": "node ./scripts/release.mjs check",
+    "release:prepare": "node ./scripts/release.mjs prepare"
+  }
+}

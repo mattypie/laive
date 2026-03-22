@@ -1,0 +1,4 @@
+**/__pycache__/
+**/*.pyc
+scripts/*.test.mjs
+scripts/*_test.py

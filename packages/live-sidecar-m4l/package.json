@@ -1,0 +1,11 @@
+{
+  "name": "@laive/live-sidecar-m4l",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "node --test ./test/*.test.js",
+    "package:project": "node ./src/package-sidecar.js"
+  }
+}

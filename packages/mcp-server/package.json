@@ -1,0 +1,13 @@
+{
+  "name": "@laive/mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.js",
+  "bin": {
+    "laive-mcp": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test ./test/*.test.js"
+  }
+}

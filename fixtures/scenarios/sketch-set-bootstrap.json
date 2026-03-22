@@ -1,0 +1,39 @@
+{
+  "id": "scenario-sketch-set-bootstrap",
+  "name": "Sketch Set Bootstrap",
+  "description": "Create a minimal sketch set from an empty project and validate the resulting topology.",
+  "risk_class": "session-altering-write",
+  "steps": [
+    {
+      "tool": "create_track",
+      "arguments": {
+        "kind": "midi",
+        "confirm": true
+      },
+      "expect": {
+        "affected_objects_count": 1
+      }
+    },
+    {
+      "tool": "create_clip",
+      "arguments": {
+        "trackId": "track:1",
+        "slotIndex": 0,
+        "lengthBeats": 4,
+        "confirm": true
+      },
+      "expect": {
+        "affected_objects_count": 2
+      }
+    },
+    {
+      "tool": "set_tempo",
+      "arguments": {
+        "tempo": 124
+      },
+      "expect": {
+        "affected_objects_count": 1
+      }
+    }
+  ]
+}

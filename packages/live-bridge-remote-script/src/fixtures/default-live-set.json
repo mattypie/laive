@@ -1,0 +1,113 @@
+{
+  "live_version": "12.3.0",
+  "capabilities": {
+    "read_state": true,
+    "set_transport": true,
+    "create_track": true,
+    "create_scene": true,
+    "create_clip": true,
+    "insert_notes": true,
+    "set_parameter": true,
+    "subscribe": true
+  },
+  "song": {
+    "id": "song:current",
+    "name": "Fixture Set",
+    "tempo": 124,
+    "time_signature_numerator": 4,
+    "time_signature_denominator": 4,
+    "is_playing": false,
+    "arrangement_position_beats": 0,
+    "loop": {
+      "enabled": false,
+      "start_beats": 0,
+      "length_beats": 16
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:1",
+      "index": 0,
+      "name": "Intro"
+    },
+    {
+      "id": "scene:2",
+      "index": 1,
+      "name": "Drop"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track:1",
+      "index": 0,
+      "name": "Drums",
+      "type": "midi",
+      "color": 1,
+      "arm": false,
+      "mute": false,
+      "solo": false,
+      "devices": [
+        {
+          "id": "device:track:1:1",
+          "name": "Drum Rack",
+          "class_name": "InstrumentGroupDevice",
+          "parameters": [
+            {
+              "id": "parameter:device:track:1:1:1",
+              "name": "Macro 1",
+              "value": 0.5,
+              "min": 0,
+              "max": 1,
+              "display_value": "64"
+            }
+          ]
+        }
+      ],
+      "session_clips": [
+        {
+          "id": "clip:session:track:1:slot:1",
+          "slot_index": 0,
+          "name": "Beat A",
+          "length_beats": 4,
+          "is_playing": false,
+          "notes": [
+            {
+              "pitch": 36,
+              "start_beats": 0,
+              "duration_beats": 1,
+              "velocity": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track:2",
+      "index": 1,
+      "name": "Bass",
+      "type": "midi",
+      "color": 2,
+      "arm": false,
+      "mute": false,
+      "solo": false,
+      "devices": [
+        {
+          "id": "device:track:2:1",
+          "name": "Operator",
+          "class_name": "Operator",
+          "parameters": [
+            {
+              "id": "parameter:device:track:2:1:1",
+              "name": "Volume",
+              "value": 0.65,
+              "min": 0,
+              "max": 1,
+              "display_value": "-3.1 dB"
+            }
+          ]
+        }
+      ],
+      "session_clips": []
+    }
+  ]
+}
