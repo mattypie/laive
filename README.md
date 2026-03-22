@@ -11,7 +11,57 @@ Today, the repo ships:
 - a staged `laive-ui-helper.app` bundle for UI fallback permissions
 - `.als` parsing scaffolds
 
+## Proven MCP Capabilities
+
+With Ableton Live running and the `laive` Control Surface enabled, the published MCP server can currently drive these workflows end-to-end:
+
+- read the current project summary
+- read the selected track, scene, clip, and device context
+- list tracks
+- read detailed track state, including session clips
+- read a track's device tree and parameter state
+- refresh the mirrored project state
+- set song tempo
+- create MIDI or audio tracks
+- create MIDI clips in session slots
+- set device parameter values
+
+These capabilities have been validated against a live Ableton session through the published `laive-mcp` package, not just fixture mode.
+
+The bridge also reports lower-level support for:
+
+- transport control
+- scene creation
+- MIDI note insertion
+- subscriptions / event streaming
+
+Those lower-level bridge capabilities exist today, but not all of them are surfaced as first-class MCP tools in the current release yet.
+
 If you are using this as an end user, the published npm entrypoint is `laive-mcp`. The Ableton-side control surface name remains `laive`.
+
+## Current MCP Capabilities
+
+The published MCP server is proven to support these first-class operations against a live Ableton set:
+
+- read the project summary
+- read the selected context
+- list tracks
+- read detailed track state
+- read a track's device tree
+- refresh cached state
+- set song tempo
+- create tracks
+- create MIDI clips
+- set device parameters
+
+In the current implementation, the underlying bridge also reports support for:
+
+- transport control
+- scene creation
+- MIDI note insertion
+- subscriptions/event streaming
+
+Those bridge capabilities are real, but not all of them are exposed as first-class MCP tool wrappers yet.
 
 ## Published Package
 
