@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.3 - 2026-03-22
+
+- Fixed MCP `tools/call` responses to return proper `CallToolResult` envelopes with `content`, `structuredContent`, and `isError`, so Codex clients accept the responses instead of rejecting them as an unexpected type.
+
 ## v0.1.2 - 2026-03-22
 
 - Fixed an MCP transport crash when the Live bridge socket is unreachable by preventing the bridge client from raising an unhandled `error` event during lazy connection attempts. Tool calls now return structured MCP errors instead of closing the server process.

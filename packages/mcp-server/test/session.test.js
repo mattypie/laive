@@ -32,8 +32,9 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       }
     });
 
-    assert.equal(projectResponse.result.project.song.tempo, 124);
-    assert.equal(projectResponse.result.project.tracks.length, 2);
+    assert.equal(projectResponse.result.isError, false);
+    assert.equal(projectResponse.result.structuredContent.project.song.tempo, 124);
+    assert.equal(projectResponse.result.structuredContent.project.tracks.length, 2);
 
     const tempoResponse = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
@@ -45,7 +46,11 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       }
     });
 
-    assert.equal(tempoResponse.result.state_version_after > tempoResponse.result.state_version_before, true);
+    assert.equal(
+      tempoResponse.result.structuredContent.state_version_after >
+        tempoResponse.result.structuredContent.state_version_before,
+      true
+    );
 
     const refreshedProject = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
@@ -57,7 +62,7 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       }
     });
 
-    assert.equal(refreshedProject.result.project.song.tempo, 130);
+    assert.equal(refreshedProject.result.structuredContent.project.song.tempo, 130);
 
     const createClipResponse = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
@@ -74,7 +79,10 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       }
     });
 
-    assert.equal(createClipResponse.result.affected_objects.includes("track:2"), true);
+    assert.equal(
+      createClipResponse.result.structuredContent.affected_objects.includes("track:2"),
+      true
+    );
 
     const trackDetails = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
@@ -88,8 +96,8 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       }
     });
 
-    assert.equal(trackDetails.result.track.sessionClips.length, 1);
-    assert.equal(trackDetails.result.track.sessionClips[0].name, "Bassline");
+    assert.equal(trackDetails.result.structuredContent.track.sessionClips.length, 1);
+    assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].name, "Bassline");
   } finally {
     await session.close();
   }

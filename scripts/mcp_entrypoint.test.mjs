@@ -140,7 +140,8 @@ test("root laive mcp command returns a structured tool error when the live bridg
   const [initializeResponse, toolResponse] = await responsePromise;
   assert.equal(initializeResponse.result.serverInfo.name, "laive-mcp");
   assert.equal(toolResponse.id, 2);
-  assert.equal(typeof toolResponse.error.message, "string");
+  assert.equal(toolResponse.result.isError, true);
+  assert.equal(typeof toolResponse.result.structuredContent.error.message, "string");
 
   child.kill("SIGTERM");
 });
@@ -197,8 +198,12 @@ test("root laive mcp command resolves bridge-backed tools through the lazy sessi
   const [initializeResponse, toolResponse] = await responsePromise;
   assert.equal(initializeResponse.result.serverInfo.name, "laive-mcp");
   assert.equal(toolResponse.id, 2);
-  assert.equal(typeof toolResponse.error.message, "string");
-  assert.equal(toolResponse.error.message.includes("ensureConnected"), false);
+  assert.equal(toolResponse.result.isError, true);
+  assert.equal(typeof toolResponse.result.structuredContent.error.message, "string");
+  assert.equal(
+    toolResponse.result.structuredContent.error.message.includes("ensureConnected"),
+    false
+  );
 
   child.kill("SIGTERM");
 });

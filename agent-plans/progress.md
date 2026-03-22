@@ -56,3 +56,4 @@
 - Corrected the root npm `bin` metadata for the renamed `laive-mcp` package after npm publish validation reported the previous object form as invalid.
 - Fixed the MCP server startup path to support a real MCP `initialize` handshake and lazy bridge connection so agent clients can start the server before Ableton Live is reachable.
 - Fixed the lazy bridge-connect crash path so unreachable Live sockets now surface as structured MCP tool errors rather than terminating the MCP transport.
+- Fixed the MCP `tools/call` response envelope so Codex-compatible clients receive proper `CallToolResult` objects instead of raw internal payloads.

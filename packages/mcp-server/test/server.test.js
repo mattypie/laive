@@ -145,9 +145,10 @@ test("set_tempo returns structured mutation response", async () => {
     }
   });
 
-  assert.equal(response.result.summary, "Tempo set to 128.");
-  assert.equal(response.result.state_version_before, 3);
-  assert.equal(response.result.state_version_after, 4);
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.summary, "Tempo set to 128.");
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
 });
 
 test("create_clip validates required arguments", async () => {
@@ -162,5 +163,6 @@ test("create_clip validates required arguments", async () => {
     }
   });
 
-  assert.equal(response.error.code, "invalid_request");
+  assert.equal(response.result.isError, true);
+  assert.equal(response.result.structuredContent.error.code, "invalid_request");
 });

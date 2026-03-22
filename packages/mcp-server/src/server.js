@@ -86,15 +86,23 @@ export class LaiveMcpServer {
 
     if (message.method === "tools/call") {
       const params = message.params ?? {};
-      const result = await this.invokeTool(params.name, params.arguments ?? {}, {
-        requestId: message.id ?? null
-      });
+      try {
+        const result = await this.invokeTool(params.name, params.arguments ?? {}, {
+          requestId: message.id ?? null
+        });
 
-      return {
-        jsonrpc: "2.0",
-        id: message.id ?? null,
-        result
-      };
+        return {
+          jsonrpc: "2.0",
+          id: message.id ?? null,
+          result: toToolResult(result)
+        };
+      } catch (error) {
+        return {
+          jsonrpc: "2.0",
+          id: message.id ?? null,
+          result: toToolErrorResult(error)
+        };
+      }
     }
 
     throw new McpServerError("method_not_found", `Unsupported method: ${message.method}`);
@@ -111,6 +119,38 @@ export class LaiveMcpServer {
       };
     }
   }
+}
+
+function toToolResult(result) {
+  return {
+    content: [
+      {
+        type: "text",
+        text:
+          typeof result?.summary === "string" && result.summary.length > 0
+            ? result.summary
+            : JSON.stringify(result, null, 2)
+      }
+    ],
+    structuredContent: result,
+    isError: false
+  };
+}
+
+function toToolErrorResult(error) {
+  const shape = toErrorShape(error);
+  return {
+    content: [
+      {
+        type: "text",
+        text: shape.message
+      }
+    ],
+    structuredContent: {
+      error: shape
+    },
+    isError: true
+  };
 }
 
 function createUnsupportedAdapter(name) {
