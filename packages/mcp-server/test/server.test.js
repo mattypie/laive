@@ -97,6 +97,34 @@ test("tools/list returns registered tools", async () => {
 
   assert.equal(response.result.server.name, "laive-mcp");
   assert.ok(response.result.tools.some((tool) => tool.name === "get_project_summary"));
+
+  const byName = new Map(response.result.tools.map((tool) => [tool.name, tool]));
+
+  assert.deepEqual(byName.get("get_project_summary").inputSchema, {
+    type: "object",
+    properties: {},
+    additionalProperties: false
+  });
+  assert.deepEqual(byName.get("set_tempo").inputSchema.required, ["tempo"]);
+  assert.equal(byName.get("set_tempo").inputSchema.properties.tempo.type, "number");
+  assert.deepEqual(byName.get("create_clip").inputSchema.required, [
+    "trackId",
+    "slotIndex"
+  ]);
+  assert.equal(
+    byName.get("create_clip").inputSchema.properties.slotIndex.type,
+    "integer"
+  );
+  assert.deepEqual(byName.get("set_parameter").inputSchema.required, [
+    "trackId",
+    "deviceId",
+    "parameterId",
+    "value"
+  ]);
+  assert.equal(
+    byName.get("get_track_details").inputSchema.properties.index.type,
+    "integer"
+  );
 });
 
 test("initialize returns MCP server info and tool capability metadata", async () => {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed MCP tool schema advertising so argument-bearing tools like `set_tempo`, `get_track_details`, `get_device_tree`, `create_clip`, and `set_parameter` now publish explicit JSON Schemas through `tools/list` instead of empty input objects, allowing Codex clients to send required parameters.
+
 ## v0.1.3 - 2026-03-22
 
 - Fixed MCP `tools/call` responses to return proper `CallToolResult` envelopes with `content`, `structuredContent`, and `isError`, so Codex clients accept the responses instead of rejecting them as an unexpected type.
@@ -23,4 +25,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

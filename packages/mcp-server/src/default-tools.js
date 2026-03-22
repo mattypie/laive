@@ -1,5 +1,20 @@
 import { McpServerError } from "./errors.js";
 
+const EMPTY_OBJECT_SCHEMA = {
+  type: "object",
+  properties: {},
+  additionalProperties: false
+};
+
+function createObjectSchema({ properties = {}, required = [] } = {}) {
+  return {
+    type: "object",
+    properties,
+    required,
+    additionalProperties: false
+  };
+}
+
 function requireString(value, fieldName) {
   if (typeof value !== "string" || value.length === 0) {
     throw new McpServerError(
@@ -25,6 +40,7 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "get_project_summary",
       description: "Return a compact summary of the current Live set state.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
       async execute() {
         const summary = await stateAdapter.getProjectSummary();
         return {
@@ -41,6 +57,7 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "get_selected_context",
       description: "Return the selected track, scene, clip, and device context.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
       async execute() {
         const context = await stateAdapter.getSelectedContext();
         return {
@@ -59,6 +76,7 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "list_tracks",
       description: "List tracks in compact form.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
       async execute() {
         const tracks = await stateAdapter.listTracks();
         return {
@@ -75,6 +93,23 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "get_track_details",
       description: "Return detailed state for a track identified by ID, name, or index.",
+      inputSchema: createObjectSchema({
+        properties: {
+          id: {
+            type: "string",
+            description: "Track identifier, for example `track:7`."
+          },
+          name: {
+            type: "string",
+            description: "Exact track name."
+          },
+          index: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based visible-track index."
+          }
+        }
+      }),
       async execute(args) {
         const target = args.id ?? args.name ?? args.index;
         if (target === undefined) {
@@ -99,6 +134,15 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "get_device_tree",
       description: "Return device state for a track.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Track identifier, for example `track:7`."
+          }
+        },
+        required: ["trackId"]
+      }),
       async execute(args) {
         const trackId = args.trackId ?? args.track ?? args.id;
         requireString(trackId, "trackId");
@@ -117,6 +161,20 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "set_tempo",
       description: "Update the current song tempo.",
+      inputSchema: createObjectSchema({
+        properties: {
+          tempo: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Target song tempo in BPM."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        },
+        required: ["tempo"]
+      }),
       async execute(args) {
         const nextTempo = Number(args.tempo);
         if (!Number.isFinite(nextTempo) || nextTempo <= 0) {
@@ -139,6 +197,19 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "create_track",
       description: "Create a new track.",
+      inputSchema: createObjectSchema({
+        properties: {
+          kind: {
+            type: "string",
+            enum: ["midi", "audio"],
+            description: "Track type to create."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        }
+      }),
       async execute(args) {
         const kind = args.kind ?? "midi";
         await policyAdapter.assertAllowed("create_track", args);
@@ -157,6 +228,33 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "create_clip",
       description: "Create a MIDI clip on a target track and slot.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Track identifier, for example `track:7`."
+          },
+          slotIndex: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based session slot index on the target track."
+          },
+          lengthBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Clip length in beats. Defaults to 4."
+          },
+          name: {
+            type: "string",
+            description: "Optional clip name."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        },
+        required: ["trackId", "slotIndex"]
+      }),
       async execute(args) {
         requireString(args.trackId, "trackId");
         if (!Number.isInteger(args.slotIndex) || args.slotIndex < 0) {
@@ -185,6 +283,31 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "set_parameter",
       description: "Set a device parameter by track/device/parameter identifiers.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Track identifier containing the target device."
+          },
+          deviceId: {
+            type: "string",
+            description: "Device identifier containing the target parameter."
+          },
+          parameterId: {
+            type: "string",
+            description: "Parameter identifier to update."
+          },
+          value: {
+            type: "number",
+            description: "Target numeric parameter value."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        },
+        required: ["trackId", "deviceId", "parameterId", "value"]
+      }),
       async execute(args) {
         requireString(args.trackId, "trackId");
         requireString(args.deviceId, "deviceId");
@@ -219,6 +342,14 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "refresh_state",
       description: "Force a state refresh for a target scope.",
+      inputSchema: createObjectSchema({
+        properties: {
+          target: {
+            type: "string",
+            description: "Refresh scope, for example `project`, `song`, or `track:7`."
+          }
+        }
+      }),
       async execute(args) {
         const target = args.target ?? "project";
         const refreshed = await stateAdapter.refreshState(target);
@@ -236,6 +367,7 @@ export function buildDefaultTools({ stateAdapter, bridgeAdapter, policyAdapter }
     {
       name: "get_capabilities",
       description: "Return bridge and server capabilities.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
       async execute() {
         const capabilities = await bridgeAdapter.getCapabilities();
         return {
