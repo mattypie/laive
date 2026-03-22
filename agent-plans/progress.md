@@ -60,3 +60,4 @@
 - Fixed MCP `tools/list` metadata so argument-bearing tools now advertise explicit JSON Schemas instead of empty parameter objects, allowing Codex to send required arguments like `tempo`, `trackId`, and `slotIndex`.
 - Expanded the MCP tool surface to expose the remaining control-surface bridge actions for transport, scene creation, and note insertion.
 - Added MCP-side optional component tooling for the Max sidecar and UI helper, including structured setup instructions when those optional components are unavailable in the current session.
+- Fixed the Live Remote Script note-insertion payload to use Live's dictionary note-spec format instead of Python tuples, closing the real-session `NPythonClip::TNoteSpecification` conversion failure seen through both `insert_notes` and sidecar note replacement flows.

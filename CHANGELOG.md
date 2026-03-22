@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Remote Script MIDI note insertion to send Live's dictionary note-spec payload (`{"notes": [...]}` with `start_time`/`duration`) instead of Python tuples, which resolves real-session `NPythonClip::TNoteSpecification` conversion failures when calling `insert_notes`.
+
 ## v0.2.0 - 2026-03-22
 
 - Updated the README to advertise the currently proven live MCP capabilities separately from lower-level bridge capabilities that are not yet surfaced as first-class MCP tools.
@@ -34,4 +36,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

@@ -144,12 +144,12 @@ class LiveSetAdapter(object):
 
     def insert_notes(self, clip_id, notes, dry_run=False):
         clip, track_id, slot_index = self._find_clip(clip_id)
-        normalized_notes = [self._tuple_note(note) for note in notes]
+        normalized_notes = [self._note_spec(note) for note in notes]
         if not dry_run:
             if hasattr(clip, "add_new_notes"):
-                clip.add_new_notes(tuple(normalized_notes))
+                clip.add_new_notes({"notes": normalized_notes})
             elif hasattr(clip, "set_notes"):
-                clip.set_notes(tuple(normalized_notes))
+                clip.set_notes(tuple(self._legacy_tuple_note(note) for note in normalized_notes))
             else:
                 clip.notes.extend(normalized_notes)
         note_count = len(notes)
@@ -263,11 +263,23 @@ class LiveSetAdapter(object):
                         return parameter, device_id, parameter_index
         raise RequestError("not_found", "Parameter not found: {0}".format(parameter_id))
 
-    def _tuple_note(self, note):
+    def _note_spec(self, note):
+        return {
+            "pitch": note.get("pitch", 60),
+            "start_time": note.get("start_time", note.get("start_beats", note.get("startBeats", 0.0))),
+            "duration": note.get("duration", note.get("duration_beats", note.get("durationBeats", 0.25))),
+            "velocity": note.get("velocity", 100),
+            "mute": bool(note.get("mute", False)),
+            "probability": note.get("probability", 1.0),
+            "velocity_deviation": note.get("velocity_deviation", note.get("velocityDeviation", 0.0)),
+            "release_velocity": note.get("release_velocity", note.get("releaseVelocity", 64)),
+        }
+
+    def _legacy_tuple_note(self, note):
         return (
             note.get("pitch", 60),
-            note.get("start_beats", note.get("startBeats", 0.0)),
-            note.get("duration_beats", note.get("durationBeats", 0.25)),
+            note.get("start_time", 0.0),
+            note.get("duration", 0.25),
             note.get("velocity", 100),
             bool(note.get("mute", False)),
         )

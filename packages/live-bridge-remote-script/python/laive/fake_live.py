@@ -58,7 +58,13 @@ class FakeClip(object):
         self.notes = []
 
     def add_new_notes(self, notes):
+        if isinstance(notes, dict):
+            self.notes.extend(notes.get("notes", []))
+            return
         self.notes.extend(notes)
+
+    def set_notes(self, notes):
+        self.notes = list(notes)
 
 
 class FakeClipSlot(object):
