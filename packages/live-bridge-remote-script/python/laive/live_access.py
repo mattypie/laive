@@ -149,7 +149,7 @@ class LiveSetAdapter(object):
             if hasattr(clip, "add_new_notes"):
                 clip.add_new_notes({"notes": normalized_notes})
             elif hasattr(clip, "set_notes"):
-                clip.set_notes(tuple(self._legacy_tuple_note(note) for note in normalized_notes))
+                clip.set_notes(tuple(normalized_notes))
             else:
                 clip.notes.extend(normalized_notes)
         note_count = len(notes)
@@ -274,12 +274,3 @@ class LiveSetAdapter(object):
             "velocity_deviation": note.get("velocity_deviation", note.get("velocityDeviation", 0.0)),
             "release_velocity": note.get("release_velocity", note.get("releaseVelocity", 64)),
         }
-
-    def _legacy_tuple_note(self, note):
-        return (
-            note.get("pitch", 60),
-            note.get("start_time", 0.0),
-            note.get("duration", 0.25),
-            note.get("velocity", 100),
-            bool(note.get("mute", False)),
-        )

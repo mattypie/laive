@@ -56,8 +56,10 @@ class FakeClip(object):
         self.length = length
         self.is_playing = False
         self.notes = []
+        self.last_add_new_notes_payload = None
 
     def add_new_notes(self, notes):
+        self.last_add_new_notes_payload = notes
         if isinstance(notes, dict):
             self.notes.extend(notes.get("notes", []))
             return
