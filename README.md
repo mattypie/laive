@@ -39,33 +39,9 @@ The optional components are intentionally soft-failable:
 - if the Max for Live sidecar is not installed or not connected, the MCP tools return structured setup instructions for the agent to relay
 - if the macOS UI helper is not installed or Accessibility is not granted, the MCP tools return setup instructions instead of silently failing
 
-The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP tool in the current release.
+The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
 
 If you are using this as an end user, the published npm entrypoint is `laive-mcp`. The Ableton-side control surface name remains `laive`.
-
-## Current MCP Capabilities
-
-The published MCP server is proven to support these first-class operations against a live Ableton set:
-
-- read the project summary
-- read the selected context
-- list tracks
-- read detailed track state
-- read a track's device tree
-- refresh cached state
-- set song tempo
-- create tracks
-- create MIDI clips
-- set device parameters
-
-In the current implementation, the underlying bridge also reports support for:
-
-- transport control
-- scene creation
-- MIDI note insertion
-- subscriptions/event streaming
-
-Those bridge capabilities are real, but not all of them are exposed as first-class MCP tool wrappers yet.
 
 ## Published Package
 
