@@ -422,7 +422,19 @@ class LiveSetAdapter(object):
 
     def _browser_root_items(self, browser):
         roots = []
-        for category_name in ("instruments", "sounds", "drums", "audio_effects", "midi_effects"):
+        for category_name in (
+            "instruments",
+            "sounds",
+            "drums",
+            "audio_effects",
+            "midi_effects",
+            "max_for_live",
+            "plugins",
+            "clips",
+            "samples",
+            "user_library",
+            "places",
+        ):
             if hasattr(browser, category_name):
                 item = getattr(browser, category_name)
                 if item is not None:

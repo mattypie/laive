@@ -10,6 +10,10 @@
 - Fixed the local UI-helper executor to reuse the real frontmost Live app name reported by macOS, so helper-driven sidecar placement no longer assumes the process is literally named `Ableton Live`.
 - Fixed the UI automation macOS adapter to send special keys like `return` as real key codes instead of literal text, so browser-driven workflows can actually confirm selections instead of typing the word `return`.
 - Updated the browser-search UI workflow to move selection into Live's browser results before pressing Return, which is required for helper-driven sidecar placement on this system.
+- Made `ensure_sidecar_on_track` more robust by teaching it to prefer bridge-native browser loading when the sidecar is discoverable through Live's browser model, then fall back to UI automation only when that native path cannot resolve the item.
+- Added confirmation polling to sidecar placement so the adapter can wait briefly for the device to appear on the target track instead of reporting an immediate provisional warning.
+- Expanded the bridge-side browser root enumeration to include optional roots such as `user_library`, which is a prerequisite for eventually loading shipped sidecar devices without UI fallback when Live exposes them.
+- Updated the source patcher so the `fpic` logo requests embedding on re-export and the ASCII fallback banner is visible in presentation mode, reducing the chance of a blank exported device UI.
 
 ## v0.3.4 - 2026-03-23
 

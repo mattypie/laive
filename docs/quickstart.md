@@ -77,7 +77,7 @@ The MCP surface includes:
 - note insertion and replacement
 - Session View clip and scene launch/stop control
 - browser-backed device loading
-- `ensure_sidecar_on_track` for guided sidecar placement when the UI helper is available
+- `ensure_sidecar_on_track` for guided sidecar placement, preferring bridge-native browser loading and falling back to the UI helper when needed
 - optional sidecar and UI-helper workflow tools that return setup guidance if those components are not ready
 
 Use the control-surface bridge for the main workflow. Treat the sidecar as an optional, in-set helper for selected-context, device-local, and future transform or analysis workflows.
@@ -94,10 +94,10 @@ If your MCP client needs an explicit command definition, use:
 ## 6. Optional Sidecar Device
 
 1. Use the default installed path `~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd`.
-2. Preferred agent-driven path: call `ensure_sidecar_on_track` so the MCP server selects the target track and asks the UI helper to load `laive-sidecar`.
+2. Preferred agent-driven path: call `ensure_sidecar_on_track` so the MCP server selects the target track and first tries bridge-native browser loading, then uses the UI helper only if the sidecar is not discoverable there.
 3. Manual fallback: drag that `.amxd` onto a MIDI track in Live after the base Remote Script is working.
 4. Only use the staged Max project if you need to inspect or edit the source patch.
-5. The staged patcher now includes bundled logo assets and a readable fallback banner so the device is recognizable in the Live device chain instead of looking like a raw source patch.
+5. The staged patcher now includes bundled logo assets, requests `fpic` embedding on re-export, and keeps a readable fallback banner visible in presentation mode so the device is recognizable in the Live device chain.
 6. If Live is configured to use a non-default User Library path, move or copy the installed `.amxd` into that library manually after install.
 
 ## 7. Optional Extras

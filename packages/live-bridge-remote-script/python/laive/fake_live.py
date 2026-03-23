@@ -82,6 +82,11 @@ class FakeBrowser(object):
             "browser:midi_effects",
             children=[FakeBrowserItem("Arpeggiator", "browser:midi_effects:arpeggiator", is_device=True, is_loadable=True)],
         )
+        self.user_library = FakeBrowserItem(
+            "User Library",
+            "browser:user_library",
+            children=[FakeBrowserItem("laive-sidecar", "browser:user_library:laive-sidecar", is_device=True, is_loadable=True)],
+        )
         self.loaded_items = []
         self.song = None
 

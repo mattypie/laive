@@ -6,6 +6,7 @@ function createServer(options = {}) {
   let stateVersion = 3;
   let selectedTrackId = "track:1";
   let activeSidecarTrackId = options.activeSidecarTrackId ?? null;
+  const browserSidecarItem = options.browserSidecarItem ?? null;
 
   const stateAdapter = {
     async getProjectSummary() {
@@ -138,11 +139,30 @@ function createServer(options = {}) {
                 is_loadable: true
               }
             ]
+          },
+          {
+            name: "User Library",
+            path: "user_library",
+            uri: "browser:user_library",
+            children: browserSidecarItem ? [browserSidecarItem] : []
           }
         ]
       };
     },
     async getBrowserItems(payload = {}) {
+      if (payload.path === "user_library") {
+        return {
+          path: payload.path,
+          item: {
+            name: "User Library",
+            path: "user_library",
+            uri: "browser:user_library",
+            is_folder: true,
+            is_loadable: false
+          },
+          items: browserSidecarItem ? [browserSidecarItem] : []
+        };
+      }
       return {
         path: payload.path ?? null,
         items: [
@@ -156,6 +176,20 @@ function createServer(options = {}) {
       };
     },
     async loadBrowserItem(payload) {
+      if (browserSidecarItem && (payload.uri === browserSidecarItem.uri || payload.path === browserSidecarItem.path)) {
+        activeSidecarTrackId = payload.trackId;
+        return {
+          item: {
+            uri: payload.uri ?? browserSidecarItem.uri,
+            path: payload.path ?? browserSidecarItem.path
+          },
+          track: {
+            id: payload.trackId,
+            devices: [{ id: `${payload.trackId}:device:new`, name: "laive-sidecar" }]
+          },
+          affectedObjects: [payload.trackId, `${payload.trackId}:device:new`]
+        };
+      }
       return {
         item: {
           uri: payload.uri ?? "browser:instruments:operator",
@@ -252,6 +286,8 @@ function createServer(options = {}) {
         workflow: "ensureOnTrack",
         trackId,
         status: dryRun ? "preview" : "loaded",
+        method: browserSidecarItem ? "bridge_browser_load_item" : "ui_browser_search_and_load",
+        warnings: [],
         activeInstance: {
           trackId,
           deviceId: `${trackId}:device:sidecar`
@@ -422,7 +458,14 @@ test("browser tools expose query and load flows", async () => {
 
 test("ensure_sidecar_on_track selects the target track and requests a sidecar load", async () => {
   const server = createServer({
-    sidecarConfigured: true
+    sidecarConfigured: true,
+    browserSidecarItem: {
+      name: "laive-sidecar",
+      path: "user_library/laive-sidecar",
+      uri: "browser:user_library:laive-sidecar",
+      is_folder: false,
+      is_loadable: true
+    }
   });
 
   const response = await server.safeHandleRpcMessage({
@@ -438,6 +481,40 @@ test("ensure_sidecar_on_track selects the target track and requests a sidecar lo
   });
 
   assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.sidecar_activation.activeInstance.trackId,
+    "track:2"
+  );
+  assert.equal(
+    response.result.structuredContent.sidecar_activation.method,
+    "bridge_browser_load_item"
+  );
+  assert.deepEqual(response.result.structuredContent.warnings, []);
+});
+
+test("ensure_sidecar_on_track falls back to UI browser search when native browser resolution misses", async () => {
+  const server = createServer({
+    sidecarConfigured: true,
+    browserSidecarItem: null
+  });
+
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 19,
+    method: "tools/call",
+    params: {
+      name: "ensure_sidecar_on_track",
+      arguments: {
+        trackId: "track:2"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.sidecar_activation.method,
+    "ui_browser_search_and_load"
+  );
   assert.equal(
     response.result.structuredContent.sidecar_activation.activeInstance.trackId,
     "track:2"

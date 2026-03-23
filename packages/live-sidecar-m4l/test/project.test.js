@@ -53,6 +53,14 @@ test("project manifest matches packaged source manifest", async () => {
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-logo").box.pic,
     "../assets/logo.png"
   );
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-logo").box.embed,
+    1
+  );
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.presentation,
+    1
+  );
   assert.match(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.text,
     /,---\./

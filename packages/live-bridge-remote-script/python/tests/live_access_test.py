@@ -271,6 +271,16 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["item"]["name"], "Operator")
         self.assertEqual(result["track"]["devices"][-1]["name"], "Operator")
 
+    def test_browser_tree_exposes_optional_user_library_root_when_available(self):
+        song = SongWithSingleClip(DirectSetNotesClip())
+        application = BrowserApplication(song)
+        adapter = LiveSetAdapter(song, application=application)
+
+        tree = adapter.get_browser_tree()
+
+        root_paths = [root["path"] for root in tree["roots"]]
+        self.assertIn("user_library", root_paths)
+
     def test_select_track_updates_song_view(self):
         song = SongWithSceneClips([DirectSetNotesClip()], [DirectSetNotesClip()])
         adapter = LiveSetAdapter(song)
@@ -637,6 +647,11 @@ class BrowserRoot(object):
         self.drums = BrowserItem("Drums", "browser:drums", children=[])
         self.audio_effects = BrowserItem("Audio Effects", "browser:audio_effects", children=[])
         self.midi_effects = BrowserItem("MIDI Effects", "browser:midi_effects", children=[])
+        self.user_library = BrowserItem(
+            "User Library",
+            "browser:user_library",
+            children=[BrowserItem("laive-sidecar", "browser:user_library:laive-sidecar", is_device=True, is_loadable=True)],
+        )
 
     def load_item(self, item):
         track = self.song.view.selected_track

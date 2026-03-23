@@ -48,11 +48,11 @@ The staging helper copies the source project into the repository-level `artifact
 
 ## Manual Max For Live Steps
 
-1. Preferred end-user path: use the shipped `device/laive-sidecar.amxd`, or let the MCP tool `ensure_sidecar_on_track` try to place it for you when the optional helper path is configured.
+1. Preferred end-user path: use the shipped `device/laive-sidecar.amxd`, or let the MCP tool `ensure_sidecar_on_track` try bridge-native browser placement first and then fall back to the optional helper path when needed.
 2. Developer path: open the staged `laive-sidecar/laive-sidecar.maxproj` in Max if you need the source project.
 3. Open `laive-sidecar/patchers/laive-sidecar.maxpat` if you need the source patcher.
 4. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
-5. The patcher should render the bundled `laive` logo in presentation mode, with the ASCII banner retained as a readable fallback.
+5. The patcher should render the bundled `laive` logo in presentation mode after re-export, with the ASCII banner retained as a readable fallback in presentation mode as well.
 6. Drop the `.amxd` onto a MIDI track in Live and validate context and sidecar-specific workflows.
 
 ## Roadmap

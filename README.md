@@ -1,5 +1,7 @@
 # laive
 
+![laive logo](./logo.png)
+
 `laive` installs and runs a local Ableton Live control stack.
 
 Today, the repo ships:
@@ -36,7 +38,7 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - set device parameter values
 - report optional sidecar and UI-helper availability with setup guidance
 - list and invoke optional sidecar workflows
-- ensure the optional `laive-sidecar` device is present on a target MIDI track when the UI helper is available
+- ensure the optional `laive-sidecar` device is present on a target MIDI track, preferring bridge-native browser loading and falling back to the UI helper when needed
 - list and invoke optional UI-helper workflows
 
 These capabilities have been validated against a live Ableton session through the published `laive-mcp` package, not just fixture mode.
@@ -183,7 +185,7 @@ Preferred end-user path:
 
 1. Use the installed device at the default target `~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd`.
 2. In Ableton Live, drag that `.amxd` onto a MIDI track in the device chain if you want the manual path.
-3. If the UI helper is configured, prefer the MCP tool `ensure_sidecar_on_track` so the agent can select the target track and load `laive-sidecar` for you.
+3. Prefer the MCP tool `ensure_sidecar_on_track` so the agent can select the target track and try bridge-native browser loading first, then fall back to the UI helper if Live's browser model does not expose the sidecar directly.
 4. Use the sidecar only after the base Remote Script is already working.
 5. If your Live setup uses a custom User Library location, move or copy the installed `.amxd` from the default path into that configured library manually after install.
 
@@ -192,7 +194,7 @@ Developer/source path:
 1. Open `artifacts/live-sidecar-m4l/laive-sidecar/laive-sidecar.maxproj` in Max if you want the full project view.
 2. Open `artifacts/live-sidecar-m4l/laive-sidecar/patchers/laive-sidecar.maxpat` directly if you only want the patcher.
 3. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
-4. The source patcher now ships with bundled branding assets under `project/assets/` and renders the `laive` logo directly in the Live device UI, with an ASCII fallback banner kept alongside it.
+4. The source patcher now ships with bundled branding assets under `project/assets/` and is configured so the `fpic` logo should be embedded on re-export, with a presentation-visible ASCII fallback banner kept alongside it.
 
 ### 6. Start The MCP Server For Agents
 

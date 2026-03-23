@@ -60,6 +60,14 @@ function isSidecarDeviceName(name) {
   return normalized.includes("laive-sidecar") || normalized.includes("laive sidecar");
 }
 
+function isSidecarBrowserItem(item) {
+  return isSidecarDeviceName(item?.name) || isSidecarDeviceName(item?.path) || isSidecarDeviceName(item?.uri);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function listActiveSidecarInstances(stateAdapter) {
   if (!stateAdapter) {
     return [];
@@ -99,6 +107,86 @@ async function getSidecarStatus(stateAdapter) {
     devicePath: sidecarTarget.devicePath,
     workflows: listSidecarWorkflows(),
     setup_instructions: buildSidecarSetupInstructions(sidecarTarget.devicePath)
+  };
+}
+
+function prioritizeBrowserRoots(roots = []) {
+  const preferred = ["user_library", "max_for_live", "midi_effects", "plugins"];
+  const score = (path) => {
+    const index = preferred.indexOf(String(path ?? "").toLowerCase());
+    return index === -1 ? preferred.length : index;
+  };
+
+  return [...roots].sort((left, right) => score(left.path) - score(right.path));
+}
+
+async function findBrowserItem(bridgeAdapter, matcher, options = {}) {
+  if (!bridgeAdapter || typeof bridgeAdapter.getBrowserTree !== "function" || typeof bridgeAdapter.getBrowserItems !== "function") {
+    return null;
+  }
+
+  const maxDepth = options.maxDepth ?? 5;
+  const tree = await bridgeAdapter.getBrowserTree();
+  const queue = prioritizeBrowserRoots(tree?.roots ?? []).map((root) => ({
+    path: root.path,
+    depth: 0
+  }));
+  const seenPaths = new Set();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current?.path || seenPaths.has(current.path)) {
+      continue;
+    }
+    seenPaths.add(current.path);
+
+    const response = await bridgeAdapter.getBrowserItems({ path: current.path });
+    if (matcher(response?.item)) {
+      return response.item;
+    }
+
+    for (const item of response?.items ?? []) {
+      if (matcher(item)) {
+        return item;
+      }
+      if (item?.is_folder && item.path && current.depth < maxDepth) {
+        queue.push({
+          path: item.path,
+          depth: current.depth + 1
+        });
+      }
+    }
+  }
+
+  return null;
+}
+
+async function confirmSidecarActiveOnTrack(stateAdapter, trackId, options = {}) {
+  const attempts = options.attempts ?? 8;
+  const delayMs = options.delayMs ?? 250;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (stateAdapter && typeof stateAdapter.refreshState === "function") {
+      await stateAdapter.refreshState(trackId);
+    }
+    const status = await getSidecarStatus(stateAdapter);
+    const activeInstance =
+      status.active_instances.find((instance) => instance.trackId === trackId) ?? null;
+    if (activeInstance) {
+      return {
+        status,
+        activeInstance
+      };
+    }
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  const status = await getSidecarStatus(stateAdapter);
+  return {
+    status,
+    activeInstance: status.active_instances.find((instance) => instance.trackId === trackId) ?? null
   };
 }
 
@@ -215,24 +303,51 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         );
       }
 
-      const resolvedUiAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
-      const uiStatus = await resolvedUiAdapter.getStatus();
-      requireConfigured(uiStatus, "UI helper");
-
       await bridgeAdapter.selectTrack({ trackId }, { dryRun });
-      const uiWorkflow = dryRun
-        ? {
-            workflow: "browserSearchAndLoad",
-            preview: true,
-            parameters: { query: "laive-sidecar" }
-          }
-        : await resolvedUiAdapter.executeWorkflow("browserSearchAndLoad", {
-            query: "laive-sidecar"
-          });
+      let method = null;
+      let bridgeLoad = null;
+      let uiWorkflow = null;
 
-      const nextStatus = await getSidecarStatus(stateAdapter);
-      const activeInstance =
-        nextStatus.active_instances.find((instance) => instance.trackId === trackId) ?? null;
+      const nativeBrowserItem = dryRun
+        ? null
+        : await findBrowserItem(bridgeAdapter, (item) => item?.is_loadable && isSidecarBrowserItem(item));
+
+      if (nativeBrowserItem && typeof bridgeAdapter.loadBrowserItem === "function") {
+        method = "bridge_browser_load_item";
+        bridgeLoad = dryRun
+          ? {
+              preview: true,
+              item: nativeBrowserItem
+            }
+          : await bridgeAdapter.loadBrowserItem({
+              trackId,
+              uri: nativeBrowserItem.uri ?? null,
+              path: nativeBrowserItem.path ?? null
+            });
+      } else {
+        const resolvedUiAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
+        const uiStatus = await resolvedUiAdapter.getStatus();
+        requireConfigured(uiStatus, "UI helper");
+        method = "ui_browser_search_and_load";
+        uiWorkflow = dryRun
+          ? {
+              workflow: "browserSearchAndLoad",
+              preview: true,
+              parameters: { query: "laive-sidecar" }
+            }
+          : await resolvedUiAdapter.executeWorkflow("browserSearchAndLoad", {
+              query: "laive-sidecar"
+            });
+      }
+
+      const confirmation = dryRun
+        ? {
+            status,
+            activeInstance: null
+          }
+        : await confirmSidecarActiveOnTrack(stateAdapter, trackId);
+      const nextStatus = confirmation.status;
+      const activeInstance = confirmation.activeInstance;
 
       return {
         configured: true,
@@ -240,8 +355,9 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         trackId,
         workflow: "ensureOnTrack",
         status: activeInstance ? "loaded" : dryRun ? "preview" : "dispatched",
-        method: "ui_browser_search_and_load",
+        method,
         activeInstance,
+        bridge_load: bridgeLoad,
         ui_workflow: uiWorkflow,
         warnings: activeInstance
           ? []
