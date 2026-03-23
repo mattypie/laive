@@ -52,9 +52,12 @@ git add CHANGELOG.md package.json packages/*/package.json
 git commit -m "chore(release): vX.Y.Z"
 git tag vX.Y.Z
 npm publish --access public
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/laive-vX.Y.Z-release-notes.md
 ```
 
 If you also publish from CI, mirror the same version and tag format there.
+
+Generate the GitHub release notes from the matching `CHANGELOG.md` section for that version. If the tag already has a release entry, use `gh release edit` instead of `gh release create`.
 
 ## Repo-Local Skill
 

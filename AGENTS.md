@@ -37,6 +37,7 @@ This file is maintainer-only guidance. It is not part of the end-user install fl
 - Use `node ./scripts/release.mjs prepare <patch|minor|major> --apply` to update versions and finalize the changelog.
 - Release commit format: `chore(release): vX.Y.Z`
 - Release tag format: `vX.Y.Z`
+- After tagging and publishing, create or update the matching GitHub release from the `CHANGELOG.md` section for that version.
 
 ## Compatibility And Docs
 

@@ -9,6 +9,7 @@
 - sliced the current roadmap gaps into tentative versioned work units so future sessions can pick them up as concrete milestones
 - fixed CI regressions by letting `laive-mcp install --json` return a machine-readable dry-run payload when no Ableton Live install is detected, and by allowing native sidecar placement to proceed when the sidecar is discoverable through Live's browser even if the default `.amxd` path is absent
 - fixed Remote Script packaging to ignore transient Python bytecode caches so repeated package/install flows and CI archives no longer fail on disappearing `__pycache__` files
+- updated the repo-local release workflow to require creating or updating the matching GitHub release from the versioned changelog section after npm publish
 
 ## v0.4.0 - 2026-03-23
 

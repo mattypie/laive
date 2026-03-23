@@ -1,6 +1,6 @@
 ---
 name: laive-release
-description: Use when preparing, validating, or publishing a release for the laive repository. Applies the repo's AGENTS.md release policy, checks CHANGELOG.md, determines the semver bump, runs release checks, prepares versions with scripts/release.mjs, and summarizes any remaining manual npm publish steps.
+description: Use when preparing, validating, or publishing a release for the laive repository. Applies the repo's AGENTS.md release policy, checks CHANGELOG.md, determines the semver bump, runs release checks, prepares versions with scripts/release.mjs, publishes npm when requested, and creates or updates the matching GitHub release from the changelog.
 ---
 
 # laive-release
@@ -64,8 +64,23 @@ git tag vX.Y.Z
 npm publish --access public
 ```
 
+After npm publish and tag push, create or update the GitHub release for the same version. Use the matching `CHANGELOG.md` section as the release body.
+
+Example flow:
+
+```sh
+gh release view vX.Y.Z || gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/laive-vX.Y.Z-release-notes.md
+```
+
+If the release already exists, use:
+
+```sh
+gh release edit vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/laive-vX.Y.Z-release-notes.md
+```
+
 ## Required Notes
 
 - Default to dry-run behavior unless the user explicitly asks to apply or publish.
 - Do not skip `CHANGELOG.md`.
 - If install steps or support posture changed, update the relevant docs in the same change.
+- When a release is published, do not stop after npm. Confirm the matching GitHub release exists and is populated from the changelog.
