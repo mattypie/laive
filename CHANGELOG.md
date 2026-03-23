@@ -5,6 +5,7 @@
 - Added a bridge-level `select_track` action plus an MCP `ensure_sidecar_on_track` workflow so agents can select a target track and request `laive-sidecar` placement with structured setup guidance when the UI helper or sidecar is unavailable.
 - Refreshed the Max sidecar source project with bundled `logo.png` and `logo.txt` assets so the staged patcher renders a recognizable `laive` banner in Ableton Live instead of a placeholder-looking editor view.
 - Updated the top-level docs and planning documents to describe the current sidecar role more accurately: optional, selection-aware, and complementary to the control-surface bridge rather than the primary control path.
+- Replaced the shipped `laive-sidecar.amxd` with the rebuilt branded device export and clarified in install output/docs that sidecar installation currently targets the default Ableton User Library path rather than Live's custom configured library location.
 - Documented the near-term sidecar roadmap more explicitly around selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows.
 
 ## v0.3.4 - 2026-03-23

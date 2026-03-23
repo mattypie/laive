@@ -101,8 +101,10 @@ export async function installPrebuiltSidecarDevice({
     stagedProjectRoot: staged.stagedProjectRoot,
     stagedDevicePath: staged.stagedDevicePath,
     prebuiltDeviceExists: staged.prebuiltDeviceExists,
+    installDestinationKind: "default_user_library_path",
     installDestinationRoot: target.destinationRoot,
     devicePath: target.devicePath,
+    note: "The sidecar installer targets the default Ableton User Library path. It does not currently detect a custom User Library location configured inside Live.",
     dryRun,
     overwrite
   };

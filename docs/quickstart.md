@@ -53,6 +53,8 @@ Default installed sidecar path:
 ~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd
 ```
 
+This is the default User Library path. `laive install` does not currently detect a custom User Library location configured inside Ableton Live.
+
 ## 4. Enable `laive` In Live
 
 1. Open Ableton Live.
@@ -96,6 +98,7 @@ If your MCP client needs an explicit command definition, use:
 3. Manual fallback: drag that `.amxd` onto a MIDI track in Live after the base Remote Script is working.
 4. Only use the staged Max project if you need to inspect or edit the source patch.
 5. The staged patcher now includes bundled logo assets and a readable fallback banner so the device is recognizable in the Live device chain instead of looking like a raw source patch.
+6. If Live is configured to use a non-default User Library path, move or copy the installed `.amxd` into that library manually after install.
 
 ## 7. Optional Extras
 

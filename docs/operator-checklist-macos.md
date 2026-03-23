@@ -57,6 +57,8 @@ It also installs to these default targets:
 ~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd
 ```
 
+The sidecar install target above is the default User Library path. The installer does not currently discover a custom User Library location configured inside Live.
+
 ## 4. Enable The Remote Script In Live
 
 1. Restart Ableton Live after install.
@@ -137,6 +139,7 @@ If you want the optional Max for Live sidecar features, use the installed `.amxd
 1. Open the default installed device at `~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd` in Live's browser or Finder.
 2. Drag it onto a MIDI track in a test Live set.
 3. Use the staged source project only if you need to edit the sidecar implementation in Max.
+4. If your Live setup uses a non-default User Library path, move or copy the installed `.amxd` into that configured library manually first.
 
 ## 9. Grant macOS Accessibility Permissions
 

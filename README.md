@@ -120,6 +120,8 @@ The installer currently automates everything in the repo that can be automated s
 - installs the UI helper app into the default target `~/Applications/laive-ui-helper.app`
 - installs the shipped `laive-sidecar.amxd` into the default Ableton User Library MIDI Effect path
 
+The sidecar installer currently targets the default Ableton User Library path under `~/Music/Ableton/User Library/...`. It does not detect a custom User Library location configured inside Live.
+
 Install runs are dry-run by default. `--apply` performs the copy.
 
 ## End-User Install Flow
@@ -183,6 +185,7 @@ Preferred end-user path:
 2. In Ableton Live, drag that `.amxd` onto a MIDI track in the device chain if you want the manual path.
 3. If the UI helper is configured, prefer the MCP tool `ensure_sidecar_on_track` so the agent can select the target track and load `laive-sidecar` for you.
 4. Use the sidecar only after the base Remote Script is already working.
+5. If your Live setup uses a custom User Library location, move or copy the installed `.amxd` from the default path into that configured library manually after install.
 
 Developer/source path:
 
