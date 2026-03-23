@@ -43,7 +43,7 @@ class ClipNoteAdapter(object):
 
         if hasattr(clip, "add_new_notes"):
             try:
-                clip.add_new_notes(self._extended_note_payload(normalized_notes))
+                clip.add_new_notes(self._python_note_payload(normalized_notes))
                 return normalized_notes
             except Exception as error:
                 raise RequestError("runtime_error", "add_new_notes failed: {0}".format(error))
@@ -356,8 +356,30 @@ class ClipNoteAdapter(object):
             bool(note.get("mute", False)),
         )
 
-    def _extended_note_payload(self, notes):
-        return {"notes": [self._extended_note_spec(note) for note in notes]}
+    def _python_note_payload(self, notes):
+        return tuple(self._add_new_note_spec(note) for note in notes)
+
+    def _add_new_note_spec(self, note):
+        if self._live_module is not None and hasattr(self._live_module, "Clip") and hasattr(self._live_module.Clip, "MidiNoteSpecification"):
+            constructor = self._live_module.Clip.MidiNoteSpecification
+            try:
+                return constructor(
+                    note.get("pitch", 60),
+                    note.get("start_time", 0.0),
+                    note.get("duration", 0.25),
+                    note.get("velocity", 100),
+                    bool(note.get("mute", False)),
+                )
+            except TypeError:
+                return constructor(
+                    pitch=note.get("pitch", 60),
+                    start_time=note.get("start_time", 0.0),
+                    duration=note.get("duration", 0.25),
+                    velocity=note.get("velocity", 100),
+                    mute=bool(note.get("mute", False)),
+                )
+
+        return self._legacy_tuple_note(note)
 
     def _extended_note_spec(self, note):
         payload = {
@@ -399,7 +421,7 @@ class ClipNoteAdapter(object):
             return None
 
         try:
-            clip.add_new_notes(self._extended_note_payload(notes))
+            clip.add_new_notes(self._python_note_payload(notes))
         except Exception as error:
             raise RequestError("runtime_error", "add_new_notes failed after clearing notes: {0}".format(error))
 

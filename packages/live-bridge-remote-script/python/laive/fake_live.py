@@ -122,7 +122,29 @@ class FakeClip(object):
                 self._next_note_id += 1
                 self.notes.append(normalized)
             return
-        self.notes.extend(notes)
+        for note in notes:
+            if isinstance(note, dict):
+                normalized = dict(note)
+            elif isinstance(note, (list, tuple)):
+                normalized = {
+                    "pitch": note[0] if len(note) > 0 else 60,
+                    "start_time": note[1] if len(note) > 1 else 0.0,
+                    "duration": note[2] if len(note) > 2 else 0.25,
+                    "velocity": note[3] if len(note) > 3 else 100,
+                    "mute": bool(note[4]) if len(note) > 4 else False,
+                }
+            else:
+                normalized = {
+                    "pitch": getattr(note, "pitch", 60),
+                    "start_time": getattr(note, "start_time", 0.0),
+                    "duration": getattr(note, "duration", 0.25),
+                    "velocity": getattr(note, "velocity", 100),
+                    "mute": bool(getattr(note, "mute", False)),
+                }
+
+            normalized.setdefault("note_id", self._next_note_id)
+            self._next_note_id += 1
+            self.notes.append(normalized)
 
     def get_all_notes_extended(self):
         return {"notes": list(self.notes)}

@@ -2,12 +2,13 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import unittest
 
+from laive.clip_notes import ClipNoteAdapter
 from laive.live_access import LiveSetAdapter
 from laive.protocol import RequestError
 
 
 class LegacyNoteSequenceTests(unittest.TestCase):
-    def test_insert_notes_prefers_add_new_notes_with_extended_payload(self):
+    def test_insert_notes_prefers_add_new_notes_with_python_note_specs(self):
         clip = AddNewNotesClip()
         song = SongWithSingleClip(clip)
         adapter = LiveSetAdapter(song)
@@ -25,25 +26,34 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         )
 
         self.assertEqual(result["note_count"], 1)
-        self.assertEqual(
-            clip.add_new_notes_payload,
-            {
-                "notes": [
-                    {
-                        "pitch": 64,
-                        "start_time": 1.0,
-                        "duration": 0.25,
-                        "velocity": 96,
-                        "mute": False,
-                        "probability": 1.0,
-                        "velocity_deviation": 0.0,
-                        "release_velocity": 64,
-                    }
-                ]
-            },
-        )
+        self.assertEqual(clip.add_new_notes_payload, ((64, 1.0, 0.25, 96, False),))
         self.assertEqual(result["clip"]["note_count"], 1)
         self.assertEqual(result["clip"]["notes"][0]["pitch"], 64)
+
+    def test_add_new_notes_uses_midi_note_specification_when_live_module_is_available(self):
+        clip = AddNewNotesClip()
+        adapter = ClipNoteAdapter(live_module=FakeLiveModule())
+
+        adapter.write_notes(
+            clip,
+            [
+                {
+                    "pitch": 67,
+                    "startBeats": 2.0,
+                    "durationBeats": 0.5,
+                    "velocity": 92,
+                }
+            ],
+        )
+
+        self.assertEqual(len(clip.add_new_notes_payload), 1)
+        spec = clip.add_new_notes_payload[0]
+        self.assertIsInstance(spec, FakeMidiNoteSpecification)
+        self.assertEqual(spec.pitch, 67)
+        self.assertEqual(spec.start_time, 2.0)
+        self.assertEqual(spec.duration, 0.5)
+        self.assertEqual(spec.velocity, 92)
+        self.assertEqual(spec.mute, False)
 
     def test_insert_notes_uses_direct_set_notes_when_add_new_notes_is_unavailable(self):
         clip = DirectSetNotesClip()
@@ -126,6 +136,7 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["note_count"], 1)
         self.assertEqual(clip.calls[0], ("remove_notes_by_id", [9001]))
         self.assertEqual(clip.calls[1][0], "add_new_notes")
+        self.assertEqual(clip.add_new_notes_payload, ((67, 2.0, 0.5, 92, False),))
         self.assertEqual(len(clip.stored_notes), 1)
         self.assertEqual(clip.stored_notes[0]["pitch"], 67)
         self.assertEqual(result["clip"]["note_count"], 1)
@@ -163,6 +174,7 @@ class LegacyNoteSequenceTests(unittest.TestCase):
             ("remove_notes_extended", {"from_pitch": 0, "pitch_span": 128, "from_time": 0.0, "time_span": 4.0}),
         )
         self.assertEqual(clip.calls[1][0], "add_new_notes")
+        self.assertEqual(clip.add_new_notes_payload, ((67, 2.0, 0.5, 92, False),))
         self.assertEqual(len(clip.stored_notes), 1)
         self.assertEqual(clip.stored_notes[0]["pitch"], 67)
 
@@ -498,7 +510,7 @@ class ReplaceByIdClip(object):
     def add_new_notes(self, payload):
         self.calls.append(("add_new_notes", payload))
         self.add_new_notes_payload = payload
-        self.stored_notes.extend(list(payload.get("notes", [])))
+        self.stored_notes.extend([coerce_note_spec(spec) for spec in payload])
 
 
 class RemoveNotesExtendedDictClip(object):
@@ -522,7 +534,7 @@ class RemoveNotesExtendedDictClip(object):
     def add_new_notes(self, payload):
         self.calls.append(("add_new_notes", payload))
         self.add_new_notes_payload = payload
-        self.stored_notes.extend(list(payload.get("notes", [])))
+        self.stored_notes.extend([coerce_note_spec(spec) for spec in payload])
 
 
 class NoOpRemoveNotesExtendedClip(object):
@@ -552,9 +564,10 @@ class AddNewNotesClip(object):
 
     def add_new_notes(self, payload):
         self.add_new_notes_payload = payload
+        self.stored_notes = [coerce_note_spec(spec) for spec in payload]
 
     def get_all_notes_extended(self):
-        return self.add_new_notes_payload or {"notes": []}
+        return {"notes": list(getattr(self, "stored_notes", []))}
 
 
 class DirectSetNotesClip(object):
@@ -635,3 +648,39 @@ class SimpleDevice(object):
         self.name = name
         self.class_name = name
         self.parameters = []
+
+
+class FakeMidiNoteSpecification(object):
+    def __init__(self, pitch, start_time, duration, velocity, mute):
+        self.pitch = pitch
+        self.start_time = start_time
+        self.duration = duration
+        self.velocity = velocity
+        self.mute = mute
+
+
+class FakeLiveModule(object):
+    class Clip(object):
+        MidiNoteSpecification = FakeMidiNoteSpecification
+
+
+def coerce_note_spec(spec):
+    if isinstance(spec, dict):
+        return dict(spec)
+
+    if isinstance(spec, (list, tuple)):
+        return {
+            "pitch": spec[0] if len(spec) > 0 else 60,
+            "start_time": spec[1] if len(spec) > 1 else 0.0,
+            "duration": spec[2] if len(spec) > 2 else 0.25,
+            "velocity": spec[3] if len(spec) > 3 else 100,
+            "mute": bool(spec[4]) if len(spec) > 4 else False,
+        }
+
+    return {
+        "pitch": getattr(spec, "pitch", 60),
+        "start_time": getattr(spec, "start_time", 0.0),
+        "duration": getattr(spec, "duration", 0.25),
+        "velocity": getattr(spec, "velocity", 100),
+        "mute": bool(getattr(spec, "mute", False)),
+    }
