@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.6 - 2026-03-23
+
+- Added first-class Session View control tools across the bridge and MCP surface: `launch_clip`, `launch_scene`, `stop_track_clips`, and `stop_all_clips`.
+- Extended the Python bridge, fixture runtime, and fake Live harness to propagate session playback state more coherently, including `playing_slot_index` / `fired_slot_index` and explicit clip-playback change events.
+- Added bridge and MCP test coverage for Session View launch/stop flows so clip playback control is exercised end to end instead of being inferred from transport-only behavior.
+
 ## v0.2.5 - 2026-03-23
 
 - Added a browser-backed device loading path to the control-surface bridge, including browser tree/item queries and `load_browser_item` via Live's `application().browser.load_item(...)` flow.
