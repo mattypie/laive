@@ -9,7 +9,7 @@
       "modernui": 1
     },
     "classnamespace": "box",
-    "rect": [626.0, 235.0, 960.0, 640.0],
+    "rect": [626.0, 235.0, 760.0, 520.0],
     "bglocked": 0,
     "openinpresentation": 1,
     "default_fontsize": 12.0,
@@ -30,7 +30,7 @@
     "boxanimatetime": 200,
     "enablehscroll": 1,
     "enablevscroll": 1,
-    "devicewidth": 0.0,
+    "devicewidth": 512.0,
     "description": "",
     "digest": "",
     "tags": "",
@@ -44,9 +44,9 @@
           "maxclass": "panel",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [24.0, 24.0, 520.0, 252.0],
+          "patching_rect": [20.0, 20.0, 472.0, 176.0],
           "presentation": 1,
-          "presentation_rect": [24.0, 24.0, 520.0, 252.0],
+          "presentation_rect": [20.0, 20.0, 472.0, 176.0],
           "bgcolor": [0.047, 0.055, 0.082, 1.0],
           "rounded": 18
         }
@@ -57,11 +57,10 @@
           "maxclass": "fpic",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [48.0, 40.0, 452.0, 155.0],
-          "presentation": 1,
-          "presentation_rect": [48.0, 40.0, 452.0, 155.0],
+          "patching_rect": [516.0, 40.0, 164.0, 56.0],
+          "presentation": 0,
+          "presentation_rect": [516.0, 40.0, 164.0, 56.0],
           "autofit": 1,
-          "embed": 1,
           "pic": "../assets/logo.png"
         }
       },
@@ -72,13 +71,13 @@
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [48.0, 206.0, 452.0, 48.0],
+          "patching_rect": [36.0, 136.0, 420.0, 36.0],
           "presentation": 1,
-          "presentation_rect": [48.0, 206.0, 452.0, 48.0],
+          "presentation_rect": [36.0, 136.0, 420.0, 36.0],
           "fontname": "Arial Bold",
-          "fontsize": 14.0,
+          "fontsize": 12.0,
           "textcolor": [0.92, 0.94, 0.98, 1.0],
-          "text": "laive sidecar\nNode starts automatically. Wait for the loaded message before using workflows or test commands."
+          "text": "laive sidecar\nNode starts automatically before workflows and test commands are used."
         }
       },
       {
@@ -88,11 +87,11 @@
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [576.0, 40.0, 320.0, 170.0],
+          "patching_rect": [36.0, 38.0, 420.0, 88.0],
           "presentation": 1,
-          "presentation_rect": [72.0, 72.0, 404.0, 116.0],
+          "presentation_rect": [36.0, 38.0, 420.0, 88.0],
           "fontname": "Monaco",
-          "fontsize": 10.0,
+          "fontsize": 9.0,
           "textcolor": [0.82, 0.86, 0.92, 1.0],
           "text": "             ,---.       .=-.-.       ,-.-.    ,----.  \n   _.-.    .--.'  \\\\     /==/_ /,--.-./=/ ,/ ,-.--` , \\\\ \n .-,.'|    \\\\==\\\\-/\\\\\\\\ \\\\   |==|, |/==/, ||=| -||==|-  _.-` \n|==|, |    /==/-|_\\\\ |  |==|  |\\\\==\\\\,  \\\\ / ,||==|   `.-. \n|==|- |    \\\\==\\\\,   - \\\\ |==|- | \\\\==\\\\ - ' - /==/_ ,    / \n|==|, |    /==/ -   ,| |==| ,|  \\\\==\\\\ ,   ||==|    .-'  \n|==|- `-._/==/-  /\\\\ - \\\\|==|- |  |==| -  ,/|==|_  ,`-._ \n/==/ - , ,|==\\\\ _.\\\\=\\\\.-'/==/. /  \\\\==\\\\  _ / /==/ ,     / \n`--`-----' `--`        `--`-`    `--`--'  `--`-----``"
         }
@@ -163,7 +162,7 @@
           "numoutlets": 0,
           "linecount": 2,
           "patching_rect": [40.0, 480.0, 420.0, 34.0],
-          "text": "Fallback banner uses the bundled assets/logo.txt art. The branded device view uses assets/logo.png when image rendering is available."
+          "text": "The Live device view now uses the bundled assets/logo.txt banner deterministically. The PNG logo is retained for repo branding and future editor-side use."
         }
       }
     ],

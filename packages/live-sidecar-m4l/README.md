@@ -52,7 +52,7 @@ The staging helper copies the source project into the repository-level `artifact
 2. Developer path: open the staged `laive-sidecar/laive-sidecar.maxproj` in Max if you need the source project.
 3. Open `laive-sidecar/patchers/laive-sidecar.maxpat` if you need the source patcher.
 4. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
-5. The patcher should render the bundled `laive` logo in presentation mode after re-export, with the ASCII banner retained as a readable fallback in presentation mode as well.
+5. The patcher renders the bundled ASCII `laive` banner deterministically in presentation mode after re-export. `logo.png` is retained as a packaged branding asset for README/docs and future Max rendering experiments.
 6. Drop the `.amxd` onto a MIDI track in Live and validate context and sidecar-specific workflows.
 
 ## Roadmap

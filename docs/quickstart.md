@@ -97,7 +97,7 @@ If your MCP client needs an explicit command definition, use:
 2. Preferred agent-driven path: call `ensure_sidecar_on_track` so the MCP server selects the target track and first tries bridge-native browser loading, then uses the UI helper only if the sidecar is not discoverable there.
 3. Manual fallback: drag that `.amxd` onto a MIDI track in Live after the base Remote Script is working.
 4. Only use the staged Max project if you need to inspect or edit the source patch.
-5. The staged patcher now includes bundled logo assets, requests `fpic` embedding on re-export, and keeps a readable fallback banner visible in presentation mode so the device is recognizable in the Live device chain.
+5. The staged patcher now includes bundled logo assets and uses a fixed-width ASCII `laive` banner as the deterministic in-Live device UI. `logo.png` is retained as a packaged branding asset for docs and future Max rendering experiments.
 6. If Live is configured to use a non-default User Library path, move or copy the installed `.amxd` into that library manually after install.
 
 ## 7. Optional Extras

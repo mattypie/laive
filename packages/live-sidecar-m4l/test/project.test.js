@@ -54,12 +54,21 @@ test("project manifest matches packaged source manifest", async () => {
     "../assets/logo.png"
   );
   assert.equal(
-    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-logo").box.embed,
-    1
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-logo").box.presentation,
+    0
+  );
+  assert.equal(patcherFile.patcher.devicewidth, 512);
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-panel").box.presentation_rect[2],
+    472
   );
   assert.equal(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.presentation,
     1
+  );
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.presentation_rect[2],
+    420
   );
   assert.match(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.text,

@@ -26,7 +26,7 @@ export function getProjectManifest() {
     assets: ["assets/logo.png", "assets/logo.txt"],
     prebuiltDevice: path.relative(packageRoot, prebuiltDevicePath),
     note: "Source project only. Open in Max / Max for Live and save as a device.",
-    uiIntent: "Branded in-Live sidecar with bundled logo assets and a readable fallback banner."
+    uiIntent: "Fixed-width in-Live sidecar with a deterministic ASCII banner and bundled branding assets for docs and future editor-side rendering."
   };
 }
 
