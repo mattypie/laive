@@ -148,10 +148,8 @@ class LiveSetAdapter(object):
         if not dry_run:
             if hasattr(clip, "add_new_notes"):
                 clip.add_new_notes({"notes": normalized_notes})
-            elif self._supports_legacy_note_sequence(clip):
-                self._replace_selected_notes(clip, normalized_notes)
-            elif hasattr(clip, "set_notes"):
-                clip.set_notes(tuple(self._legacy_tuple_note(note) for note in normalized_notes))
+            elif self._supports_set_notes_sequence(clip):
+                self._set_notes_sequence(clip, normalized_notes)
             else:
                 clip.notes.extend(normalized_notes)
         note_count = len(notes)
@@ -277,8 +275,8 @@ class LiveSetAdapter(object):
             "release_velocity": note.get("release_velocity", note.get("releaseVelocity", 64)),
         }
 
-    def _supports_legacy_note_sequence(self, clip):
-        return all(hasattr(clip, method_name) for method_name in ("replace_selected_notes", "notes", "note", "done"))
+    def _supports_set_notes_sequence(self, clip):
+        return all(hasattr(clip, method_name) for method_name in ("set_notes", "notes", "note", "done"))
 
     def _clip_notes_snapshot(self, clip):
         notes = getattr(clip, "notes", [])
@@ -286,10 +284,8 @@ class LiveSetAdapter(object):
             return list(getattr(clip, "stored_notes", []))
         return list(notes)
 
-    def _replace_selected_notes(self, clip, notes):
-        if hasattr(clip, "deselect_all_notes"):
-            clip.deselect_all_notes()
-        clip.replace_selected_notes()
+    def _set_notes_sequence(self, clip, notes):
+        clip.set_notes()
         clip.notes(len(notes))
         for note in notes:
             clip.note(
@@ -300,12 +296,3 @@ class LiveSetAdapter(object):
                 bool(note.get("mute", False)),
             )
         clip.done()
-
-    def _legacy_tuple_note(self, note):
-        return (
-            note.get("pitch", 60),
-            note.get("start_time", 0.0),
-            note.get("duration", 0.25),
-            note.get("velocity", 100),
-            bool(note.get("mute", False)),
-        )

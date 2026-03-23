@@ -6,8 +6,8 @@ from laive.live_access import LiveSetAdapter
 
 
 class LegacyNoteSequenceTests(unittest.TestCase):
-    def test_insert_notes_uses_replace_selected_notes_sequence_when_available(self):
-        clip = ReplaceSelectedNotesClip()
+    def test_insert_notes_uses_set_notes_sequence_when_available(self):
+        clip = SetNotesSequenceClip()
         song = SongWithSingleClip(clip)
         adapter = LiveSetAdapter(song)
 
@@ -24,17 +24,16 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         )
 
         self.assertEqual(result["note_count"], 1)
-        self.assertEqual(clip.calls[0], ("deselect_all_notes",))
-        self.assertEqual(clip.calls[1], ("replace_selected_notes",))
+        self.assertEqual(clip.calls[0], ("set_notes",))
         self.assertEqual(
-            clip.calls[2],
+            clip.calls[1],
             ("notes", 1),
         )
         self.assertEqual(
-            clip.calls[3],
+            clip.calls[2],
             ("note", 60, 0.0, 0.5, 100, False),
         )
-        self.assertEqual(clip.calls[4], ("done",))
+        self.assertEqual(clip.calls[3], ("done",))
 
 
 class SongWithSingleClip(object):
@@ -64,7 +63,7 @@ class ClipSlotWithClip(object):
         return True
 
 
-class ReplaceSelectedNotesClip(object):
+class SetNotesSequenceClip(object):
     def __init__(self):
         self.name = "Clip 1"
         self.length = 4
@@ -72,11 +71,8 @@ class ReplaceSelectedNotesClip(object):
         self.stored_notes = []
         self.calls = []
 
-    def deselect_all_notes(self):
-        self.calls.append(("deselect_all_notes",))
-
-    def replace_selected_notes(self):
-        self.calls.append(("replace_selected_notes",))
+    def set_notes(self):
+        self.calls.append(("set_notes",))
 
     def notes(self, count):
         self.calls.append(("notes", count))
