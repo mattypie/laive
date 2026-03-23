@@ -93,10 +93,12 @@ Examples:
 
 - `create_clip` should support target track, slot or arrangement location, length, optional name, and optional note payload.
 - `set_parameter` should support lookup by track/device/parameter name with disambiguation hints.
+- `get_device_tree` and parameter-bearing write tools should expose enum labels or allowed values for quantized parameters on common built-in devices so agents can reason in named modes instead of raw integers where possible.
 - `preview_mutation` should not execute writes; it should resolve targets and return what would change.
 - `ensure_sidecar_on_track` should select the target track, prefer official browser-backed insertion where possible, and return setup guidance when the UI helper or shipped device is unavailable.
 - sidecar-facing tools should explain whether the request can be satisfied by the primary bridge alone or whether the optional sidecar adds materially better context or behavior.
 - TODO: add session-editing tools for `rename_clip`, `move_session_clip`, `set_clip_loop_or_length`, `duplicate_clip`, and `delete_clip`, with preflight validation and localized post-write refresh so agents can clean up or reorganize sketches without dropping to raw bridge semantics.
+- TODO: add a parameter-metadata layer for common quantized controls, including enum labels or allowed values for things like Auto Filter `LFO Waveform`, sync rates, filter types, and other built-in device modes.
 
 ## Implementation Tasks
 

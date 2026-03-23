@@ -89,6 +89,7 @@ Implement only the commands needed for a strong vertical slice:
 - list arrangement clips for a track
 - get devices for a track
 - get parameters for a device
+- expose quantized-parameter metadata where Live reports only numeric values but stable mode labels are needed for agent usability
 - set tempo
 - play / stop / continue
 - create MIDI track
@@ -141,6 +142,7 @@ This harness should remain in the repo permanently as the lowest-level debugging
 8. Add structured logging on both sides.
 9. Add trace fixtures for common sessions.
 10. Document Live installation steps for the Remote Script.
+11. Define a bridge-side strategy for enum labels on common quantized parameters without overfitting to one Live version or device schema.
 
 ## Test Plan
 
