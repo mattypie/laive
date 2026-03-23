@@ -4,16 +4,16 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: End-user delivery hardening, with repo-complete code and installer flow in place pending real Live validation
+- Active phase: End-user delivery hardening, with official Session View launch/control primitives being added across the bridge and MCP surface
 
 ## Phase Status
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | 0. Vision and scope | complete | Initial plan approved and repository created. |
-| 1. Foundation and bridge | in progress | Fixture bridge, Python Remote Script scaffold, user-facing install flow, and macOS install tooling are implemented; real Live-side validation still pending. |
+| 1. Foundation and bridge | in progress | Fixture bridge, Python Remote Script scaffold, user-facing install flow, browser-backed device loading, and Session View launch/stop primitives are being wired through the real bridge. |
 | 2. State engine | in progress | Canonical project-state mirror, reducers, replay, and monotonic snapshot versioning implemented. |
-| 3. MCP surface | in progress | MCP server now has a real bridge-backed stdio launch path plus fixture mode for smoke testing. |
+| 3. MCP surface | in progress | MCP server now has a real bridge-backed stdio launch path plus fixture mode for smoke testing, with Session View launch/stop tools being promoted to first-class MCP actions. |
 | 4. UI automation | in progress | UI helper app staging is implemented so Accessibility permissions map to a shipped artifact. |
 | 5. `.als` snapshots | in progress | Offline parser and diff scaffold implemented. |
 | 6. Safety, evals, release | in progress | End-user CLI, README, install docs, release checklist, fixtures, and benchmark/replay scripts implemented. |
@@ -64,3 +64,7 @@
 - Refactored the Python bridge note path around a dedicated clip-note adapter and bridge-local serializers so note writes and note readback now share the same runtime-specific capability layer.
 - Added browser-backed device loading to the control-surface bridge, including browser tree/item queries and a `load_browser_item` path that selects a track and calls Live's browser `load_item(...)` API.
 - Exposed MCP browser tools for querying browser roots/items and loading browser items onto tracks, and added fixture plus request-level tests to cover the end-to-end path.
+- Investigated Ableton Push and Push 2 Remote Scripts as a reference for the supported Live Python API surface, confirming that official browser loading uses `Application.browser.load_item(...)` and Session View launch uses clip-slot and scene fire operations rather than UI automation.
+- Added first-class Session View launch and stop primitives across the Python bridge, fixture runtime, and MCP surface: `launch_clip`, `launch_scene`, `stop_track_clips`, and `stop_all_clips`.
+- Extended playback-state propagation so tracks now carry `playing_slot_index` and `fired_slot_index`, and the bridge listener hub emits explicit clip-playback change events when session launch state changes.
+- Remaining follow-up after this slice: validate the new Session View tools against a real Live session via the published `npx laive-mcp` path and tighten any remaining event-subscription fidelity gaps that only show up against the real bridge runtime.

@@ -206,7 +206,15 @@ export class FixtureLiveRuntime extends EventEmitter {
       case "load_browser_item":
         return this.loadBrowserItem(args, dryRun);
       case "fire_clip":
+      case "launch_clip":
         return this.fireClip(args, dryRun);
+      case "fire_scene":
+      case "launch_scene":
+        return this.fireScene(args, dryRun);
+      case "stop_track_clips":
+        return this.stopTrackClips(args, dryRun);
+      case "stop_all_clips":
+        return this.stopAllClips(dryRun);
       default:
         throw new Error(`Unsupported call target: ${target}`);
     }
@@ -344,6 +352,8 @@ export class FixtureLiveRuntime extends EventEmitter {
       arm: false,
       mute: false,
       solo: false,
+      playing_slot_index: -1,
+      fired_slot_index: -1,
       devices: [],
       session_clips: []
     };
@@ -386,7 +396,9 @@ export class FixtureLiveRuntime extends EventEmitter {
 
   createClip(args, dryRun) {
     const track = this.findTrack(args.track_id);
-    const nextIndex = track.session_clips.length;
+    const nextIndex = Number.isInteger(args.slot_index) && args.slot_index >= 0
+      ? args.slot_index
+      : track.session_clips.length;
     const clip = {
       id: `clip:session:${track.id}:slot:${nextIndex + 1}`,
       slot_index: nextIndex,
@@ -397,7 +409,9 @@ export class FixtureLiveRuntime extends EventEmitter {
     };
 
     if (!dryRun) {
+      track.session_clips = track.session_clips.filter((candidate) => candidate.slot_index !== nextIndex);
       track.session_clips.push(clip);
+      track.session_clips.sort((left, right) => left.slot_index - right.slot_index);
       this.emit("event", {
         topic: "clips.changed",
         payload: {
@@ -497,9 +511,15 @@ export class FixtureLiveRuntime extends EventEmitter {
 
   fireClip(args, dryRun) {
     const clip = this.findClip(args.clip_id);
+    const track = this.state.tracks.find((item) =>
+      item.session_clips.some((candidate) => candidate.id === clip.id)
+    );
 
     if (!dryRun) {
-      for (const track of this.state.tracks) {
+      this.state.song.is_playing = true;
+      if (track) {
+        track.playing_slot_index = clip.slot_index;
+        track.fired_slot_index = clip.slot_index;
         for (const candidate of track.session_clips) {
           candidate.is_playing = candidate.id === clip.id;
         }
@@ -508,14 +528,105 @@ export class FixtureLiveRuntime extends EventEmitter {
         topic: "clips.changed",
         payload: {
           action: "clip-fired",
-          clip_id: clip.id
+          clip_id: clip.id,
+          clip: clone(clip),
+          track_id: track?.id ?? null
         }
+      });
+      this.emit("event", {
+        topic: "transport.changed",
+        payload: { is_playing: true }
       });
     }
 
     return {
       applied: !dryRun,
       clip_id: clip.id
+    };
+  }
+
+  fireScene(args, dryRun) {
+    const scene = this.state.scenes.find((item) => item.id === args.scene_id);
+    if (!scene) {
+      throw new Error(`Scene not found: ${args.scene_id}`);
+    }
+
+    if (!dryRun) {
+      this.state.song.is_playing = true;
+      for (const track of this.state.tracks) {
+        track.playing_slot_index = -1;
+        track.fired_slot_index = -1;
+        for (const clip of track.session_clips) {
+          const is_target = clip.slot_index === scene.index;
+          clip.is_playing = is_target;
+          if (is_target) {
+            track.playing_slot_index = scene.index;
+            track.fired_slot_index = scene.index;
+          }
+        }
+      }
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "scene-fired",
+          scene_id: scene.id,
+          scene: clone(scene)
+        }
+      });
+      this.emit("event", {
+        topic: "transport.changed",
+        payload: { is_playing: true }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      scene_id: scene.id
+    };
+  }
+
+  stopTrackClips(args, dryRun) {
+    const track = this.findTrack(args.track_id);
+    if (!dryRun) {
+      track.playing_slot_index = -1;
+      track.fired_slot_index = -1;
+      for (const clip of track.session_clips) {
+        clip.is_playing = false;
+      }
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "track-clips-stopped",
+          track_id: track.id
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      track_id: track.id
+    };
+  }
+
+  stopAllClips(dryRun) {
+    if (!dryRun) {
+      for (const track of this.state.tracks) {
+        track.playing_slot_index = -1;
+        track.fired_slot_index = -1;
+        for (const clip of track.session_clips) {
+          clip.is_playing = false;
+        }
+      }
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "all-clips-stopped"
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun
     };
   }
 }

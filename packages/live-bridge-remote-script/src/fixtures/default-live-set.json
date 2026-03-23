@@ -7,6 +7,10 @@
     "create_scene": true,
     "create_clip": true,
     "insert_notes": true,
+    "launch_clip": true,
+    "launch_scene": true,
+    "stop_track_clips": true,
+    "stop_all_clips": true,
     "set_parameter": true,
     "browser_access": true,
     "load_browser_item": true,
@@ -48,6 +52,8 @@
       "arm": false,
       "mute": false,
       "solo": false,
+      "playing_slot_index": -1,
+      "fired_slot_index": -1,
       "devices": [
         {
           "id": "device:track:1:1",
@@ -92,6 +98,8 @@
       "arm": false,
       "mute": false,
       "solo": false,
+      "playing_slot_index": -1,
+      "fired_slot_index": -1,
       "devices": [
         {
           "id": "device:track:2:1",

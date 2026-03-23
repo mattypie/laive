@@ -84,13 +84,74 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["item"]["name"], "Operator")
         self.assertEqual(result["track"]["devices"][-1]["name"], "Operator")
 
+    def test_launch_clip_marks_clip_playing(self):
+        clip = DirectSetNotesClip()
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.launch_clip("clip:session:track:1:slot:1")
+
+        self.assertTrue(result["clip"]["is_playing"])
+        self.assertTrue(song.is_playing)
+
+    def test_launch_scene_fires_matching_slot_index(self):
+        clip_a = DirectSetNotesClip()
+        clip_b = DirectSetNotesClip()
+        song = SongWithSceneClips([clip_a], [clip_b])
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.launch_scene("scene:1")
+
+        self.assertEqual(result["scene"]["id"], "scene:1")
+        self.assertTrue(song.tracks[0].clip_slots[0].clip.is_playing)
+        self.assertTrue(song.tracks[1].clip_slots[0].clip.is_playing)
+
+    def test_stop_track_clips_clears_track_play_state(self):
+        clip = DirectSetNotesClip()
+        song = SongWithSingleClip(clip)
+        song.tracks[0].clip_slots[0].fire()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.stop_track_clips("track:1")
+
+        self.assertEqual(result["track"]["id"], "track:1")
+        self.assertFalse(song.tracks[0].clip_slots[0].clip.is_playing)
+
 
 class SongWithSingleClip(object):
     def __init__(self, clip):
         self.live_version = "12.1.10"
         self.tracks = [TrackWithSingleClip(clip)]
-        self.scenes = []
+        self.scenes = [SceneStub("Scene 1", self, 0)]
+        self.tracks[0].song = self
         self.view = SongView(self)
+        self.is_playing = False
+
+    def start_playing(self):
+        self.is_playing = True
+
+    def stop_all_clips(self):
+        for track in self.tracks:
+            track.stop_all_clips()
+
+
+class SongWithSceneClips(object):
+    def __init__(self, track_a_clips, track_b_clips):
+        self.live_version = "12.1.10"
+        self.tracks = [
+            TrackWithClips("Track 1", track_a_clips, self),
+            TrackWithClips("Track 2", track_b_clips, self),
+        ]
+        self.scenes = [SceneStub("Scene 1", self, 0)]
+        self.view = SongView(self)
+        self.is_playing = False
+
+    def start_playing(self):
+        self.is_playing = True
+
+    def stop_all_clips(self):
+        for track in self.tracks:
+            track.stop_all_clips()
 
 
 class TrackWithSingleClip(object):
@@ -100,22 +161,80 @@ class TrackWithSingleClip(object):
         self.arm = False
         self.mute = False
         self.solo = False
-        self.clip_slots = [ClipSlotWithClip(clip)]
+        self.playing_slot_index = -1
+        self.fired_slot_index = -1
+        self.song = None
+        self.clip_slots = [ClipSlotWithClip(clip, self, 0)]
         self.devices = []
+
+    def stop_all_clips(self):
+        self.playing_slot_index = -1
+        self.fired_slot_index = -1
+        for slot in self.clip_slots:
+            if slot.clip is not None:
+                slot.clip.is_playing = False
+
+
+class TrackWithClips(object):
+    def __init__(self, name, clips, song):
+        self.name = name
+        self.type = "midi"
+        self.arm = False
+        self.mute = False
+        self.solo = False
+        self.song = song
+        self.playing_slot_index = -1
+        self.fired_slot_index = -1
+        self.clip_slots = [ClipSlotWithClip(clip, self, index) for index, clip in enumerate(clips)]
+        self.devices = []
+
+    def stop_all_clips(self):
+        self.playing_slot_index = -1
+        self.fired_slot_index = -1
+        for slot in self.clip_slots:
+            if slot.clip is not None:
+                slot.clip.is_playing = False
 
 
 class SongView(object):
     def __init__(self, song):
         self.selected_track = song.tracks[0]
+        self.selected_scene = song.scenes[0] if song.scenes else None
+        self.highlighted_clip_slot = None
 
 
 class ClipSlotWithClip(object):
-    def __init__(self, clip):
+    def __init__(self, clip, track, index):
         self.clip = clip
+        self.track = track
+        self.index = index
 
     @property
     def has_clip(self):
         return True
+
+    def fire(self):
+        for slot in self.track.clip_slots:
+            if slot.clip is not None:
+                slot.clip.is_playing = slot is self
+        self.track.playing_slot_index = self.index
+        self.track.fired_slot_index = self.index
+        self.track.song.view.highlighted_clip_slot = self
+        self.track.song.start_playing()
+
+
+class SceneStub(object):
+    def __init__(self, name, song, index):
+        self.name = name
+        self.song = song
+        self.index = index
+
+    def fire(self):
+        for track in self.song.tracks:
+            if self.index < len(track.clip_slots):
+                track.clip_slots[self.index].fire()
+        self.song.view.selected_scene = self
+        self.song.start_playing()
 
 
 class SetNotesSequenceClip(object):

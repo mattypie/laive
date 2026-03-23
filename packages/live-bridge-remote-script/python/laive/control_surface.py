@@ -199,6 +199,23 @@ class LaiveControlSurface(AbletonControlSurface):
                 notes=arguments.get("notes") or [],
                 dry_run=dry_run,
             )
+        if target == "launch_clip":
+            return self._live.launch_clip(
+                clip_id=arguments.get("clip_id"),
+                dry_run=dry_run,
+            )
+        if target == "launch_scene":
+            return self._live.launch_scene(
+                scene_id=arguments.get("scene_id"),
+                dry_run=dry_run,
+            )
+        if target == "stop_track_clips":
+            return self._live.stop_track_clips(
+                track_id=arguments.get("track_id"),
+                dry_run=dry_run,
+            )
+        if target == "stop_all_clips":
+            return self._live.stop_all_clips(dry_run=dry_run)
         if target == "get_browser_items":
             return self._live.get_browser_items(arguments.get("path"))
         if target == "load_browser_item":

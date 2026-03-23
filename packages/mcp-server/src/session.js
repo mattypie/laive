@@ -86,6 +86,8 @@ function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks }) 
       supported_events: [
         "transport.changed",
         "track.added",
+        "track.updated",
+        "scene.updated",
         "scene.added",
         "clip.updated",
         "state.dirty"
@@ -124,10 +126,33 @@ function mapBridgeEvent(topic, payload) {
         };
       }
 
+      if (payload.action === "clip-fired") {
+        return {
+          event: "clip.updated",
+          payload: {
+            ...normalizeClip(payload.track_id, payload.clip ?? { id: payload.clip_id, is_playing: true }),
+            id: payload.clip_id,
+            track_id: payload.track_id
+          }
+        };
+      }
+
+      if (payload.action === "scene-fired") {
+        return {
+          event: "scene.updated",
+          payload: payload.scene ?? { id: payload.scene_id }
+        };
+      }
+
       return {
         event: "state.dirty",
         payload: {
-          paths: [payload.clip_id ?? "song.clips"]
+          paths: [
+            payload.clip_id ??
+              payload.track_id ??
+              payload.scene_id ??
+              "song.clips"
+          ]
         }
       };
     case "parameters.changed":
@@ -288,6 +313,76 @@ export function createBridgeAdapter(target) {
       return {
         ...result,
         affectedObjects: [payload.clipId]
+      };
+    },
+    async launchClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "launch_clip",
+          {
+            clip_id: payload.clipId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async launchScene(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "launch_scene",
+          {
+            scene_id: payload.sceneId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.sceneId]
+      };
+    },
+    async stopTrackClips(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "stop_track_clips",
+          {
+            track_id: payload.trackId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
+      };
+    },
+    async stopAllClips(options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "stop_all_clips",
+          {},
+          { dryRun: Boolean(options.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: ["song"]
       };
     },
     async setParameter(payload, options = {}) {

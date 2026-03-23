@@ -26,6 +26,23 @@ class ListenerHubTests(unittest.TestCase):
         self.assertEqual(events[1][0], "state.changed")
         self.assertEqual(events[2][0], "tracks.changed")
 
+    def test_track_playback_listeners_emit_clip_events(self):
+        song = FakeSong()
+        song.tracks[0].clip_slots[0].create_clip(4)
+        adapter = LiveSetAdapter(song)
+        events = []
+        listeners = ListenerHub(adapter, lambda topic, payload: events.append((topic, payload)))
+        listeners.attach()
+
+        song.tracks[0].clip_slots[0].fire()
+
+        listeners.detach()
+
+        clip_events = [event for event in events if event[0] == "clips.changed"]
+        self.assertEqual(len(clip_events) >= 1, True)
+        self.assertEqual(clip_events[-1][1]["action"], "track-playback-changed")
+        self.assertEqual(clip_events[-1][1]["track_id"], "track:1")
+
 
 if __name__ == "__main__":
     unittest.main()

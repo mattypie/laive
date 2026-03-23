@@ -106,6 +106,20 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
 
     assert.equal(insertNotesResponse.result.isError, false);
 
+    const launchClipResponse = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 51,
+      method: "tools/call",
+      params: {
+        name: "launch_clip",
+        arguments: {
+          clipId: "clip:session:track:2:slot:1"
+        }
+      }
+    });
+
+    assert.equal(launchClipResponse.result.isError, false);
+
     const trackDetails = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
       id: 6,
@@ -121,6 +135,61 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
     assert.equal(trackDetails.result.structuredContent.track.sessionClips.length, 1);
     assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].name, "Bassline");
     assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].noteCount, 1);
+    assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].isPlaying, true);
+
+    const stopTrackClipsResponse = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 52,
+      method: "tools/call",
+      params: {
+        name: "stop_track_clips",
+        arguments: {
+          trackId: "track:2"
+        }
+      }
+    });
+
+    assert.equal(stopTrackClipsResponse.result.isError, false);
+
+    const stoppedTrackDetails = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 53,
+      method: "tools/call",
+      params: {
+        name: "get_track_details",
+        arguments: {
+          id: "track:2"
+        }
+      }
+    });
+
+    assert.equal(stoppedTrackDetails.result.structuredContent.track.sessionClips[0].isPlaying, false);
+
+    const launchSceneResponse = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 54,
+      method: "tools/call",
+      params: {
+        name: "launch_scene",
+        arguments: {
+          sceneId: "scene:1"
+        }
+      }
+    });
+
+    assert.equal(launchSceneResponse.result.isError, false);
+
+    const stopAllClipsResponse = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 55,
+      method: "tools/call",
+      params: {
+        name: "stop_all_clips",
+        arguments: {}
+      }
+    });
+
+    assert.equal(stopAllClipsResponse.result.isError, false);
 
     const browserItems = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
@@ -222,6 +291,16 @@ test("real bridge session can connect to a live bridge socket and refresh state"
         }
       ]
     });
+    await createBridgeAdapter(session.bridgeClient).launchClip({
+      clipId: clip.clip.id
+    });
+    await createBridgeAdapter(session.bridgeClient).stopTrackClips({
+      trackId: "track:2"
+    });
+    await createBridgeAdapter(session.bridgeClient).launchScene({
+      sceneId: "scene:1"
+    });
+    await createBridgeAdapter(session.bridgeClient).stopAllClips();
 
     const refresh = await createStateAdapter(session).refreshState("song");
     assert.equal(refresh.stateVersion > refresh.previousStateVersion, true);

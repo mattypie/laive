@@ -27,6 +27,9 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - create scenes
 - create MIDI clips in session slots
 - insert MIDI notes into clips
+- launch Session View clips
+- launch scenes
+- stop clips on a target track or across the set
 - browse Ableton browser roots and category paths through the control-surface bridge
 - load browser items such as devices onto a target track through the control-surface browser API
 - set device parameter values

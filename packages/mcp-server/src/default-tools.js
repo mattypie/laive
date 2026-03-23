@@ -556,6 +556,129 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "launch_clip",
+      description: "Launch a Session View clip by canonical clip id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id such as clip:session:track:8:slot:1."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        await policyAdapter.assertAllowed("launch_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        const launched = await bridgeAdapter.launchClip(
+          {
+            clipId: args.clipId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Clip ${args.dryRun ? "launch previewed" : "launched"} for ${args.clipId}.`,
+          launched.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "launch_scene",
+      description: "Launch a Session View scene by scene id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          sceneId: {
+            type: "string",
+            description: "Scene identifier, for example `scene:3`."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["sceneId"]
+      }),
+      async execute(args) {
+        requireString(args.sceneId, "sceneId");
+        await policyAdapter.assertAllowed("launch_scene", args);
+        const before = await stateAdapter.getProjectSummary();
+        const launched = await bridgeAdapter.launchScene(
+          {
+            sceneId: args.sceneId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Scene ${args.dryRun ? "launch previewed" : "launched"} for ${args.sceneId}.`,
+          launched.affectedObjects ?? [args.sceneId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "stop_track_clips",
+      description: "Stop all currently playing session clips on a target track.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Track identifier, for example `track:7`."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["trackId"]
+      }),
+      async execute(args) {
+        requireString(args.trackId, "trackId");
+        await policyAdapter.assertAllowed("stop_track_clips", args);
+        const before = await stateAdapter.getProjectSummary();
+        const stopped = await bridgeAdapter.stopTrackClips(
+          {
+            trackId: args.trackId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.trackId);
+        return buildMutationResult(
+          `Track clips ${args.dryRun ? "stop previewed" : "stopped"} for ${args.trackId}.`,
+          stopped.affectedObjects ?? [args.trackId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "stop_all_clips",
+      description: "Stop all currently playing session clips in the Live set.",
+      inputSchema: createObjectSchema({
+        properties: {
+          dryRun: dryRunProperty
+        }
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("stop_all_clips", args);
+        const before = await stateAdapter.getProjectSummary();
+        const stopped = await bridgeAdapter.stopAllClips({
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `All clips ${args.dryRun ? "stop previewed" : "stopped"}.`,
+          stopped.affectedObjects ?? ["song"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "set_parameter",
       description: "Set a device parameter by track/device/parameter identifiers.",
       inputSchema: createObjectSchema({

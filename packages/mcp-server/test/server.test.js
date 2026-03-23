@@ -88,6 +88,29 @@ function createServer() {
         affectedObjects: [payload.clipId]
       };
     },
+    async launchClip(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async launchScene(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.sceneId]
+      };
+    },
+    async stopTrackClips(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.trackId]
+      };
+    },
+    async stopAllClips() {
+      return {
+        affectedObjects: ["song"]
+      };
+    },
     async setParameter(payload) {
       return payload;
     },
@@ -278,6 +301,10 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("stop_transport"));
   assert.ok(byName.has("create_scene"));
   assert.ok(byName.has("insert_notes"));
+  assert.ok(byName.has("launch_clip"));
+  assert.ok(byName.has("launch_scene"));
+  assert.ok(byName.has("stop_track_clips"));
+  assert.ok(byName.has("stop_all_clips"));
   assert.ok(byName.has("get_component_status"));
   assert.ok(byName.has("list_sidecar_workflows"));
   assert.ok(byName.has("sidecar_snapshot_selection_context"));
@@ -442,6 +469,74 @@ test("insert_notes validates and returns mutation response", async () => {
     response.result.structuredContent.summary,
     "Notes inserted for clip:session:track:2:slot:1."
   );
+});
+
+test("session launch tools return structured mutation responses", async () => {
+  const server = createServer();
+
+  const launchClip = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 12,
+    method: "tools/call",
+    params: {
+      name: "launch_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1"
+      }
+    }
+  });
+
+  const launchScene = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 13,
+    method: "tools/call",
+    params: {
+      name: "launch_scene",
+      arguments: {
+        sceneId: "scene:2"
+      }
+    }
+  });
+
+  const stopTrackClips = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 14,
+    method: "tools/call",
+    params: {
+      name: "stop_track_clips",
+      arguments: {
+        trackId: "track:2"
+      }
+    }
+  });
+
+  const stopAllClips = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 15,
+    method: "tools/call",
+    params: {
+      name: "stop_all_clips",
+      arguments: {}
+    }
+  });
+
+  assert.equal(launchClip.result.isError, false);
+  assert.equal(
+    launchClip.result.structuredContent.summary,
+    "Clip launched for clip:session:track:2:slot:1."
+  );
+  assert.equal(launchScene.result.isError, false);
+  assert.equal(
+    launchScene.result.structuredContent.summary,
+    "Scene launched for scene:2."
+  );
+  assert.equal(stopTrackClips.result.isError, false);
+  assert.equal(
+    stopTrackClips.result.structuredContent.summary,
+    "Track clips stopped for track:2."
+  );
+  assert.equal(stopAllClips.result.isError, false);
+  assert.equal(stopAllClips.result.structuredContent.summary, "All clips stopped.");
 });
 
 test("run_sidecar_workflow surfaces setup instructions when sidecar is unavailable", async () => {

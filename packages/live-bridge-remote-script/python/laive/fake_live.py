@@ -123,8 +123,10 @@ class FakeClip(object):
 
 
 class FakeClipSlot(object):
-    def __init__(self):
+    def __init__(self, track=None, index=0):
         self.clip = None
+        self.track = track
+        self.index = index
 
     @property
     def has_clip(self):
@@ -137,27 +139,99 @@ class FakeClipSlot(object):
         preview = FakeClip(name=name or "Preview Clip", length=length_beats)
         return preview
 
+    def fire(self):
+        if self.track is None or self.clip is None:
+            return
+        for slot in self.track.clip_slots:
+            if slot.clip is not None:
+                slot.clip.is_playing = slot is self
+        self.track.playing_slot_index = self.index
+        self.track.fired_slot_index = self.index
+        if self.track.song is not None:
+            self.track.song.view.highlighted_clip_slot = self
+            self.track.song.start_playing()
+            self.track.song._notify("tracks")
 
-class FakeTrack(object):
+
+class FakeTrack(ListenerMixin):
     def __init__(self, name):
+        super(FakeTrack, self).__init__()
         self.name = name
         self.type = "midi"
         self.arm = False
         self.mute = False
         self.solo = False
-        self.clip_slots = [FakeClipSlot() for _ in range(4)]
+        self.song = None
+        self._playing_slot_index = -1
+        self._fired_slot_index = -1
+        self.clip_slots = [FakeClipSlot(self, index) for index in range(4)]
         self.devices = [FakeDevice("Instrument", [FakeParameter("Macro 1", 0.5)])]
+
+    @property
+    def playing_slot_index(self):
+        return self._playing_slot_index
+
+    @playing_slot_index.setter
+    def playing_slot_index(self, value):
+        self._playing_slot_index = value
+        self._notify("playing_slot_index")
+
+    @property
+    def fired_slot_index(self):
+        return self._fired_slot_index
+
+    @fired_slot_index.setter
+    def fired_slot_index(self, value):
+        self._fired_slot_index = value
+        self._notify("fired_slot_index")
+
+    def bind_song(self, song):
+        self.song = song
+        for index, slot in enumerate(self.clip_slots):
+            slot.track = self
+            slot.index = index
+
+    def stop_all_clips(self):
+        self.playing_slot_index = -1
+        self.fired_slot_index = -1
+        for slot in self.clip_slots:
+            if slot.clip is not None:
+                slot.clip.is_playing = False
+        if self.song is not None:
+            self.song._notify("tracks")
 
 
 class FakeSongView(object):
     def __init__(self, song):
         self.song = song
         self.selected_track = song.tracks[0] if song.tracks else None
+        self.selected_scene = song.scenes[0] if song.scenes else None
+        self.highlighted_clip_slot = None
 
 
 class FakeScene(object):
-    def __init__(self, name):
+    def __init__(self, name, song=None, index=0):
         self.name = name
+        self.song = song
+        self.index = index
+
+    def bind_song(self, song, index):
+        self.song = song
+        self.index = index
+
+    def fire(self):
+        if self.song is None:
+            return
+        self.song.view.selected_scene = self
+        for track in self.song.tracks:
+            if self.index < len(track.clip_slots):
+                slot = track.clip_slots[self.index]
+                if slot.has_clip:
+                    slot.fire()
+                else:
+                    track.stop_all_clips()
+        self.song.start_playing()
+        self.song._notify("tracks")
 
 
 class FakeSong(ListenerMixin):
@@ -173,6 +247,10 @@ class FakeSong(ListenerMixin):
         self.metronome = False
         self.tracks = [FakeTrack("Drums"), FakeTrack("Bass")]
         self.scenes = [FakeScene("Intro"), FakeScene("Drop")]
+        for index, track in enumerate(self.tracks):
+            track.bind_song(self)
+        for index, scene in enumerate(self.scenes):
+            scene.bind_song(self, index)
         self.view = FakeSongView(self)
 
     @property
@@ -200,11 +278,17 @@ class FakeSong(ListenerMixin):
         self.is_playing = False
 
     def create_midi_track(self, index):
-        self.tracks.insert(index, FakeTrack("Track {0}".format(index + 1)))
+        track = FakeTrack("Track {0}".format(index + 1))
+        track.bind_song(self)
+        self.tracks.insert(index, track)
         self._notify("tracks")
 
     def create_scene(self, index):
-        self.scenes.insert(index, FakeScene("Scene {0}".format(index + 1)))
+        scene = FakeScene("Scene {0}".format(index + 1))
+        self.scenes.insert(index, scene)
+        for scene_index, current_scene in enumerate(self.scenes):
+            current_scene.bind_song(self, scene_index)
+        self.view.selected_scene = self.scenes[index]
         self._notify("scenes")
 
     def preview_track(self, index, name=None):
@@ -213,6 +297,11 @@ class FakeSong(ListenerMixin):
 
     def preview_scene(self, index, name=None):
         return FakeScene(name or "Scene {0}".format(index + 1))
+
+    def stop_all_clips(self):
+        for track in self.tracks:
+            track.stop_all_clips()
+        self._notify("tracks")
 
 
 class FakeCInstance(object):

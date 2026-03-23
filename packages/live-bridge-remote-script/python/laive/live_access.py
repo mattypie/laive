@@ -55,6 +55,10 @@ class LiveSetAdapter(object):
             "create_scene": hasattr(self.song, "create_scene"),
             "create_clip": True,
             "insert_notes": True,
+            "launch_clip": True,
+            "launch_scene": True,
+            "stop_track_clips": True,
+            "stop_all_clips": True,
             "set_parameter": True,
             "browser_access": self._browser_is_available(),
             "load_browser_item": self._browser_is_available(),
@@ -218,6 +222,51 @@ class LiveSetAdapter(object):
             clip_state["noteCount"] = note_count
         return {"applied": not dry_run, "clip": clip_state, "note_count": note_count}
 
+    def launch_clip(self, clip_id, dry_run=False):
+        clip, track_id, slot_index = self._find_clip(clip_id)
+        slot = self._find_clip_slot_by_id(clip_id)
+        if not dry_run:
+            fire = getattr(slot, "fire", None)
+            if callable(fire):
+                fire()
+            else:
+                self._mark_clip_playing(track_id, slot_index)
+        clip_state = self._serialize_clip(clip, track_id, slot_index)
+        if dry_run:
+            clip_state["is_playing"] = True
+        return {"applied": not dry_run, "clip": clip_state}
+
+    def launch_scene(self, scene_id, dry_run=False):
+        scene, index = self._find_scene(scene_id)
+        if not dry_run:
+            fire = getattr(scene, "fire", None)
+            if callable(fire):
+                fire()
+            else:
+                self._mark_scene_playing(index)
+        scene_state = self._serialize_scene(scene, index)
+        return {"applied": not dry_run, "scene": scene_state}
+
+    def stop_track_clips(self, track_id, dry_run=False):
+        track, index = self._find_track(track_id)
+        if not dry_run:
+            stop_all_clips = getattr(track, "stop_all_clips", None)
+            if callable(stop_all_clips):
+                stop_all_clips()
+            else:
+                self._clear_track_clip_state(track)
+        return {"applied": not dry_run, "track": self._serialize_track(track, index)}
+
+    def stop_all_clips(self, dry_run=False):
+        if not dry_run:
+            stop_all_clips = getattr(self.song, "stop_all_clips", None)
+            if callable(stop_all_clips):
+                stop_all_clips()
+            else:
+                for track in getattr(self.song, "tracks", []):
+                    self._clear_track_clip_state(track)
+        return {"applied": not dry_run, "song": self.get_song_state()}
+
     def _serialize_track(self, track, index):
         track_id = getattr(track, "id", None) or _track_id(index)
         clip_slots = getattr(track, "clip_slots", [])
@@ -285,6 +334,25 @@ class LiveSetAdapter(object):
                 if candidate == clip_id:
                     return current_clip, track_id, slot_index
         raise RequestError("not_found", "Clip not found: {0}".format(clip_id))
+
+    def _find_clip_slot_by_id(self, clip_id):
+        for track_index, track in enumerate(getattr(self.song, "tracks", [])):
+            track_id = getattr(track, "id", None) or _track_id(track_index)
+            for slot_index, slot in enumerate(getattr(track, "clip_slots", [])):
+                if not getattr(slot, "has_clip", False):
+                    continue
+                current_clip = slot.clip
+                candidate = getattr(current_clip, "id", None) or _clip_id(track_id, slot_index)
+                if candidate == clip_id:
+                    return slot
+        raise RequestError("not_found", "Clip slot not found for clip: {0}".format(clip_id))
+
+    def _find_scene(self, scene_id):
+        for index, scene in enumerate(getattr(self.song, "scenes", [])):
+            candidate = getattr(scene, "id", None) or _scene_id(index)
+            if candidate == scene_id:
+                return scene, index
+        raise RequestError("not_found", "Scene not found: {0}".format(scene_id))
 
     def _find_device(self, device_id):
         for track_index, track in enumerate(getattr(self.song, "tracks", [])):
@@ -407,3 +475,36 @@ class LiveSetAdapter(object):
         if not base_path:
             return name
         return "{0}/{1}".format(base_path.rstrip("/"), name)
+
+    def _mark_clip_playing(self, target_track_id, target_slot_index):
+        for track_index, track in enumerate(getattr(self.song, "tracks", [])):
+            track_id = getattr(track, "id", None) or _track_id(track_index)
+            for slot_index, slot in enumerate(getattr(track, "clip_slots", [])):
+                if not getattr(slot, "has_clip", False):
+                    continue
+                slot.clip.is_playing = track_id == target_track_id and slot_index == target_slot_index
+        start_playing = getattr(self.song, "start_playing", None)
+        if callable(start_playing):
+            start_playing()
+
+    def _mark_scene_playing(self, scene_index):
+        for track in getattr(self.song, "tracks", []):
+            target_slot = None
+            clip_slots = getattr(track, "clip_slots", [])
+            for slot_index, slot in enumerate(clip_slots):
+                if not getattr(slot, "has_clip", False):
+                    continue
+                is_target = slot_index == scene_index
+                slot.clip.is_playing = is_target
+                if is_target:
+                    target_slot = slot
+            if target_slot is None:
+                self._clear_track_clip_state(track)
+        start_playing = getattr(self.song, "start_playing", None)
+        if callable(start_playing):
+            start_playing()
+
+    def _clear_track_clip_state(self, track):
+        for slot in getattr(track, "clip_slots", []):
+            if getattr(slot, "has_clip", False):
+                slot.clip.is_playing = False

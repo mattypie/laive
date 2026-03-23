@@ -18,6 +18,8 @@ def serialize_track_state(track, index, track_id, session_clips, devices):
     armed = bool(getattr(track, "arm", False))
     muted = bool(getattr(track, "mute", False))
     soloed = bool(getattr(track, "solo", False))
+    playing_slot_index = getattr(track, "playing_slot_index", None)
+    fired_slot_index = getattr(track, "fired_slot_index", None)
 
     return {
         "id": track_id,
@@ -30,6 +32,10 @@ def serialize_track_state(track, index, track_id, session_clips, devices):
         "armed": armed,
         "muted": muted,
         "soloed": soloed,
+        "playing_slot_index": playing_slot_index,
+        "playingSlotIndex": playing_slot_index,
+        "fired_slot_index": fired_slot_index,
+        "firedSlotIndex": fired_slot_index,
         "session_clips": session_clips,
         "arrangement_clips": [],
         "devices": devices,

@@ -106,6 +106,47 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(load_item["result"]["item"]["name"], "Operator")
         self.assertEqual(self.song.tracks[0].devices[-1].name, "Operator")
 
+    def test_session_launch_controls(self):
+        create_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="create_clip",
+                arguments={"track_id": "track:1", "slot_index": 0, "length_beats": 4, "name": "Hook"},
+                request_id="clip-launch-1",
+            )
+        )
+        clip_id = create_clip["result"]["clip"]["id"]
+
+        launch_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="launch_clip",
+                arguments={"clip_id": clip_id},
+                request_id="clip-launch-2",
+            )
+        )
+        stop_track = self.surface.process_request(
+            create_request(
+                "call",
+                target="stop_track_clips",
+                arguments={"track_id": "track:1"},
+                request_id="clip-launch-3",
+            )
+        )
+        launch_scene = self.surface.process_request(
+            create_request(
+                "call",
+                target="launch_scene",
+                arguments={"scene_id": "scene:1"},
+                request_id="clip-launch-4",
+            )
+        )
+
+        self.assertTrue(launch_clip["result"]["clip"]["is_playing"])
+        self.assertEqual(stop_track["result"]["track"]["id"], "track:1")
+        self.assertFalse(stop_track["result"]["track"]["session_clips"][0]["is_playing"])
+        self.assertEqual(launch_scene["result"]["scene"]["id"], "scene:1")
+
 
 if __name__ == "__main__":
     unittest.main()
