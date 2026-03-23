@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.3.2 - 2026-03-23
+
 - Changed bridge note insertion to prefer Live 11's documented extended-note API by sending `add_new_notes` a single `{"notes": [...]}` payload instead of tuple-based note specs.
 - Changed bridge note replacement to clear existing clip notes through `remove_notes_by_id` or `remove_notes_extended` before re-adding the new payload, avoiding UI-selection-dependent overwrite semantics in real Live sessions.
 - Added regression coverage for the extended-note insert and replace paths so the Python bridge and fake harness exercise the same API family now used against the real runtime.
@@ -85,3 +87,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
