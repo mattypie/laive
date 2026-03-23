@@ -121,6 +121,34 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(load_item["result"]["item"]["name"], "Operator")
         self.assertEqual(self.song.tracks[0].devices[-1].name, "Operator")
 
+    def test_select_track_updates_song_view(self):
+        response = self.surface.process_request(
+            create_request(
+                "call",
+                target="select_track",
+                arguments={"track_id": "track:2"},
+                request_id="track-select-1",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["track"]["id"], "track:2")
+        self.assertEqual(self.song.view.selected_track, self.song.tracks[1])
+
+    def test_select_track_routes_to_live_adapter(self):
+        response = self.surface.process_request(
+            create_request(
+                "call",
+                target="select_track",
+                arguments={"track_id": "track:2"},
+                request_id="select-track-1",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["track"]["id"], "track:2")
+        self.assertEqual(self.song.view.selected_track, self.song.tracks[1])
+
     def test_session_launch_controls(self):
         create_clip = self.surface.process_request(
             create_request(

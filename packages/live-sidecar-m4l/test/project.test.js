@@ -28,8 +28,9 @@ test("project manifest matches packaged source manifest", async () => {
   assert.equal(manifest.projectFile, manifestFile.project_file);
   assert.equal(path.basename(manifest.patcher), manifestFile.patcher);
   assert.equal(path.basename(manifest.nodeScript), manifestFile.node_script);
+  assert.deepEqual(manifest.assets, manifestFile.assets);
   assert.equal(path.basename(manifest.prebuiltDevice), "laive-sidecar.amxd");
-  assert.deepEqual(Object.keys(projectFile.contents), ["patchers", "code"]);
+  assert.deepEqual(Object.keys(projectFile.contents), ["patchers", "code", "assets"]);
   assert.deepEqual(projectFile.searchpath, {});
   assert.equal(projectFile.amxdtype, 1835887981);
   const patcherFile = JSON.parse(
@@ -47,6 +48,14 @@ test("project manifest matches packaged source manifest", async () => {
   assert.equal(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-8").box.text,
     "list_workflows"
+  );
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-logo").box.pic,
+    "../assets/logo.png"
+  );
+  assert.match(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.text,
+    /,---\./
   );
 });
 
@@ -67,6 +76,7 @@ test("stageSidecarProject copies the source project bundle", async () => {
     assert.ok(staged.stagedProjectRoot.endsWith("laive-sidecar"));
     assert.equal(metadata.patcher, "patchers/laive-sidecar.maxpat");
     assert.equal(metadata.nodeScript, "code/laive-sidecar-node.js");
+    assert.deepEqual(metadata.assets, ["assets/logo.png", "assets/logo.txt"]);
     assert.equal(metadata.prebuiltDeviceExists, true);
     assert.ok(staged.stagedDevicePath.endsWith("laive-sidecar.amxd"));
     await assert.rejects(access(legacyProjectRoot));

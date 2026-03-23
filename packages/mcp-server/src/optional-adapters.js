@@ -15,7 +15,8 @@ import { McpServerError } from "./errors.js";
 function buildSidecarSetupInstructions(devicePath) {
   return [
     "Run `npx laive-mcp install --apply` if the sidecar device is not installed yet.",
-    `Load \`${devicePath}\` onto a MIDI track in the current Ableton Live set.`,
+    "Use `ensure_sidecar_on_track` to place the sidecar automatically when the UI helper is available.",
+    `Load \`${devicePath}\` onto a MIDI track in the current Ableton Live set if automatic placement is unavailable.`,
     "Keep the `laive` Control Surface enabled in Live before retrying the sidecar tool."
   ];
 }
@@ -38,6 +39,12 @@ function summarizeUiWorkflows() {
 
 function createSetupRequiredError(message, data) {
   return new McpServerError("setup_required", message, data);
+}
+
+function requireString(value, fieldName) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new McpServerError("invalid_request", `${fieldName} must be a non-empty string`);
+  }
 }
 
 function requireConfigured(status, label) {
@@ -119,7 +126,7 @@ function getStatus() {
   };
 }
 
-export function createSidecarAdapter({ stateAdapter, bridgeAdapter } = {}) {
+export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomationAdapter } = {}) {
   return {
     async getStatus() {
       return await getSidecarStatus(stateAdapter);
@@ -182,6 +189,68 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter } = {}) {
         deviceTree: await stateAdapter.getDeviceTree(resolvedTrackId)
       };
     },
+    async ensureOnTrack({ trackId, dryRun = false } = {}) {
+      const status = await getSidecarStatus(stateAdapter);
+      requireConfigured(status, "Max for Live sidecar");
+      requireString(trackId, "trackId");
+
+      const existingInstance = status.active_instances.find((instance) => instance.trackId === trackId);
+      if (existingInstance) {
+        return {
+          configured: true,
+          active: true,
+          trackId,
+          workflow: "ensureOnTrack",
+          status: "already_active",
+          method: "existing_instance",
+          activeInstance: existingInstance,
+          setup_instructions: status.setup_instructions
+        };
+      }
+
+      if (!bridgeAdapter || typeof bridgeAdapter.selectTrack !== "function") {
+        throw new McpServerError(
+          "adapter_unavailable",
+          "bridge adapter cannot select the target track for sidecar placement"
+        );
+      }
+
+      const resolvedUiAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
+      const uiStatus = await resolvedUiAdapter.getStatus();
+      requireConfigured(uiStatus, "UI helper");
+
+      await bridgeAdapter.selectTrack({ trackId }, { dryRun });
+      const uiWorkflow = dryRun
+        ? {
+            workflow: "browserSearchAndLoad",
+            preview: true,
+            parameters: { query: "laive-sidecar" }
+          }
+        : await resolvedUiAdapter.executeWorkflow("browserSearchAndLoad", {
+            query: "laive-sidecar"
+          });
+
+      const nextStatus = await getSidecarStatus(stateAdapter);
+      const activeInstance =
+        nextStatus.active_instances.find((instance) => instance.trackId === trackId) ?? null;
+
+      return {
+        configured: true,
+        active: Boolean(activeInstance),
+        trackId,
+        workflow: "ensureOnTrack",
+        status: activeInstance ? "loaded" : dryRun ? "preview" : "dispatched",
+        method: "ui_browser_search_and_load",
+        activeInstance,
+        ui_workflow: uiWorkflow,
+        warnings: activeInstance
+          ? []
+          : [
+              "The sidecar load action was dispatched but the device was not confirmed on the target track yet."
+            ],
+        setup_instructions: nextStatus.setup_instructions
+      };
+    },
     async executeWorkflow(name, parameters = {}) {
       switch (name) {
         case "snapshotSelectionContext":
@@ -195,6 +264,11 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter } = {}) {
         case "observeDeviceParameters":
           return await this.observeDeviceParameters({
             trackId: parameters.trackId
+          });
+        case "ensureOnTrack":
+          return await this.ensureOnTrack({
+            trackId: parameters.trackId,
+            dryRun: Boolean(parameters.dryRun)
           });
         default:
           throw new McpServerError("invalid_request", `Unknown sidecar workflow: ${name}`);

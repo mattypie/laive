@@ -4,16 +4,16 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: End-user delivery hardening, with official Session View launch/control primitives being added across the bridge and MCP surface
+- Active phase: Sidecar ergonomics and optional-component hardening, with branded Max UI delivery, explicit sidecar placement tooling, and follow-on sidecar roadmap alignment being added across the docs and MCP surface
 
 ## Phase Status
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | 0. Vision and scope | complete | Initial plan approved and repository created. |
-| 1. Foundation and bridge | in progress | Fixture bridge, Python Remote Script scaffold, user-facing install flow, browser-backed device loading, and Session View launch/stop primitives are being wired through the real bridge. |
+| 1. Foundation and bridge | in progress | Fixture bridge, Python Remote Script scaffold, user-facing install flow, browser-backed device loading, Session View launch/stop primitives, and track-selection helpers are wired through the real bridge. |
 | 2. State engine | in progress | Canonical project-state mirror, reducers, replay, and monotonic snapshot versioning implemented. |
-| 3. MCP surface | in progress | MCP server now has a real bridge-backed stdio launch path plus fixture mode for smoke testing, with Session View launch/stop tools being promoted to first-class MCP actions. |
+| 3. MCP surface | in progress | MCP server now has a real bridge-backed stdio launch path plus fixture mode for smoke testing, with Session View launch/stop tools and sidecar-placement tooling promoted to first-class MCP actions. |
 | 4. UI automation | in progress | UI helper app staging is implemented so Accessibility permissions map to a shipped artifact. |
 | 5. `.als` snapshots | in progress | Offline parser and diff scaffold implemented. |
 | 6. Safety, evals, release | in progress | End-user CLI, README, install docs, release checklist, fixtures, and benchmark/replay scripts implemented. |
@@ -76,4 +76,9 @@
 - Added bridge and fake-runtime regression coverage for extended-note insert and replace so repository tests now exercise the same API family intended for the real Live runtime.
 - Tightened extended-note replacement so the bridge now treats the clear step as mandatory: it tries dict-form extended-note removal first, verifies the clip was actually cleared, and fails fast instead of silently appending when Live 11 accepts a removal call but leaves the original notes intact.
 - Corrected the Python bridge contract again after live validation showed that Remote Scripts do not accept the Max-style `{"notes": [...]}` payload for `add_new_notes`: inserts and replace-after-clear now send Python note specifications (`MidiNoteSpecification` when available, tuple fallback otherwise), while keeping the hardened clear-step logic in place.
-- Remaining follow-up after this slice: publish the extended-note bridge fix through the published `npx laive-mcp` path, then re-run the live replacement matrix (`replace_notes`, `sidecar_replace_clip_notes`, optional sidecar load/install flow) in a real Live session.
+- Verified through the published `npx laive-mcp` path that `replace_notes` now works against both populated and empty session clips in a real Live 11 session, and that Session View launch plus stop flows behave correctly through the integrated MCP tools.
+- Added a bridge-level `select_track` action so MCP workflows can target a track before browser-driven or UI-assisted placement actions.
+- Added an MCP `ensure_sidecar_on_track` workflow that selects the target track, checks whether `laive-sidecar` is already active there, and otherwise asks the optional UI helper to load it with structured setup guidance if the optional components are not ready.
+- Refreshed the staged Max sidecar source project so it now carries bundled `logo.png` and `logo.txt` assets, letting the patcher present a branded `laive` device UI in Live with a readable ASCII fallback banner.
+- Updated the docs and plan set to describe the sidecar more clearly as an optional, selection-aware companion to the control-surface bridge rather than the primary control path.
+- Remaining follow-up after this slice: validate `ensure_sidecar_on_track` against a real Live set, expand the sidecar beyond note replacement into selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows, and keep the published `npx laive-mcp` path as the only supported end-to-end validation route.

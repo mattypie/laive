@@ -75,6 +75,8 @@ Document:
 
 - installation paths for Remote Script
 - Max for Live sidecar install steps
+- optional sidecar placement through MCP plus its UI-helper dependency
+- sidecar branding expectations so the installed device is visibly recognizable in Live
 - macOS accessibility permission requirements
 - supported Live versions
 - known limitations
@@ -96,6 +98,7 @@ Add:
 - tool reference
 - troubleshooting guide
 - version compatibility matrix
+- clear user-facing explanation of control-surface bridge vs sidecar responsibilities
 
 ## Implementation Tasks
 
@@ -105,6 +108,7 @@ Add:
 4. Add packaging manifests for each component.
 5. Write full operator docs.
 6. Define release checklist and rollback plan.
+7. Validate the published `npx laive-mcp` path for sidecar placement and optional-component guidance, not just local source execution.
 
 ## Acceptance Criteria
 

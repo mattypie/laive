@@ -464,6 +464,24 @@ export function createBridgeAdapter(target) {
         ...result,
         affectedObjects: result.track ? [payload.trackId, ...((result.track.devices ?? []).map((device) => device.id))] : [payload.trackId]
       };
+    },
+    async selectTrack(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "select_track",
+          {
+            track_id: payload.trackId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
+      };
     }
   };
 }

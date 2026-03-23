@@ -21,6 +21,16 @@
         "kind": "javascript",
         "local": 1
       }
+    },
+    "assets": {
+      "logo.png": {
+        "kind": "image",
+        "local": 1
+      },
+      "logo.txt": {
+        "kind": "text",
+        "local": 1
+      }
     }
   },
   "layout": {},

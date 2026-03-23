@@ -35,11 +35,13 @@ Each phase is intended to produce a usable artifact:
 - Phase 6 hardens the system for real use and release.
 
 Phases are ordered to reduce rework, but they are scoped so that work can proceed in parallel once the required contracts are stable.
+The current sidecar-improvement workstream also spans phases 0, 3, and 6 in parallel because it touches product positioning, MCP ergonomics, and release-facing docs at the same time.
 
 ## Decision Summary
 
 - Primary runtime bridge: Ableton Python Remote Script.
-- Supplemental runtime bridge: Max for Live sidecar where official Live API coverage or note-level workflows are better inside Max.
+- Supplemental runtime bridge: Max for Live sidecar for selection-aware, track-local, and future analysis workflows that are better inside the set than in the Remote Script alone.
+- Sidecar UX direction: ship a branded, recognizable in-Live device presentation instead of a placeholder-looking source patcher.
 - Agent surface: MCP server in TypeScript.
 - Canonical state: event-fed graph owned outside Live, not inferred inside the LLM.
 - UI fallback: macOS accessibility helper for dialogs, browser actions, export flows, and plugin/UI gaps.

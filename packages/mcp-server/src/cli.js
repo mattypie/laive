@@ -60,11 +60,12 @@ async function main() {
   const session = await createSession(options);
   const stateAdapter = createStateAdapter(session);
   const bridgeAdapter = createBridgeAdapter(session);
+  const uiAutomationAdapter = createUiAutomationAdapter();
   const sidecarAdapter = createSidecarAdapter({
     stateAdapter,
-    bridgeAdapter
+    bridgeAdapter,
+    uiAutomationAdapter
   });
-  const uiAutomationAdapter = createUiAutomationAdapter();
   const server = new LaiveMcpServer({
     stateAdapter,
     bridgeAdapter,

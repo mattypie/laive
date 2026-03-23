@@ -51,6 +51,7 @@ class LiveSetAdapter(object):
         return {
             "read_state": True,
             "set_transport": True,
+            "select_track": True,
             "create_track": hasattr(self.song, "create_midi_track"),
             "create_scene": hasattr(self.song, "create_scene"),
             "create_clip": True,
@@ -143,6 +144,20 @@ class LiveSetAdapter(object):
         return {
             "applied": not dry_run,
             "item": self._serialize_browser_item(item, path),
+            "track": self._serialize_track(track, index),
+        }
+
+    def select_track(self, track_id, dry_run=False):
+        track, index = self._find_track(track_id)
+        song_view = getattr(self.song, "view", None)
+        if song_view is None or not hasattr(song_view, "selected_track"):
+            raise RequestError("unsupported_runtime", "Song track selection is unavailable")
+
+        if not dry_run:
+            song_view.selected_track = track
+
+        return {
+            "applied": not dry_run,
             "track": self._serialize_track(track, index),
         }
 

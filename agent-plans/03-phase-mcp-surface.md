@@ -39,7 +39,13 @@ A TypeScript MCP server with strongly-scoped tools, structured errors, and state
 - `create_scene`
 - `create_clip`
 - `insert_notes`
+- `replace_notes`
 - `launch_clip`
+- `launch_scene`
+- `stop_track_clips`
+- `stop_all_clips`
+- `load_browser_item`
+- `ensure_sidecar_on_track`
 - `stop_track`
 - `set_parameter`
 - `rename_object`
@@ -84,6 +90,8 @@ Examples:
 - `create_clip` should support target track, slot or arrangement location, length, optional name, and optional note payload.
 - `set_parameter` should support lookup by track/device/parameter name with disambiguation hints.
 - `preview_mutation` should not execute writes; it should resolve targets and return what would change.
+- `ensure_sidecar_on_track` should select the target track, prefer official browser-backed insertion where possible, and return setup guidance when the UI helper or shipped device is unavailable.
+- sidecar-facing tools should explain whether the request can be satisfied by the primary bridge alone or whether the optional sidecar adds materially better context or behavior.
 
 ## Implementation Tasks
 
@@ -122,6 +130,8 @@ The MCP layer should tell the agent what to do next, not just that something fai
 - create track and clip through MCP
 - update tempo
 - launch clip
+- place the optional sidecar on a target track
+- verify the sidecar reports as active and recognizable after placement
 - inspect post-write state
 
 ## Acceptance Criteria
@@ -130,6 +140,7 @@ The MCP layer should tell the agent what to do next, not just that something fai
 - reads are routed through the state engine by default
 - writes return updated, localized state summaries
 - tool errors are actionable and structured
+- optional-sidecar tools either complete the placement flow or return explicit user instructions instead of a generic unsupported error
 
 ## Dependencies
 

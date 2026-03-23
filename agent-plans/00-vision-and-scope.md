@@ -87,9 +87,19 @@ Relying on only one surface is weak:
 The correct design is layered:
 
 - Remote Script for primary runtime control
-- Max for Live sidecar for deep official API access and patch-native workflows
+- Max for Live sidecar for selection-aware workflows, track-local transforms, and patch-native workflows that benefit from living inside the set
 - UI automation for last-mile operations
 - `.als` parsing for offline truth and recovery
+
+Near-term sidecar improvements should focus on:
+
+- a recognizable in-Live device UI so users can tell when `laive-sidecar` is active
+- an MCP-visible install or placement flow that can help agents ensure the sidecar is on the intended track
+- selected-clip transforms that are easier from inside the set than through the main bridge
+- selected-device parameter snapshot or restore workflows
+- clip-envelope inspection and editing where the control-surface bridge is awkward
+- lightweight track-local analysis that benefits from living inside Max
+- an explicit MCP-side activation path that can place or confirm the sidecar on a target track instead of leaving that burden entirely on the user
 
 ### 2. Maintain State Outside The Agent
 

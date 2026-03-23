@@ -24,13 +24,14 @@ export class LaiveMcpServer {
     };
     this.stateAdapter = stateAdapter ?? createUnsupportedAdapter("state");
     this.bridgeAdapter = bridgeAdapter ?? createUnsupportedAdapter("bridge");
+    this.uiAutomationAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
     this.sidecarAdapter =
       sidecarAdapter ??
       createSidecarAdapter({
         stateAdapter: this.stateAdapter,
-        bridgeAdapter: this.bridgeAdapter
+        bridgeAdapter: this.bridgeAdapter,
+        uiAutomationAdapter: this.uiAutomationAdapter
       });
-    this.uiAutomationAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
     this.integrationStatusAdapter =
       integrationStatusAdapter ??
       createIntegrationStatusAdapter({

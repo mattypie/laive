@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { LaiveMcpServer, McpServerError } from "../src/index.js";
 
-function createServer() {
+function createServer(options = {}) {
   let stateVersion = 3;
+  let selectedTrackId = "track:1";
+  let activeSidecarTrackId = options.activeSidecarTrackId ?? null;
 
   const stateAdapter = {
     async getProjectSummary() {
@@ -166,6 +168,15 @@ function createServer() {
         affectedObjects: [payload.trackId, `${payload.trackId}:device:new`]
       };
     },
+    async selectTrack(payload) {
+      selectedTrackId = payload.trackId;
+      return {
+        track: {
+          id: payload.trackId
+        },
+        affectedObjects: [payload.trackId]
+      };
+    },
     async getCapabilities() {
       return {
         bridgeVersion: "0.1.0",
@@ -182,8 +193,20 @@ function createServer() {
 
   const sidecarAdapter = {
     async getStatus() {
+      const configured = options.sidecarConfigured ?? false;
       return {
-        configured: false,
+        configured,
+        active: Boolean(activeSidecarTrackId),
+        active_instances: activeSidecarTrackId
+          ? [
+              {
+                trackId: activeSidecarTrackId,
+                trackName: activeSidecarTrackId,
+                deviceId: `${activeSidecarTrackId}:device:sidecar`,
+                deviceName: "laive-sidecar"
+              }
+            ]
+          : [],
         devicePath: "/Users/test/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd",
         workflows: [
           {
@@ -215,12 +238,35 @@ function createServer() {
         setup_instructions: ["Install the sidecar device."]
       });
     },
+    async ensureOnTrack({ trackId, dryRun = false }) {
+      if (!(options.sidecarConfigured ?? false)) {
+        throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+          component: "sidecar",
+          setup_instructions: ["Install the sidecar device."]
+        });
+      }
+      if (!dryRun) {
+        activeSidecarTrackId = trackId;
+      }
+      return {
+        workflow: "ensureOnTrack",
+        trackId,
+        status: dryRun ? "preview" : "loaded",
+        activeInstance: {
+          trackId,
+          deviceId: `${trackId}:device:sidecar`
+        }
+      };
+    },
     async executeWorkflow(name) {
       if (name === "replaceClipNotes") {
         return await this.replaceClipNotes();
       }
       if (name === "snapshotSelectionContext") {
         return await this.snapshotSelectionContext();
+      }
+      if (name === "ensureOnTrack") {
+        return await this.ensureOnTrack({ trackId: "track:1" });
       }
       return await this.observeDeviceParameters();
     }
@@ -229,7 +275,7 @@ function createServer() {
   const uiAutomationAdapter = {
     async getStatus() {
       return {
-        configured: true,
+        configured: options.uiHelperConfigured ?? true,
         appBundleRoot: "/Users/test/Applications/laive-ui-helper.app",
         executablePath: "/Users/test/Applications/laive-ui-helper.app/Contents/MacOS/laive-ui-helper",
         workflows: [
@@ -246,6 +292,12 @@ function createServer() {
       return await this.getStatus();
     },
     async executeWorkflow(name, parameters) {
+      if (options.uiWorkflowError) {
+        throw new Error(options.uiWorkflowError);
+      }
+      if (name === "browserSearchAndLoad") {
+        activeSidecarTrackId = selectedTrackId;
+      }
       return {
         configured: true,
         workflow: name,
@@ -304,6 +356,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("get_browser_tree"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
+  assert.ok(byName.has("ensure_sidecar_on_track"));
   assert.ok(byName.has("play_transport"));
   assert.ok(byName.has("stop_transport"));
   assert.ok(byName.has("create_scene"));
@@ -315,6 +368,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("stop_all_clips"));
   assert.ok(byName.has("get_component_status"));
   assert.ok(byName.has("list_sidecar_workflows"));
+  assert.ok(byName.has("ensure_sidecar_on_track"));
   assert.ok(byName.has("sidecar_snapshot_selection_context"));
   assert.ok(byName.has("sidecar_replace_clip_notes"));
   assert.ok(byName.has("sidecar_observe_device_parameters"));
@@ -364,6 +418,52 @@ test("browser tools expose query and load flows", async () => {
     load.result.structuredContent.affected_objects.includes("track:1:device:new"),
     true
   );
+});
+
+test("ensure_sidecar_on_track selects the target track and requests a sidecar load", async () => {
+  const server = createServer({
+    sidecarConfigured: true
+  });
+
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 17,
+    method: "tools/call",
+    params: {
+      name: "ensure_sidecar_on_track",
+      arguments: {
+        trackId: "track:2"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.sidecar_activation.activeInstance.trackId,
+    "track:2"
+  );
+});
+
+test("ensure_sidecar_on_track returns setup guidance when the sidecar is not installed", async () => {
+  const server = createServer({
+    sidecarConfigured: false
+  });
+
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 18,
+    method: "tools/call",
+    params: {
+      name: "ensure_sidecar_on_track",
+      arguments: {
+        trackId: "track:2"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, true);
+  assert.equal(response.result.structuredContent.error.code, "setup_required");
+  assert.equal(response.result.structuredContent.error.data.component, "sidecar");
 });
 
 test("initialize returns MCP server info and tool capability metadata", async () => {

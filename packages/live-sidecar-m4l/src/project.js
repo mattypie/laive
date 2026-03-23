@@ -23,8 +23,10 @@ export function getProjectManifest() {
     patcher: "patchers/laive-sidecar.maxpat",
     nodeScript: "code/laive-sidecar-node.js",
     projectFile: "laive-sidecar.maxproj",
+    assets: ["assets/logo.png", "assets/logo.txt"],
     prebuiltDevice: path.relative(packageRoot, prebuiltDevicePath),
-    note: "Source project only. Open in Max / Max for Live and save as a device."
+    note: "Source project only. Open in Max / Max for Live and save as a device.",
+    uiIntent: "Branded in-Live sidecar with bundled logo assets and a readable fallback banner."
   };
 }
 

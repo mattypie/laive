@@ -36,6 +36,7 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - set device parameter values
 - report optional sidecar and UI-helper availability with setup guidance
 - list and invoke optional sidecar workflows
+- ensure the optional `laive-sidecar` device is present on a target MIDI track when the UI helper is available
 - list and invoke optional UI-helper workflows
 
 These capabilities have been validated against a live Ableton session through the published `laive-mcp` package, not just fixture mode.
@@ -48,6 +49,22 @@ The optional components are intentionally soft-failable:
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
 
 If you are using this as an end user, the published npm entrypoint is `laive-mcp`. The Ableton-side control surface name remains `laive`.
+
+## Control Surface Vs Sidecar
+
+`laive` has two different Ableton-facing roles:
+
+- The Python Remote Script control surface is the primary bridge. It handles global set reads, clip or scene creation, note editing, Session View launch or stop, browser-backed device loading, and parameter control.
+- The Max for Live sidecar is optional. It is for selection-aware, track-local, or future analysis-heavy workflows that are easier from inside the Live set than from the app-level bridge.
+
+In practice, agents should prefer the control-surface path first. The sidecar is a complementary helper for:
+
+- selected-context snapshots
+- selected-device observation
+- future selected-clip transforms
+- future parameter snapshot or restore workflows
+- future clip-envelope inspection
+- future lightweight analysis on the loaded track
 
 ## Published Package
 
@@ -86,7 +103,7 @@ The installer does not and should not automate:
 2. enabling `laive` in Live's `Control Surface` preferences
 3. launching `laive mcp` from your MCP client configuration
 4. granting macOS Accessibility permissions to the installed `laive-ui-helper.app` if you want UI fallback features
-5. loading the installed `laive-sidecar.amxd` onto a MIDI track if you want optional sidecar features
+5. loading the installed `laive-sidecar.amxd` onto a MIDI track if you want optional sidecar features and are not using the MCP placement workflow
 
 ## What The Installer Automates
 
@@ -163,14 +180,16 @@ artifacts/live-sidecar-m4l/laive-sidecar
 Preferred end-user path:
 
 1. Use the installed device at the default target `~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd`.
-2. In Ableton Live, drag that `.amxd` onto a MIDI track in the device chain.
-3. Use the sidecar only after the base Remote Script is already working.
+2. In Ableton Live, drag that `.amxd` onto a MIDI track in the device chain if you want the manual path.
+3. If the UI helper is configured, prefer the MCP tool `ensure_sidecar_on_track` so the agent can select the target track and load `laive-sidecar` for you.
+4. Use the sidecar only after the base Remote Script is already working.
 
 Developer/source path:
 
 1. Open `artifacts/live-sidecar-m4l/laive-sidecar/laive-sidecar.maxproj` in Max if you want the full project view.
 2. Open `artifacts/live-sidecar-m4l/laive-sidecar/patchers/laive-sidecar.maxpat` directly if you only want the patcher.
 3. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
+4. The source patcher now ships with bundled branding assets under `project/assets/` and renders the `laive` logo directly in the Live device UI, with an ASCII fallback banner kept alongside it.
 
 ### 6. Start The MCP Server For Agents
 
@@ -235,6 +254,28 @@ If you want to use it, grant Accessibility permission to the installed helper ap
   - stage the `laive-ui-helper.app` bundle for Accessibility permissions
 
 If `laive` does not appear in Live's `Control Surface` list after install, restart Live and rerun `node ./bin/laive.mjs install --json` or `npx laive-mcp install --json` to confirm the target app bundle and `MIDI Remote Scripts` path.
+
+## Sidecar Role
+
+The Python Remote Script remains the primary integration surface. It already covers:
+
+- project and selection reads
+- clip, scene, and track creation
+- note insert and replace
+- Session View launch and stop
+- browser-backed device loading
+- parameter control
+
+The Max for Live sidecar is for workflows that are better from inside the set:
+
+- selection-aware context snapshots
+- selected-device parameter observation
+- track-local or selected-clip transforms
+- future parameter snapshot or restore workflows
+- future clip-envelope editing
+- future lightweight analysis workflows
+
+If the sidecar is not active, the MCP server should still remain useful and return setup guidance instead of failing blindly.
 
 ## Verification
 

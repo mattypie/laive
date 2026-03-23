@@ -849,6 +849,41 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "ensure_sidecar_on_track",
+      description:
+        "Ensure the optional laive Max for Live sidecar is present on a target MIDI track, using guided setup or UI-assisted placement when needed.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Target MIDI track identifier, for example `track:7`."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["trackId"]
+      }),
+      async execute(args) {
+        requireString(args.trackId, "trackId");
+        await policyAdapter.assertAllowed("ensure_sidecar_on_track", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await sidecarAdapter.ensureOnTrack({
+          trackId: args.trackId,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(args.trackId);
+        return {
+          ...buildMutationResult(
+            `Sidecar placement ${args.dryRun ? "previewed" : "requested"} for ${args.trackId}.`,
+            result.activeInstance ? [args.trackId, result.activeInstance.deviceId] : [args.trackId],
+            before.stateVersion,
+            after.stateVersion,
+            result.warnings ?? after.warnings ?? []
+          ),
+          sidecar_activation: result
+        };
+      }
+    },
+    {
       name: "sidecar_snapshot_selection_context",
       description:
         "Read selected track, clip, and device context through the optional Max for Live sidecar, or return setup instructions if it is unavailable.",

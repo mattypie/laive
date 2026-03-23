@@ -8,10 +8,18 @@ What is included:
 - a source Max project under `project/`
 - a Node for Max entry script at `project/code/laive-sidecar-node.js`
 - a patcher source file at `project/patchers/laive-sidecar.maxpat`
+- bundled branding assets at `project/assets/logo.png` and `project/assets/logo.txt`
 - a shipped Max for Live device at `device/laive-sidecar.amxd`
 - a staging helper that copies the sidecar project into a portable folder for delivery
 
 This package does **not** generate a finished `.amxd` automatically. The deliverable here is the importable source project and patcher assets that can be opened in Max / Max for Live, inspected, and saved as a device by the user.
+
+The sidecar is intentionally optional. The primary Ableton control path lives in the Python Remote Script bridge. The sidecar is for workflows that are better from inside the Live set, such as selected-context snapshots, selected-device observation, and future selected-clip transforms.
+
+Think of the two roles this way:
+
+- control-surface bridge: app-level control, broad state reads, clip or scene creation, note editing, transport, Session View launch, browser-backed device loading
+- sidecar: in-set helper for selected-context, device-local, or future analysis-oriented workflows that benefit from living on a track
 
 ## Layout
 
@@ -22,6 +30,8 @@ This package does **not** generate a finished `.amxd` automatically. The deliver
 - `project/laive-sidecar.maxproj`
 - `project/patchers/laive-sidecar.maxpat`
 - `project/code/laive-sidecar-node.js`
+- `project/assets/logo.png`
+- `project/assets/logo.txt`
 - `project/data/laive-sidecar.manifest.json`
 - `device/laive-sidecar.amxd`
 
@@ -38,8 +48,18 @@ The staging helper copies the source project into the repository-level `artifact
 
 ## Manual Max For Live Steps
 
-1. Preferred end-user path: use the shipped `device/laive-sidecar.amxd`.
+1. Preferred end-user path: use the shipped `device/laive-sidecar.amxd`, or let the MCP tool `ensure_sidecar_on_track` try to place it for you when the optional helper path is configured.
 2. Developer path: open the staged `laive-sidecar/laive-sidecar.maxproj` in Max if you need the source project.
 3. Open `laive-sidecar/patchers/laive-sidecar.maxpat` if you need the source patcher.
 4. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
-5. Drop the `.amxd` onto a MIDI track in Live and validate transport, context, and note workflows.
+5. The patcher should render the bundled `laive` logo in presentation mode, with the ASCII banner retained as a readable fallback.
+6. Drop the `.amxd` onto a MIDI track in Live and validate context and sidecar-specific workflows.
+
+## Roadmap
+
+Near-term sidecar-focused work should expand beyond the current workflows into:
+
+- selected-clip transforms
+- selected-device parameter snapshot or restore
+- clip-envelope inspection and editing
+- lightweight track-local analysis

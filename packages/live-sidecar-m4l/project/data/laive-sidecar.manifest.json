@@ -3,6 +3,7 @@
   "project_file": "laive-sidecar.maxproj",
   "patcher": "laive-sidecar.maxpat",
   "node_script": "laive-sidecar-node.js",
+  "assets": ["assets/logo.png", "assets/logo.txt"],
   "source_only": true,
-  "description": "Source project for the laive Max for Live sidecar."
+  "description": "Source project for the laive Max for Live sidecar with bundled branding assets."
 }

@@ -11,7 +11,7 @@
     "classnamespace": "box",
     "rect": [626.0, 235.0, 960.0, 640.0],
     "bglocked": 0,
-    "openinpresentation": 0,
+    "openinpresentation": 1,
     "default_fontsize": 12.0,
     "default_fontface": 0,
     "default_fontname": "Arial",
@@ -40,33 +40,58 @@
     "boxes": [
       {
         "box": {
-          "id": "obj-1",
-          "maxclass": "comment",
+          "id": "obj-panel",
+          "maxclass": "panel",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [40.0, 24.0, 220.0, 20.0],
-          "text": "laive sidecar source patcher"
+          "patching_rect": [24.0, 24.0, 520.0, 252.0],
+          "presentation": 1,
+          "presentation_rect": [24.0, 24.0, 520.0, 252.0],
+          "bgcolor": [0.047, 0.055, 0.082, 1.0],
+          "rounded": 18
         }
       },
       {
         "box": {
-          "id": "obj-2",
-          "linecount": 2,
-          "maxclass": "comment",
+          "id": "obj-logo",
+          "maxclass": "fpic",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [40.0, 52.0, 420.0, 33.0],
-          "text": "Open this patch in Max / Max for Live and save it as a device after verifying the node.script path."
+          "patching_rect": [48.0, 40.0, 452.0, 155.0],
+          "presentation": 1,
+          "presentation_rect": [48.0, 40.0, 452.0, 155.0],
+          "autofit": 1,
+          "pic": "../assets/logo.png"
         }
       },
       {
         "box": {
-          "id": "obj-3",
+          "id": "obj-status",
+          "linecount": 3,
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [40.0, 120.0, 340.0, 20.0],
-          "text": "node.script autostarts. Wait for the loaded message before using the test commands."
+          "patching_rect": [48.0, 206.0, 452.0, 48.0],
+          "presentation": 1,
+          "presentation_rect": [48.0, 206.0, 452.0, 48.0],
+          "fontname": "Arial Bold",
+          "fontsize": 14.0,
+          "textcolor": [0.92, 0.94, 0.98, 1.0],
+          "text": "laive sidecar\nNode starts automatically. Wait for the loaded message before using workflows or test commands."
+        }
+      },
+      {
+        "box": {
+          "id": "obj-fallback",
+          "linecount": 9,
+          "maxclass": "comment",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [576.0, 40.0, 320.0, 170.0],
+          "fontname": "Monaco",
+          "fontsize": 9.0,
+          "textcolor": [0.82, 0.86, 0.92, 1.0],
+          "text": "             ,---.       .=-.-.       ,-.-.    ,----.  \n   _.-.    .--.'  \\\\     /==/_ /,--.-./=/ ,/ ,-.--` , \\\\ \n .-,.'|    \\\\==\\\\-/\\\\\\\\ \\\\   |==|, |/==/, ||=| -||==|-  _.-` \n|==|, |    /==/-|_\\\\ |  |==|  |\\\\==\\\\,  \\\\ / ,||==|   `.-. \n|==|- |    \\\\==\\\\,   - \\\\ |==|- | \\\\==\\\\ - ' - /==/_ ,    / \n|==|, |    /==/ -   ,| |==| ,|  \\\\==\\\\ ,   ||==|    .-'  \n|==|- `-._/==/-  /\\\\ - \\\\|==|- |  |==| -  ,/|==|_  ,`-._ \n/==/ - , ,|==\\\\ _.\\\\=\\\\.-'/==/. /  \\\\==\\\\  _ / /==/ ,     / \n`--`-----' `--`        `--`-`    `--`--'  `--`-----``"
         }
       },
       {
@@ -76,7 +101,7 @@
           "numinlets": 1,
           "numoutlets": 2,
           "outlettype": ["", ""],
-          "patching_rect": [40.0, 208.0, 300.0, 22.0],
+          "patching_rect": [40.0, 320.0, 300.0, 22.0],
           "saved_object_attributes": {
             "autostart": 1,
             "defer": 0,
@@ -91,7 +116,7 @@
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [356.0, 210.0, 220.0, 20.0],
+          "patching_rect": [356.0, 322.0, 220.0, 20.0],
           "text": "Node for Max runtime entrypoint"
         }
       },
@@ -102,7 +127,7 @@
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [""],
-          "patching_rect": [40.0, 272.0, 128.0, 22.0],
+          "patching_rect": [40.0, 384.0, 128.0, 22.0],
           "text": "hello"
         }
       },
@@ -113,7 +138,7 @@
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [""],
-          "patching_rect": [176.0, 272.0, 166.0, 22.0],
+          "patching_rect": [176.0, 384.0, 166.0, 22.0],
           "text": "list_workflows"
         }
       },
@@ -123,7 +148,7 @@
           "maxclass": "newobj",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [40.0, 328.0, 124.0, 22.0],
+          "patching_rect": [40.0, 440.0, 124.0, 22.0],
           "text": "print laive-sidecar"
         }
       },
@@ -134,8 +159,8 @@
           "numinlets": 1,
           "numoutlets": 0,
           "linecount": 2,
-          "patching_rect": [40.0, 368.0, 380.0, 34.0],
-          "text": "Wait for the console message 'laive-sidecar Node for Max source loaded' before clicking the test messages."
+          "patching_rect": [40.0, 480.0, 420.0, 34.0],
+          "text": "Fallback banner uses the bundled assets/logo.txt art. The branded device view uses assets/logo.png when image rendering is available."
         }
       }
     ],
@@ -163,6 +188,18 @@
       {
         "name": "laive-sidecar-node.js",
         "patcherrelativepath": "../code",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "logo.png",
+        "patcherrelativepath": "../assets",
+        "type": "PNG ",
+        "implicit": 1
+      },
+      {
+        "name": "logo.txt",
+        "patcherrelativepath": "../assets",
         "type": "TEXT",
         "implicit": 1
       }

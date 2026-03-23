@@ -72,8 +72,13 @@ The MCP surface includes:
 - project, track, clip, device, and parameter reads
 - tempo and transport control
 - track, scene, and clip creation
-- note insertion
+- note insertion and replacement
+- Session View clip and scene launch/stop control
+- browser-backed device loading
+- `ensure_sidecar_on_track` for guided sidecar placement when the UI helper is available
 - optional sidecar and UI-helper workflow tools that return setup guidance if those components are not ready
+
+Use the control-surface bridge for the main workflow. Treat the sidecar as an optional, in-set helper for selected-context, device-local, and future transform or analysis workflows.
 
 If your MCP client needs an explicit command definition, use:
 
@@ -87,8 +92,10 @@ If your MCP client needs an explicit command definition, use:
 ## 6. Optional Sidecar Device
 
 1. Use the default installed path `~/Music/Ableton/User Library/Presets/MIDI Effects/Max MIDI Effect/laive-sidecar.amxd`.
-2. Drag that `.amxd` onto a MIDI track in Live after the base Remote Script is working.
-3. Only use the staged Max project if you need to inspect or edit the source patch.
+2. Preferred agent-driven path: call `ensure_sidecar_on_track` so the MCP server selects the target track and asks the UI helper to load `laive-sidecar`.
+3. Manual fallback: drag that `.amxd` onto a MIDI track in Live after the base Remote Script is working.
+4. Only use the staged Max project if you need to inspect or edit the source patch.
+5. The staged patcher now includes bundled logo assets and a readable fallback banner so the device is recognizable in the Live device chain instead of looking like a raw source patch.
 
 ## 7. Optional Extras
 
