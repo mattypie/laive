@@ -7,6 +7,7 @@ What is included:
 - a testable Node-side runtime core under `src/`
 - a source Max project under `project/`
 - a Node for Max entry script at `project/code/laive-sidecar-node.js`
+- a `jsui` banner renderer at `project/code/laive-sidecar-banner.js`
 - a patcher source file at `project/patchers/laive-sidecar.maxpat`
 - bundled branding assets at `project/assets/logo.png` and `project/assets/logo.txt`
 - a shipped Max for Live device at `device/laive-sidecar.amxd`
@@ -52,8 +53,9 @@ The staging helper copies the source project into the repository-level `artifact
 2. Developer path: open the staged `laive-sidecar/laive-sidecar.maxproj` in Max if you need the source project.
 3. Open `laive-sidecar/patchers/laive-sidecar.maxpat` if you need the source patcher.
 4. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
-5. The patcher renders the bundled ASCII `laive` banner deterministically in presentation mode after re-export. `logo.png` is retained as a packaged branding asset for README/docs and future Max rendering experiments.
-6. Drop the `.amxd` onto a MIDI track in Live and validate context and sidecar-specific workflows.
+5. Confirm the `jsui` banner object points at `../code/laive-sidecar-banner.js`.
+6. The patcher renders the `laive` device banner through `jsui` in presentation mode after re-export. `logo.png` is retained as a packaged branding asset for README/docs and future Max rendering experiments.
+7. Drop the `.amxd` onto a MIDI track in Live and validate context and sidecar-specific workflows.
 
 ## Roadmap
 

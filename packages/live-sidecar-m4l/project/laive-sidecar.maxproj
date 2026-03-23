@@ -17,6 +17,10 @@
       }
     },
     "code": {
+      "laive-sidecar-banner.js": {
+        "kind": "javascript",
+        "local": 1
+      },
       "laive-sidecar-node.js": {
         "kind": "javascript",
         "local": 1

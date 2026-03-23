@@ -45,7 +45,7 @@
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [20.0, 20.0, 472.0, 176.0],
-          "presentation": 1,
+          "presentation": 0,
           "presentation_rect": [20.0, 20.0, 472.0, 176.0],
           "bgcolor": [0.047, 0.055, 0.082, 1.0],
           "rounded": 18
@@ -66,14 +66,31 @@
       },
       {
         "box": {
+          "annotation": "Primary laive banner renderer for the Live device view.",
+          "border": 0,
+          "filename": "../code/laive-sidecar-banner.js",
+          "id": "obj-banner",
+          "ignoreclick": 1,
+          "maxclass": "jsui",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "parameter_enable": 0,
+          "patching_rect": [36.0, 34.0, 420.0, 92.0],
+          "presentation": 1,
+          "presentation_rect": [36.0, 34.0, 420.0, 92.0]
+        }
+      },
+      {
+        "box": {
           "id": "obj-status",
-          "linecount": 3,
+          "linecount": 2,
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [36.0, 136.0, 420.0, 36.0],
+          "patching_rect": [36.0, 136.0, 420.0, 30.0],
           "presentation": 1,
-          "presentation_rect": [36.0, 136.0, 420.0, 36.0],
+          "presentation_rect": [36.0, 136.0, 420.0, 30.0],
           "fontname": "Arial Bold",
           "fontsize": 12.0,
           "textcolor": [0.92, 0.94, 0.98, 1.0],
@@ -88,7 +105,7 @@
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [36.0, 38.0, 420.0, 88.0],
-          "presentation": 1,
+          "presentation": 0,
           "presentation_rect": [36.0, 38.0, 420.0, 88.0],
           "fontname": "Monaco",
           "fontsize": 9.0,
@@ -189,6 +206,12 @@
     "dependency_cache": [
       {
         "name": "laive-sidecar-node.js",
+        "patcherrelativepath": "../code",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "laive-sidecar-banner.js",
         "patcherrelativepath": "../code",
         "type": "TEXT",
         "implicit": 1

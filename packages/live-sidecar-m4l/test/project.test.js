@@ -27,6 +27,7 @@ test("project manifest matches packaged source manifest", async () => {
   assert.equal(manifest.name, manifestFile.name);
   assert.equal(manifest.projectFile, manifestFile.project_file);
   assert.equal(path.basename(manifest.patcher), manifestFile.patcher);
+  assert.equal(path.basename(manifest.uiScript), manifestFile.ui_script);
   assert.equal(path.basename(manifest.nodeScript), manifestFile.node_script);
   assert.deepEqual(manifest.assets, manifestFile.assets);
   assert.equal(path.basename(manifest.prebuiltDevice), "laive-sidecar.amxd");
@@ -50,6 +51,18 @@ test("project manifest matches packaged source manifest", async () => {
     "list_workflows"
   );
   assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-banner").box.filename,
+    "../code/laive-sidecar-banner.js"
+  );
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-banner").box.presentation,
+    1
+  );
+  assert.equal(
+    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-banner").box.presentation_rect[2],
+    420
+  );
+  assert.equal(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-logo").box.pic,
     "../assets/logo.png"
   );
@@ -64,11 +77,7 @@ test("project manifest matches packaged source manifest", async () => {
   );
   assert.equal(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.presentation,
-    1
-  );
-  assert.equal(
-    patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.presentation_rect[2],
-    420
+    0
   );
   assert.match(
     patcherFile.patcher.boxes.find((entry) => entry.box.id === "obj-fallback").box.text,
@@ -92,6 +101,7 @@ test("stageSidecarProject copies the source project bundle", async () => {
     assert.equal(metadata.name, "laive-sidecar");
     assert.ok(staged.stagedProjectRoot.endsWith("laive-sidecar"));
     assert.equal(metadata.patcher, "patchers/laive-sidecar.maxpat");
+    assert.equal(metadata.uiScript, "code/laive-sidecar-banner.js");
     assert.equal(metadata.nodeScript, "code/laive-sidecar-node.js");
     assert.deepEqual(metadata.assets, ["assets/logo.png", "assets/logo.txt"]);
     assert.equal(metadata.prebuiltDeviceExists, true);
