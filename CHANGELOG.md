@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.3.4 - 2026-03-23
+
 - Fixed the Python Remote Script note-write bridge to send `add_new_notes` Python note specifications again instead of Max-style `{"notes": [...]}` payloads, matching the real Live 11 Remote Script runtime for both insert and replace-after-clear flows.
 - Added focused bridge regression coverage for tuple fallback and `MidiNoteSpecification` payload construction so repository tests reflect the Python bridge contract rather than the Max for Live API shape.
 
@@ -95,3 +97,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+

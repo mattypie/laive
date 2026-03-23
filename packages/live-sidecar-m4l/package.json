@@ -1,6 +1,6 @@
 {
   "name": "@laive/live-sidecar-m4l",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "private": true,
   "main": "./src/index.js",
