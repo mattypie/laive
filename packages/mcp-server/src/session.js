@@ -305,6 +305,38 @@ export function createBridgeAdapter(target) {
         ...result,
         affectedObjects: [payload.trackId, payload.deviceId, payload.parameterId]
       };
+    },
+    async getBrowserTree() {
+      const bridgeClient = await resolveBridgeClient(target);
+      return (await bridgeClient.request("get", "browser.tree")).result;
+    },
+    async getBrowserItems(payload = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      return (
+        await bridgeClient.request("call", "get_browser_items", {
+          path: payload.path ?? null
+        })
+      ).result;
+    },
+    async loadBrowserItem(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "load_browser_item",
+          {
+            track_id: payload.trackId,
+            uri: payload.uri ?? null,
+            path: payload.path ?? null
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: result.track ? [payload.trackId, ...((result.track.devices ?? []).map((device) => device.id))] : [payload.trackId]
+      };
     }
   };
 }

@@ -38,8 +38,9 @@ def _parameter_id(device_id, parameter_index):
 
 
 class LiveSetAdapter(object):
-    def __init__(self, song):
+    def __init__(self, song, application=None):
         self.song = song
+        self.application = application
         self._clip_notes = ClipNoteAdapter(live_module=Live)
 
     @property
@@ -55,6 +56,8 @@ class LiveSetAdapter(object):
             "create_clip": True,
             "insert_notes": True,
             "set_parameter": True,
+            "browser_access": self._browser_is_available(),
+            "load_browser_item": self._browser_is_available(),
             "subscribe": True,
         }
 
@@ -82,6 +85,61 @@ class LiveSetAdapter(object):
     def get_parameter(self, parameter_id):
         parameter, device_id, parameter_index = self._find_parameter(parameter_id)
         return self._serialize_parameter(parameter, device_id, parameter_index)
+
+    def get_browser_tree(self):
+        browser = self._browser()
+        roots = []
+
+        for category_name, category in self._browser_root_items(browser):
+            roots.append(
+                {
+                    "path": category_name,
+                    "name": self._browser_item_name(category, category_name),
+                    "uri": getattr(category, "uri", None),
+                    "is_folder": self._browser_item_is_folder(category),
+                    "is_device": bool(getattr(category, "is_device", False)),
+                    "is_loadable": bool(getattr(category, "is_loadable", False)),
+                    "children": [self._serialize_browser_item(child, category_name) for child in self._browser_children(category)],
+                }
+            )
+
+        return {"roots": roots}
+
+    def get_browser_items(self, path=None):
+        browser = self._browser()
+        if not path:
+            return {"path": None, "items": [self._serialize_browser_item(item, category_name) for category_name, item in self._browser_root_items(browser)]}
+
+        item = self._find_browser_item_by_path(browser, path)
+        return {
+            "path": path,
+            "item": self._serialize_browser_item(item, path),
+            "items": [self._serialize_browser_item(child, self._join_browser_path(path, self._browser_item_name(child, "item"))) for child in self._browser_children(item)],
+        }
+
+    def load_browser_item(self, track_id, uri=None, path=None, dry_run=False):
+        if not uri and not path:
+            raise RequestError("invalid_argument", "uri or path is required")
+
+        track, index = self._find_track(track_id)
+        browser = self._browser()
+        item = self._find_browser_item_by_uri(browser, uri) if uri else self._find_browser_item_by_path(browser, path)
+        if item is None:
+            raise RequestError("not_found", "Browser item not found")
+        if not getattr(item, "is_loadable", True):
+            raise RequestError("invalid_argument", "Browser item is not loadable")
+
+        if not dry_run:
+            song_view = getattr(self.song, "view", None)
+            if song_view is not None and hasattr(song_view, "selected_track"):
+                song_view.selected_track = track
+            browser.load_item(item)
+
+        return {
+            "applied": not dry_run,
+            "item": self._serialize_browser_item(item, path),
+            "track": self._serialize_track(track, index),
+        }
 
     def set_tempo(self, value, dry_run=False):
         tempo = float(value)
@@ -247,3 +305,105 @@ class LiveSetAdapter(object):
                     if candidate == parameter_id:
                         return parameter, device_id, parameter_index
         raise RequestError("not_found", "Parameter not found: {0}".format(parameter_id))
+
+    def _browser_is_available(self):
+        try:
+            self._browser()
+            return True
+        except RequestError:
+            return False
+
+    def _browser(self):
+        app = self.application
+        if callable(app):
+            app = app()
+        if app is None:
+            raise RequestError("unsupported_runtime", "Live application browser is unavailable")
+        browser = getattr(app, "browser", None)
+        if browser is None:
+            raise RequestError("unsupported_runtime", "Live application browser is unavailable")
+        return browser
+
+    def _browser_root_items(self, browser):
+        roots = []
+        for category_name in ("instruments", "sounds", "drums", "audio_effects", "midi_effects"):
+            if hasattr(browser, category_name):
+                item = getattr(browser, category_name)
+                if item is not None:
+                    roots.append((category_name, item))
+        return roots
+
+    def _browser_children(self, item):
+        children = getattr(item, "children", None)
+        if children is None:
+            return []
+        return list(children)
+
+    def _browser_item_name(self, item, fallback):
+        return getattr(item, "name", fallback)
+
+    def _browser_item_is_folder(self, item):
+        return bool(self._browser_children(item))
+
+    def _serialize_browser_item(self, item, path=None):
+        return {
+            "name": self._browser_item_name(item, "Unknown"),
+            "path": path,
+            "uri": getattr(item, "uri", None),
+            "is_folder": self._browser_item_is_folder(item),
+            "is_device": bool(getattr(item, "is_device", False)),
+            "is_loadable": bool(getattr(item, "is_loadable", False)),
+        }
+
+    def _find_browser_item_by_uri(self, browser_or_item, uri, max_depth=10, current_depth=0):
+        if browser_or_item is None or uri is None:
+            return None
+        if hasattr(browser_or_item, "uri") and getattr(browser_or_item, "uri", None) == uri:
+            return browser_or_item
+        if current_depth >= max_depth:
+            return None
+
+        if current_depth == 0:
+            for _category_name, category in self._browser_root_items(browser_or_item):
+                item = self._find_browser_item_by_uri(category, uri, max_depth=max_depth, current_depth=current_depth + 1)
+                if item is not None:
+                    return item
+
+        for child in self._browser_children(browser_or_item):
+            item = self._find_browser_item_by_uri(child, uri, max_depth=max_depth, current_depth=current_depth + 1)
+            if item is not None:
+                return item
+
+        return None
+
+    def _find_browser_item_by_path(self, browser, path):
+        path_parts = [part for part in str(path or "").split("/") if part]
+        if not path_parts:
+            raise RequestError("invalid_argument", "path is required")
+
+        root_name = path_parts[0].lower()
+        current_item = None
+        for category_name, category in self._browser_root_items(browser):
+            if category_name.lower() == root_name:
+                current_item = category
+                break
+
+        if current_item is None:
+            raise RequestError("not_found", "Unknown browser root: {0}".format(root_name))
+
+        for path_part in path_parts[1:]:
+            next_item = None
+            for child in self._browser_children(current_item):
+                if self._browser_item_name(child, "").lower() == path_part.lower():
+                    next_item = child
+                    break
+            if next_item is None:
+                raise RequestError("not_found", "Browser path not found: {0}".format(path))
+            current_item = next_item
+
+        return current_item
+
+    def _join_browser_path(self, base_path, name):
+        if not base_path:
+            return name
+        return "{0}/{1}".format(base_path.rstrip("/"), name)

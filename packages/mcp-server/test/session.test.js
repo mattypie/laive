@@ -121,6 +121,55 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
     assert.equal(trackDetails.result.structuredContent.track.sessionClips.length, 1);
     assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].name, "Bassline");
     assert.equal(trackDetails.result.structuredContent.track.sessionClips[0].noteCount, 1);
+
+    const browserItems = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: {
+        name: "get_browser_items",
+        arguments: {
+          path: "instruments"
+        }
+      }
+    });
+
+    assert.equal(browserItems.result.isError, false);
+    assert.equal(browserItems.result.structuredContent.browser.items[0].name, "Operator");
+
+    const loadItem = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: {
+        name: "load_browser_item",
+        arguments: {
+          trackId: "track:2",
+          path: "instruments/Operator"
+        }
+      }
+    });
+
+    assert.equal(loadItem.result.isError, false);
+
+    const deviceTree = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 9,
+      method: "tools/call",
+      params: {
+        name: "get_device_tree",
+        arguments: {
+          trackId: "track:2"
+        }
+      }
+    });
+
+    assert.equal(
+      deviceTree.result.structuredContent.deviceTree.devices.some(
+        (device) => device.name === "Operator"
+      ),
+      true
+    );
   } finally {
     await session.close();
   }

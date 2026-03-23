@@ -91,6 +91,51 @@ function createServer() {
     async setParameter(payload) {
       return payload;
     },
+    async getBrowserTree() {
+      return {
+        roots: [
+          {
+            name: "Instruments",
+            path: "instruments",
+            uri: "browser:instruments",
+            children: [
+              {
+                name: "Operator",
+                path: "instruments/Operator",
+                uri: "browser:instruments:operator",
+                is_loadable: true
+              }
+            ]
+          }
+        ]
+      };
+    },
+    async getBrowserItems(payload = {}) {
+      return {
+        path: payload.path ?? null,
+        items: [
+          {
+            name: "Operator",
+            path: "instruments/Operator",
+            uri: "browser:instruments:operator",
+            is_loadable: true
+          }
+        ]
+      };
+    },
+    async loadBrowserItem(payload) {
+      return {
+        item: {
+          uri: payload.uri ?? "browser:instruments:operator",
+          path: payload.path ?? "instruments/Operator"
+        },
+        track: {
+          id: payload.trackId,
+          devices: [{ id: `${payload.trackId}:device:new` }]
+        },
+        affectedObjects: [payload.trackId, `${payload.trackId}:device:new`]
+      };
+    },
     async getCapabilities() {
       return {
         bridgeVersion: "0.1.0",
@@ -226,6 +271,9 @@ test("tools/list returns registered tools", async () => {
     byName.get("get_track_details").inputSchema.properties.index.type,
     "integer"
   );
+  assert.ok(byName.has("get_browser_tree"));
+  assert.ok(byName.has("get_browser_items"));
+  assert.ok(byName.has("load_browser_item"));
   assert.ok(byName.has("play_transport"));
   assert.ok(byName.has("stop_transport"));
   assert.ok(byName.has("create_scene"));
@@ -243,6 +291,44 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("ui_export_audio_video"));
   assert.ok(byName.has("ui_export_with_preset"));
   assert.ok(byName.has("run_ui_workflow"));
+});
+
+test("browser tools expose query and load flows", async () => {
+  const server = createServer();
+
+  const items = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 10,
+    method: "tools/call",
+    params: {
+      name: "get_browser_items",
+      arguments: {
+        path: "instruments"
+      }
+    }
+  });
+
+  assert.equal(items.result.isError, false);
+  assert.equal(items.result.structuredContent.browser.items[0].name, "Operator");
+
+  const load = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 11,
+    method: "tools/call",
+    params: {
+      name: "load_browser_item",
+      arguments: {
+        trackId: "track:1",
+        path: "instruments/Operator"
+      }
+    }
+  });
+
+  assert.equal(load.result.isError, false);
+  assert.equal(
+    load.result.structuredContent.affected_objects.includes("track:1:device:new"),
+    true
+  );
 });
 
 test("initialize returns MCP server info and tool capability metadata", async () => {

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a browser-backed device loading path to the control-surface bridge, including browser tree/item queries and `load_browser_item` via Live's `application().browser.load_item(...)` flow.
+- Exposed new MCP browser tools so agents can inspect browser categories/items and load devices onto tracks without falling back to UI automation.
+
 ## v0.2.4 - 2026-03-23
 
 - Fixed Live 11 MIDI note insertion for the Python Remote Script bridge by constructing `Live.Clip.MidiNoteSpecification` objects for `add_new_notes`, matching Ableton's own built-in Remote Script usage instead of passing plain dicts or tuples.

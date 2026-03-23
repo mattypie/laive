@@ -79,6 +79,33 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(created_note[1], 0.0)
         self.assertEqual(created_note[2], 1.0)
 
+    def test_browser_queries_and_load_item(self):
+        browser_tree = self.surface.process_request(
+            create_request("get", target="browser.tree", request_id="browser-tree-1")
+        )
+        browser_items = self.surface.process_request(
+            create_request(
+                "call",
+                target="get_browser_items",
+                arguments={"path": "instruments"},
+                request_id="browser-items-1",
+            )
+        )
+        load_item = self.surface.process_request(
+            create_request(
+                "call",
+                target="load_browser_item",
+                arguments={"track_id": "track:1", "path": "instruments/Operator"},
+                request_id="browser-load-1",
+            )
+        )
+
+        self.assertTrue(browser_tree["ok"])
+        self.assertEqual(browser_tree["result"]["roots"][0]["name"], "Instruments")
+        self.assertEqual(browser_items["result"]["items"][0]["name"], "Operator")
+        self.assertEqual(load_item["result"]["item"]["name"], "Operator")
+        self.assertEqual(self.song.tracks[0].devices[-1].name, "Operator")
+
 
 if __name__ == "__main__":
     unittest.main()

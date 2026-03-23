@@ -8,6 +8,8 @@
     "create_clip": true,
     "insert_notes": true,
     "set_parameter": true,
+    "browser_access": true,
+    "load_browser_item": true,
     "subscribe": true
   },
   "song": {
@@ -109,5 +111,53 @@
       ],
       "session_clips": []
     }
-  ]
+  ],
+  "browser": {
+    "roots": [
+      {
+        "name": "Instruments",
+        "path": "instruments",
+        "uri": "browser:instruments",
+        "is_folder": true,
+        "is_device": false,
+        "is_loadable": false,
+        "children": [
+          {
+            "name": "Operator",
+            "path": "instruments/Operator",
+            "uri": "browser:instruments:operator",
+            "is_folder": false,
+            "is_device": true,
+            "is_loadable": true
+          },
+          {
+            "name": "Analog",
+            "path": "instruments/Analog",
+            "uri": "browser:instruments:analog",
+            "is_folder": false,
+            "is_device": true,
+            "is_loadable": true
+          }
+        ]
+      },
+      {
+        "name": "Audio Effects",
+        "path": "audio_effects",
+        "uri": "browser:audio_effects",
+        "is_folder": true,
+        "is_device": false,
+        "is_loadable": false,
+        "children": [
+          {
+            "name": "EQ Eight",
+            "path": "audio_effects/EQ Eight",
+            "uri": "browser:audio_effects:eq-eight",
+            "is_folder": false,
+            "is_device": true,
+            "is_loadable": true
+          }
+        ]
+      }
+    ]
+  }
 }

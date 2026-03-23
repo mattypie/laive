@@ -21,6 +21,9 @@ except ImportError:  # pragma: no cover - exercised via fake harness tests
         def song(self):
             return getattr(self._c_instance, "song", lambda: None)()
 
+        def application(self):
+            return getattr(self._c_instance, "application", lambda: None)()
+
         def disconnect(self):
             return None
 
@@ -43,7 +46,7 @@ class LaiveControlSurface(AbletonControlSurface):
         self._port = port
         self._disposed = False
         self._task_queue = MainThreadTaskQueue(self._schedule_on_main_thread)
-        self._live = LiveSetAdapter(self.song())
+        self._live = LiveSetAdapter(self.song(), application=self.application())
         self._server = RemoteCommandServer(
             host=host,
             port=port,
@@ -148,6 +151,10 @@ class LaiveControlSurface(AbletonControlSurface):
             return self._live.get_tracks()
         if target == "scenes":
             return self._live.get_scenes()
+        if target == "browser.tree":
+            return self._live.get_browser_tree()
+        if target == "browser.items":
+            return self._live.get_browser_items()
         if isinstance(target, str) and target.startswith("track:"):
             return self._live.get_track(target)
         if isinstance(target, str) and target.startswith("clip:"):
@@ -192,6 +199,15 @@ class LaiveControlSurface(AbletonControlSurface):
                 notes=arguments.get("notes") or [],
                 dry_run=dry_run,
             )
+        if target == "get_browser_items":
+            return self._live.get_browser_items(arguments.get("path"))
+        if target == "load_browser_item":
+            return self._live.load_browser_item(
+                track_id=arguments.get("track_id"),
+                uri=arguments.get("uri"),
+                path=arguments.get("path"),
+                dry_run=dry_run,
+            )
         raise RequestError("unknown_target", "Unknown call target: {0}".format(target))
 
     def _handle_mutation(self, handler, target, arguments, dry_run):
@@ -205,4 +221,3 @@ class LaiveControlSurface(AbletonControlSurface):
 
     def _drain_main_thread_tasks(self):
         self._task_queue.drain()
-

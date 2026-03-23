@@ -70,12 +70,27 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(clip_state["notes"][0]["pitch"], 60)
         self.assertEqual(clip_state["notes"][1]["duration"], 0.5)
 
+    def test_browser_queries_and_loads_device(self):
+        song = SongWithSingleClip(DirectSetNotesClip())
+        application = BrowserApplication(song)
+        adapter = LiveSetAdapter(song, application=application)
+
+        tree = adapter.get_browser_tree()
+        items = adapter.get_browser_items("instruments")
+        result = adapter.load_browser_item("track:1", path="instruments/Operator")
+
+        self.assertEqual(tree["roots"][0]["name"], "Instruments")
+        self.assertEqual(items["items"][0]["name"], "Operator")
+        self.assertEqual(result["item"]["name"], "Operator")
+        self.assertEqual(result["track"]["devices"][-1]["name"], "Operator")
+
 
 class SongWithSingleClip(object):
     def __init__(self, clip):
         self.live_version = "12.1.10"
         self.tracks = [TrackWithSingleClip(clip)]
         self.scenes = []
+        self.view = SongView(self)
 
 
 class TrackWithSingleClip(object):
@@ -87,6 +102,11 @@ class TrackWithSingleClip(object):
         self.solo = False
         self.clip_slots = [ClipSlotWithClip(clip)]
         self.devices = []
+
+
+class SongView(object):
+    def __init__(self, song):
+        self.selected_track = song.tracks[0]
 
 
 class ClipSlotWithClip(object):
@@ -167,3 +187,42 @@ class ExtendedNotesClip(object):
                 },
             ]
         }
+
+
+class BrowserApplication(object):
+    def __init__(self, song):
+        self.browser = BrowserRoot(song)
+
+
+class BrowserRoot(object):
+    def __init__(self, song):
+        self.song = song
+        self.instruments = BrowserItem(
+            "Instruments",
+            "browser:instruments",
+            children=[BrowserItem("Operator", "browser:instruments:operator", is_device=True, is_loadable=True)],
+        )
+        self.sounds = BrowserItem("Sounds", "browser:sounds", children=[])
+        self.drums = BrowserItem("Drums", "browser:drums", children=[])
+        self.audio_effects = BrowserItem("Audio Effects", "browser:audio_effects", children=[])
+        self.midi_effects = BrowserItem("MIDI Effects", "browser:midi_effects", children=[])
+
+    def load_item(self, item):
+        track = self.song.view.selected_track
+        track.devices.append(SimpleDevice(item.name))
+
+
+class BrowserItem(object):
+    def __init__(self, name, uri, children=None, is_device=False, is_loadable=False):
+        self.name = name
+        self.uri = uri
+        self.children = list(children or [])
+        self.is_device = is_device
+        self.is_loadable = is_loadable
+
+
+class SimpleDevice(object):
+    def __init__(self, name):
+        self.name = name
+        self.class_name = name
+        self.parameters = []

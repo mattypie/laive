@@ -101,6 +101,25 @@ test("bridge can create clips and insert notes", async () => {
   });
 });
 
+test("bridge can browse and load browser items", async () => {
+  await withBridge(async ({ client }) => {
+    const tree = await client.request("get", "browser.tree");
+    const items = await client.request("call", "get_browser_items", {
+      path: "instruments"
+    });
+    const load = await client.request("call", "load_browser_item", {
+      track_id: "track:1",
+      path: "instruments/Operator"
+    });
+    const track = await client.request("get", "track:1");
+
+    assert.equal(tree.result.roots[0].name, "Instruments");
+    assert.equal(items.result.items[0].name, "Operator");
+    assert.equal(load.result.track.id, "track:1");
+    assert.equal(track.result.devices.some((device) => device.name === "Operator"), true);
+  });
+});
+
 function createLoopbackSocketPair() {
   const serverSocket = new FakeSocket();
   const clientSocket = new FakeSocket();

@@ -11,10 +11,82 @@ const defaultFixturePath = fileURLToPath(
   new URL("../fixtures/default-live-set.json", import.meta.url)
 );
 
+function defaultBrowserState() {
+  return {
+    roots: [
+      {
+        name: "Instruments",
+        path: "instruments",
+        uri: "browser:instruments",
+        is_folder: true,
+        is_device: false,
+        is_loadable: false,
+        children: [
+          {
+            name: "Operator",
+            path: "instruments/Operator",
+            uri: "browser:instruments:operator",
+            is_folder: false,
+            is_device: true,
+            is_loadable: true
+          },
+          {
+            name: "Analog",
+            path: "instruments/Analog",
+            uri: "browser:instruments:analog",
+            is_folder: false,
+            is_device: true,
+            is_loadable: true
+          }
+        ]
+      },
+      {
+        name: "Audio Effects",
+        path: "audio_effects",
+        uri: "browser:audio_effects",
+        is_folder: true,
+        is_device: false,
+        is_loadable: false,
+        children: [
+          {
+            name: "EQ Eight",
+            path: "audio_effects/EQ Eight",
+            uri: "browser:audio_effects:eq-eight",
+            is_folder: false,
+            is_device: true,
+            is_loadable: true
+          }
+        ]
+      },
+      {
+        name: "MIDI Effects",
+        path: "midi_effects",
+        uri: "browser:midi_effects",
+        is_folder: true,
+        is_device: false,
+        is_loadable: false,
+        children: [
+          {
+            name: "Arpeggiator",
+            path: "midi_effects/Arpeggiator",
+            uri: "browser:midi_effects:arpeggiator",
+            is_folder: false,
+            is_device: true,
+            is_loadable: true
+          }
+        ]
+      }
+    ]
+  };
+}
+
 export class FixtureLiveRuntime extends EventEmitter {
   constructor(fixtureState) {
     super();
-    this.state = fixtureState;
+    this.state = {
+      ...fixtureState,
+      browser: fixtureState.browser ?? defaultBrowserState()
+    };
   }
 
   static async fromFixture(fixturePath = defaultFixturePath) {
@@ -65,6 +137,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return clone(this.state.tracks);
       case "scenes":
         return clone(this.state.scenes);
+      case "browser.tree":
+        return clone(this.state.browser);
       default:
         return this.lookupTarget(target);
     }
@@ -127,6 +201,10 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.createClip(args, dryRun);
       case "insert_notes":
         return this.insertNotes(args, dryRun);
+      case "get_browser_items":
+        return this.getBrowserItems(args);
+      case "load_browser_item":
+        return this.loadBrowserItem(args, dryRun);
       case "fire_clip":
         return this.fireClip(args, dryRun);
       default:
@@ -196,6 +274,42 @@ export class FixtureLiveRuntime extends EventEmitter {
       }
     }
     throw new Error(`Clip not found: ${clipId}`);
+  }
+
+  findBrowserItemByUri(uri, node = null) {
+    const currentNode = node ?? { children: this.state.browser.roots };
+    for (const child of currentNode.children ?? []) {
+      if (child.uri === uri) {
+        return child;
+      }
+      const nested = this.findBrowserItemByUri(uri, child);
+      if (nested) {
+        return nested;
+      }
+    }
+    return null;
+  }
+
+  findBrowserItemByPath(pathValue) {
+    const path = String(pathValue ?? "");
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length === 0) {
+      throw new Error("path is required");
+    }
+
+    let current = this.state.browser.roots.find((root) => root.path.toLowerCase() === parts[0].toLowerCase());
+    if (!current) {
+      throw new Error(`Browser root not found: ${parts[0]}`);
+    }
+
+    for (const part of parts.slice(1)) {
+      current = (current.children ?? []).find((child) => child.name.toLowerCase() === part.toLowerCase());
+      if (!current) {
+        throw new Error(`Browser path not found: ${path}`);
+      }
+    }
+
+    return current;
   }
 
   setParameter(parameterId, args, dryRun) {
@@ -320,6 +434,64 @@ export class FixtureLiveRuntime extends EventEmitter {
       applied: !dryRun,
       clip_id: clip.id,
       note_count: clip.notes.length
+    };
+  }
+
+  getBrowserItems(args = {}) {
+    if (!args.path) {
+      return {
+        path: null,
+        items: clone(this.state.browser.roots)
+      };
+    }
+
+    const item = this.findBrowserItemByPath(args.path);
+    return {
+      path: args.path,
+      item: clone(item),
+      items: clone(item.children ?? [])
+    };
+  }
+
+  loadBrowserItem(args, dryRun) {
+    const track = this.findTrack(args.track_id);
+    const item = args.uri ? this.findBrowserItemByUri(args.uri) : this.findBrowserItemByPath(args.path);
+    if (!item) {
+      throw new Error("Browser item not found");
+    }
+    if (!item.is_loadable) {
+      throw new Error("Browser item is not loadable");
+    }
+
+    const nextDeviceIndex = track.devices.length;
+    const device = {
+      id: `device:${track.id}:${nextDeviceIndex + 1}`,
+      name: item.name,
+      class_name: item.name.replace(/\s+/g, ""),
+      parameters: [
+        {
+          id: `parameter:device:${track.id}:${nextDeviceIndex + 1}:1`,
+          name: "Macro 1",
+          value: 0.5,
+          min: 0,
+          max: 1,
+          display_value: "0.5"
+        }
+      ]
+    };
+
+    if (!dryRun) {
+      track.devices.push(device);
+      this.emit("event", {
+        topic: "tracks.changed",
+        payload: { action: "updated", track: clone(track) }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      item: clone(item),
+      track: clone(track)
     };
   }
 

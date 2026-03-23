@@ -14,6 +14,10 @@ This is the operator-facing summary of the intended MCP surface.
   - Returns detailed track state and clip topology.
 - `get_device_tree`
   - Returns devices and parameters for a target track.
+- `get_browser_tree`
+  - Returns top-level browser categories and immediate child items from Live's browser API.
+- `get_browser_items`
+  - Returns items for a given browser path such as `instruments`.
 - `get_capabilities`
   - Returns bridge and server capability metadata.
 
@@ -25,6 +29,10 @@ This is the operator-facing summary of the intended MCP surface.
   - Session-altering write that creates a new track.
 - `create_clip`
   - Session-altering write that creates a clip on a track and slot.
+- `insert_notes`
+  - Writes MIDI notes into a target clip using the bridge's runtime-specific note adapter.
+- `load_browser_item`
+  - Loads a browser item such as an instrument or effect onto the selected target track through Live's browser API.
 - `set_parameter`
   - Low-risk write that updates a target parameter.
 - `refresh_state`

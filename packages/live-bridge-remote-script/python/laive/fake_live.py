@@ -50,6 +50,59 @@ class FakeDevice(object):
         self.parameters = parameters
 
 
+class FakeBrowserItem(object):
+    def __init__(self, name, uri, is_device=False, is_loadable=False, children=None, parameters=None):
+        self.name = name
+        self.uri = uri
+        self.is_device = is_device
+        self.is_loadable = is_loadable
+        self.children = list(children or [])
+        self.parameters = list(parameters or [FakeParameter("Macro 1", 0.5)])
+
+
+class FakeBrowser(object):
+    def __init__(self):
+        self.instruments = FakeBrowserItem(
+            "Instruments",
+            "browser:instruments",
+            children=[
+                FakeBrowserItem("Operator", "browser:instruments:operator", is_device=True, is_loadable=True),
+                FakeBrowserItem("Analog", "browser:instruments:analog", is_device=True, is_loadable=True),
+            ],
+        )
+        self.sounds = FakeBrowserItem("Sounds", "browser:sounds", children=[])
+        self.drums = FakeBrowserItem("Drums", "browser:drums", children=[])
+        self.audio_effects = FakeBrowserItem(
+            "Audio Effects",
+            "browser:audio_effects",
+            children=[FakeBrowserItem("EQ Eight", "browser:audio_effects:eq-eight", is_device=True, is_loadable=True)],
+        )
+        self.midi_effects = FakeBrowserItem(
+            "MIDI Effects",
+            "browser:midi_effects",
+            children=[FakeBrowserItem("Arpeggiator", "browser:midi_effects:arpeggiator", is_device=True, is_loadable=True)],
+        )
+        self.loaded_items = []
+        self.song = None
+
+    def bind_song(self, song):
+        self.song = song
+
+    def load_item(self, item):
+        self.loaded_items.append(item.uri)
+        if self.song is None or getattr(self.song.view, "selected_track", None) is None:
+            return
+
+        track = self.song.view.selected_track
+        track.devices.append(FakeDevice(item.name, [FakeParameter("Macro 1", 0.5)]))
+        self.song._notify("tracks")
+
+
+class FakeApplication(object):
+    def __init__(self, browser=None):
+        self.browser = browser or FakeBrowser()
+
+
 class FakeClip(object):
     def __init__(self, name="Clip 1", length=4):
         self.name = name
@@ -96,6 +149,12 @@ class FakeTrack(object):
         self.devices = [FakeDevice("Instrument", [FakeParameter("Macro 1", 0.5)])]
 
 
+class FakeSongView(object):
+    def __init__(self, song):
+        self.song = song
+        self.selected_track = song.tracks[0] if song.tracks else None
+
+
 class FakeScene(object):
     def __init__(self, name):
         self.name = name
@@ -114,6 +173,7 @@ class FakeSong(ListenerMixin):
         self.metronome = False
         self.tracks = [FakeTrack("Drums"), FakeTrack("Bass")]
         self.scenes = [FakeScene("Intro"), FakeScene("Drop")]
+        self.view = FakeSongView(self)
 
     @property
     def tempo(self):
@@ -158,12 +218,17 @@ class FakeSong(ListenerMixin):
 class FakeCInstance(object):
     def __init__(self, song=None):
         self._song = song or FakeSong()
+        self._application = FakeApplication()
+        self._application.browser.bind_song(self._song)
         self.scheduled = []
         self.logged = []
         self.messages = []
 
     def song(self):
         return self._song
+
+    def application(self):
+        return self._application
 
     def schedule_message(self, _delay, callback):
         self.scheduled.append(callback)

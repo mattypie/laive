@@ -61,3 +61,6 @@
 - Expanded the MCP tool surface to expose the remaining control-surface bridge actions for transport, scene creation, and note insertion.
 - Added MCP-side optional component tooling for the Max sidecar and UI helper, including structured setup instructions when those optional components are unavailable in the current session.
 - Fixed the Live Remote Script note-insertion payload to use Live's dictionary note-spec format instead of Python tuples, closing the real-session `NPythonClip::TNoteSpecification` conversion failure seen through both `insert_notes` and sidecar note replacement flows.
+- Refactored the Python bridge note path around a dedicated clip-note adapter and bridge-local serializers so note writes and note readback now share the same runtime-specific capability layer.
+- Added browser-backed device loading to the control-surface bridge, including browser tree/item queries and a `load_browser_item` path that selects a track and calls Live's browser `load_item(...)` API.
+- Exposed MCP browser tools for querying browser roots/items and loading browser items onto tracks, and added fixture plus request-level tests to cover the end-to-end path.

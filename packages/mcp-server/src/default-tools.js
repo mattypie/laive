@@ -268,6 +268,47 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "get_browser_tree",
+      description: "Return the top-level Ableton browser categories and their immediate children.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const browser = await bridgeAdapter.getBrowserTree();
+        return buildInformationalResult(
+          "Browser tree loaded.",
+          {
+            affected_objects: (browser.roots ?? []).map((root) => root.uri ?? root.path).filter(Boolean),
+            browser
+          },
+          ["get_browser_items", "load_browser_item"]
+        );
+      }
+    },
+    {
+      name: "get_browser_items",
+      description: "Return browser items at a specific browser path, or the roots when no path is provided.",
+      inputSchema: createObjectSchema({
+        properties: {
+          path: {
+            type: "string",
+            description: "Optional slash path such as `instruments` or `audio_effects/EQ Eight`."
+          }
+        }
+      }),
+      async execute(args) {
+        const browser = await bridgeAdapter.getBrowserItems({
+          path: args.path ?? null
+        });
+        return buildInformationalResult(
+          args.path ? `Browser items loaded for ${args.path}.` : "Browser root items loaded.",
+          {
+            affected_objects: (browser.items ?? []).map((item) => item.uri ?? item.path).filter(Boolean),
+            browser
+          },
+          ["load_browser_item"]
+        );
+      }
+    },
+    {
       name: "set_tempo",
       description: "Update the current song tempo.",
       inputSchema: createObjectSchema({
@@ -567,6 +608,57 @@ export function buildDefaultTools({
         return buildMutationResult(
           `Parameter ${args.parameterId} ${args.dryRun ? "previewed" : "updated"}.`,
           [args.trackId, args.deviceId, args.parameterId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "load_browser_item",
+      description: "Load a browser item onto a target track through the control-surface browser API.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Target track identifier."
+          },
+          uri: {
+            type: "string",
+            description: "Browser item URI."
+          },
+          path: {
+            type: "string",
+            description: "Browser item slash path, for example `instruments/Operator`."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["trackId"]
+      }),
+      async execute(args) {
+        requireString(args.trackId, "trackId");
+        if (!args.uri && !args.path) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide uri or path for load_browser_item"
+          );
+        }
+
+        await policyAdapter.assertAllowed("load_browser_item", args);
+        const before = await stateAdapter.getProjectSummary();
+        const loaded = await bridgeAdapter.loadBrowserItem(
+          {
+            trackId: args.trackId,
+            uri: args.uri ?? null,
+            path: args.path ?? null,
+            dryRun: Boolean(args.dryRun)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.trackId);
+        return buildMutationResult(
+          `Browser item ${args.dryRun ? "previewed" : "loaded"} on ${args.trackId}.`,
+          loaded.affectedObjects ?? [args.trackId],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []
