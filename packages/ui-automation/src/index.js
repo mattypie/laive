@@ -1,4 +1,4 @@
-export { captureContext, executeWorkflow, materializeWorkflow } from "./executor.js";
+export { captureContext, executeWorkflow, materializeWorkflow, resolveLiveAppName } from "./executor.js";
 export { assertMacOS, assertSupportedLiveWindow, assertWorkflowAllowed } from "./guards.js";
 export {
   buildHelperExecutableScript,

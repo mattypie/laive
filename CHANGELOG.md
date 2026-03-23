@@ -7,6 +7,7 @@
 - Updated the top-level docs and planning documents to describe the current sidecar role more accurately: optional, selection-aware, and complementary to the control-surface bridge rather than the primary control path.
 - Replaced the shipped `laive-sidecar.amxd` with the rebuilt branded device export and clarified in install output/docs that sidecar installation currently targets the default Ableton User Library path rather than Live's custom configured library location.
 - Documented the near-term sidecar roadmap more explicitly around selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows.
+- Fixed the local UI-helper executor to reuse the real frontmost Live app name reported by macOS, so helper-driven sidecar placement no longer assumes the process is literally named `Ableton Live`.
 
 ## v0.3.4 - 2026-03-23
 

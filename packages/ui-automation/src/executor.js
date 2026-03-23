@@ -37,6 +37,14 @@ export async function captureContext() {
   return getFrontmostApplication();
 }
 
+export function resolveLiveAppName(context, fallbackAppName = "Ableton Live") {
+  if (context?.appName && context.appName.includes("Live")) {
+    return context.appName;
+  }
+
+  return fallbackAppName;
+}
+
 export async function executeWorkflow(name, parameters = {}, options = {}) {
   const workflow = materializeWorkflow(name, parameters);
   assertWorkflowAllowed(workflow);
@@ -45,16 +53,17 @@ export async function executeWorkflow(name, parameters = {}, options = {}) {
   if (workflow.guards.includes("app:ableton-live-frontmost")) {
     assertSupportedLiveWindow(context);
   }
+  const liveAppName = resolveLiveAppName(context);
 
   const executedSteps = [];
 
   for (const step of workflow.steps) {
     switch (step.type) {
       case "activate_app":
-        await activateApplication(step.appName);
+        await activateApplication(resolveLiveAppName(context, step.appName));
         break;
       case "menu_click":
-        await clickMenuPath("Ableton Live", step.menuPath);
+        await clickMenuPath(liveAppName, step.menuPath);
         break;
       case "keystroke":
         await sendKeystroke(step.value, step.modifiers);

@@ -10,6 +10,7 @@ import {
   getWorkflow,
   installUiHelper,
   materializeWorkflow,
+  resolveLiveAppName,
   stageUiHelper
 } from "../src/index.js";
 
@@ -42,6 +43,15 @@ test("Live frontmost guard accepts matching app names", () => {
       isFrontmost: true
     })
   );
+});
+
+test("resolveLiveAppName prefers the captured Live app name", () => {
+  assert.equal(resolveLiveAppName({ appName: "Live", isFrontmost: true }), "Live");
+  assert.equal(
+    resolveLiveAppName({ appName: "Ableton Live 12 Suite", isFrontmost: true }),
+    "Ableton Live 12 Suite"
+  );
+  assert.equal(resolveLiveAppName({ appName: "Finder", isFrontmost: true }), "Ableton Live");
 });
 
 test("stageUiHelper creates a named app bundle with executable", async () => {
