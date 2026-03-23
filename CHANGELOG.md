@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.2.5 - 2026-03-23
+
 - Added a browser-backed device loading path to the control-surface bridge, including browser tree/item queries and `load_browser_item` via Live's `application().browser.load_item(...)` flow.
 - Exposed new MCP browser tools so agents can inspect browser categories/items and load devices onto tracks without falling back to UI automation.
 
@@ -56,3 +58,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
