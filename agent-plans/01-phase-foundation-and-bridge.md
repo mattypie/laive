@@ -88,6 +88,7 @@ Implement only the commands needed for a strong vertical slice:
 - list scenes
 - list session clips for a track
 - list arrangement clips for a track
+- inspect arrangement transport position and loop region
 - get devices for a track
 - get parameters for a device
 - expose quantized-parameter metadata where Live reports only numeric values but stable mode labels are needed for agent usability
@@ -107,6 +108,8 @@ Implement only the commands needed for a strong vertical slice:
 - load browser item onto track
 - select target track for follow-on operations
 - inspect and mutate send levels, monitor state, and track routing
+- create or edit arrangement clips where the Live API supports it
+- inspect and edit clip envelopes or automation targets where the bridge can do so reliably
 
 ### 4. Event Model
 
@@ -162,6 +165,7 @@ This harness should remain in the repo permanently as the lowest-level debugging
 - disconnect and reconnect without restarting Live
 - TODO: validate bridge-level support for clip rename, clip-slot moves, clip loop or length edits, and duplicate or delete semantics in real Live sessions across supported Live versions.
 - TODO: validate bridge-level support for return tracks, master track, send levels, and audio or MIDI routing semantics in real Live sessions across supported Live versions.
+- TODO: validate bridge-level support for arrangement-clip enumeration, arrangement-loop control, and clip-envelope inspection/editing in real Live sessions across supported Live versions.
 
 ### Failure Tests
 
