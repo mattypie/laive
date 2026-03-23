@@ -38,6 +38,7 @@ export const workflows = {
       { type: "menu_click", menuPath: ["View", "Browser"] },
       { type: "keystroke", value: "f", modifiers: ["command"] },
       { type: "type_text", parameter: "query" },
+      { type: "keystroke", value: "down" },
       { type: "keystroke", value: "return" }
     ]
   },

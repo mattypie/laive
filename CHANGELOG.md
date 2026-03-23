@@ -9,6 +9,7 @@
 - Documented the near-term sidecar roadmap more explicitly around selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows.
 - Fixed the local UI-helper executor to reuse the real frontmost Live app name reported by macOS, so helper-driven sidecar placement no longer assumes the process is literally named `Ableton Live`.
 - Fixed the UI automation macOS adapter to send special keys like `return` as real key codes instead of literal text, so browser-driven workflows can actually confirm selections instead of typing the word `return`.
+- Updated the browser-search UI workflow to move selection into Live's browser results before pressing Return, which is required for helper-driven sidecar placement on this system.
 
 ## v0.3.4 - 2026-03-23
 

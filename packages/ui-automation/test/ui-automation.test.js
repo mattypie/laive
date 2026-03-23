@@ -24,6 +24,8 @@ test("getWorkflow returns deterministic definitions", () => {
 test("materializeWorkflow resolves parameters into steps", () => {
   const workflow = materializeWorkflow("browserSearchAndLoad", { query: "Operator" });
   assert.equal(workflow.steps[3].resolvedValue, "Operator");
+  assert.equal(workflow.steps[4].resolvedValue, "down");
+  assert.equal(workflow.steps[5].resolvedValue, "return");
 });
 
 test("Live frontmost guard rejects other apps", () => {
