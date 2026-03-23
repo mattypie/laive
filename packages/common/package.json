@@ -1,6 +1,6 @@
 {
   "name": "@laive/common",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "private": true,
   "main": "./src/index.js",

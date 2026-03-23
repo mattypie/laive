@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.7 - 2026-03-23
+
+- Fixed delayed session-playback mirroring by mapping bridge `track-playback-changed` events into MCP `track.updated` state updates instead of collapsing them to generic dirty-path notifications.
+- Updated project-summary and track-detail queries to derive playing session clips from `playing_slot_index` as well as clip flags, keeping readback coherent when Live settles playback state asynchronously.
+- Added regression tests covering delayed playback events and slot-index-derived playing clips so scene launch and clip-stop flows no longer rely on synchronous runtime behavior in the harness.
+
 ## v0.2.6 - 2026-03-23
 
 - Added first-class Session View control tools across the bridge and MCP surface: `launch_clip`, `launch_scene`, `stop_track_clips`, and `stop_all_clips`.
