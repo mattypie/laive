@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.3.0 - 2026-03-23
+
+- Added a first-class `replace_notes` bridge and MCP operation so clip note replacement now overwrites the existing payload instead of piggybacking on additive `insert_notes` semantics.
+- Kept `insert_notes` explicitly additive and updated the MCP tool descriptions/tests to distinguish insert-vs-replace behavior.
+- Tightened optional sidecar workflow gating so sidecar tools now require an active `laive-sidecar` device in the current Live set instead of silently succeeding when only the `.amxd` is installed on disk.
+
 ## v0.2.7 - 2026-03-23
 
 - Fixed delayed session-playback mirroring by mapping bridge `track-playback-changed` events into MCP `track.updated` state updates instead of collapsing them to generic dirty-path notifications.
