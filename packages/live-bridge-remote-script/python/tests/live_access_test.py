@@ -57,6 +57,29 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         )
         self.assertEqual(clip.calls[3], ("done",))
 
+    def test_replace_notes_overwrites_existing_payload(self):
+        clip = DirectSetNotesClip()
+        clip.set_notes_payload = ((36, 0.0, 1.0, 100, False),)
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.replace_notes(
+            "clip:session:track:1:slot:1",
+            [
+                {
+                    "pitch": 67,
+                    "startBeats": 2.0,
+                    "durationBeats": 0.5,
+                    "velocity": 92,
+                }
+            ],
+        )
+
+        self.assertEqual(result["note_count"], 1)
+        self.assertEqual(clip.set_notes_payload, ((67, 2.0, 0.5, 92, False),))
+        self.assertEqual(result["clip"]["note_count"], 1)
+        self.assertEqual(result["clip"]["notes"][0]["pitch"], 67)
+
     def test_clip_serialization_prefers_extended_note_reads(self):
         clip = ExtendedNotesClip()
         song = SongWithSingleClip(clip)

@@ -46,17 +46,69 @@ function requireConfigured(status, label) {
   }
 }
 
-function getStatus() {
+function isSidecarDeviceName(name) {
+  const normalized = String(name ?? "")
+    .trim()
+    .toLowerCase();
+  return normalized.includes("laive-sidecar") || normalized.includes("laive sidecar");
+}
+
+async function listActiveSidecarInstances(stateAdapter) {
+  if (!stateAdapter) {
+    return [];
+  }
+
+  const tracks = await stateAdapter.listTracks();
+  const instances = [];
+
+  for (const track of tracks) {
+    const details = await stateAdapter.getTrackDetails(track.id);
+    for (const device of details.devices ?? []) {
+      if (!isSidecarDeviceName(device.name)) {
+        continue;
+      }
+
+      instances.push({
+        trackId: track.id,
+        trackName: track.name,
+        deviceId: device.id,
+        deviceName: device.name
+      });
+    }
+  }
+
+  return instances;
+}
+
+async function getSidecarStatus(stateAdapter) {
   const sidecarTarget = getDefaultSidecarInstallTarget();
+  const configured = existsSync(sidecarTarget.devicePath);
+  const activeInstances = configured ? await listActiveSidecarInstances(stateAdapter) : [];
+
+  return {
+    configured,
+    active: activeInstances.length > 0,
+    active_instances: activeInstances,
+    devicePath: sidecarTarget.devicePath,
+    workflows: listSidecarWorkflows(),
+    setup_instructions: buildSidecarSetupInstructions(sidecarTarget.devicePath)
+  };
+}
+
+function requireActiveSidecar(status) {
+  requireConfigured(status, "Max for Live sidecar");
+  if (!status.active) {
+    throw createSetupRequiredError("Max for Live sidecar is not active in the current Live set", {
+      ...status,
+      component: "sidecar"
+    });
+  }
+}
+
+function getStatus() {
   const uiHelperTarget = getStableUiHelperInstallPaths();
 
   return {
-    sidecar: {
-      configured: existsSync(sidecarTarget.devicePath),
-      devicePath: sidecarTarget.devicePath,
-      workflows: listSidecarWorkflows(),
-      setup_instructions: buildSidecarSetupInstructions(sidecarTarget.devicePath)
-    },
     ui_helper: {
       configured: existsSync(uiHelperTarget.appBundleRoot),
       appBundleRoot: uiHelperTarget.appBundleRoot,
@@ -70,18 +122,18 @@ function getStatus() {
 export function createSidecarAdapter({ stateAdapter, bridgeAdapter } = {}) {
   return {
     async getStatus() {
-      return getStatus().sidecar;
+      return await getSidecarStatus(stateAdapter);
     },
     async listWorkflows() {
-      const status = getStatus();
+      const status = await getSidecarStatus(stateAdapter);
       return {
-        ...status.sidecar,
+        ...status,
         workflows: listSidecarWorkflows()
       };
     },
     async snapshotSelectionContext() {
-      const status = getStatus();
-      requireConfigured(status.sidecar, "Max for Live sidecar");
+      const status = await getSidecarStatus(stateAdapter);
+      requireActiveSidecar(status);
       if (!stateAdapter) {
         throw new McpServerError("adapter_unavailable", "state adapter is not configured");
       }
@@ -93,20 +145,20 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter } = {}) {
       };
     },
     async replaceClipNotes({ clipId, notes, dryRun = false }) {
-      const status = getStatus();
-      requireConfigured(status.sidecar, "Max for Live sidecar");
+      const status = await getSidecarStatus(stateAdapter);
+      requireActiveSidecar(status);
       if (!bridgeAdapter) {
         throw new McpServerError("adapter_unavailable", "bridge adapter is not configured");
       }
-      return await bridgeAdapter.insertNotes({
+      return await bridgeAdapter.replaceNotes({
         clipId,
         notes,
         dryRun
       });
     },
     async observeDeviceParameters({ trackId } = {}) {
-      const status = getStatus();
-      requireConfigured(status.sidecar, "Max for Live sidecar");
+      const status = await getSidecarStatus(stateAdapter);
+      requireActiveSidecar(status);
       if (!stateAdapter) {
         throw new McpServerError("adapter_unavailable", "state adapter is not configured");
       }
@@ -183,7 +235,9 @@ export function createIntegrationStatusAdapter({ sidecarAdapter, uiAutomationAda
   return {
     async getStatus() {
       return {
-        sidecar: sidecarAdapter ? await sidecarAdapter.getStatus() : getStatus().sidecar,
+        sidecar: sidecarAdapter
+          ? await sidecarAdapter.getStatus()
+          : await getSidecarStatus(null),
         ui_helper: uiAutomationAdapter
           ? await uiAutomationAdapter.getStatus()
           : getStatus().ui_helper

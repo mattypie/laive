@@ -27,6 +27,7 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - create scenes
 - create MIDI clips in session slots
 - insert MIDI notes into clips
+- replace a clip's note payload without appending
 - launch Session View clips
 - launch scenes
 - stop clips on a target track or across the set
@@ -41,7 +42,7 @@ These capabilities have been validated against a live Ableton session through th
 
 The optional components are intentionally soft-failable:
 
-- if the Max for Live sidecar is not installed or not connected, the MCP tools return structured setup instructions for the agent to relay
+- if the Max for Live sidecar is not installed or not active in the current set, the MCP tools return structured setup instructions for the agent to relay
 - if the macOS UI helper is not installed or Accessibility is not granted, the MCP tools return setup instructions instead of silently failing
 
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.

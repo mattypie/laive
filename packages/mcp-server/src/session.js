@@ -322,6 +322,31 @@ export function createBridgeAdapter(target) {
         affectedObjects: [payload.clipId]
       };
     },
+    async replaceNotes(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "replace_notes",
+          {
+            clip_id: payload.clipId,
+            notes: (payload.notes ?? []).map((note) => ({
+              pitch: note.pitch,
+              start_beats: note.startBeats ?? note.start_beats,
+              duration_beats: note.durationBeats ?? note.duration_beats,
+              velocity: note.velocity,
+              mute: note.mute ?? false
+            }))
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
     async launchClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (

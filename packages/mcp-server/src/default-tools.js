@@ -513,7 +513,7 @@ export function buildDefaultTools({
     },
     {
       name: "insert_notes",
-      description: "Insert or replace notes in a target MIDI clip.",
+      description: "Insert notes into a target MIDI clip without clearing existing notes.",
       inputSchema: createObjectSchema({
         properties: {
           clipId: {
@@ -549,6 +549,50 @@ export function buildDefaultTools({
         return buildMutationResult(
           `Notes ${args.dryRun ? "previewed" : "inserted"} for ${args.clipId}.`,
           inserted.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "replace_notes",
+      description: "Replace the current note payload in a target MIDI clip.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id such as clip:session:track:8:slot:1."
+          },
+          notes: {
+            type: "array",
+            items: noteItemSchema,
+            description: "Full note payload to apply to the clip."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        },
+        required: ["clipId", "notes"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireNotes(args.notes);
+
+        await policyAdapter.assertAllowed("replace_notes", args);
+        const before = await stateAdapter.getProjectSummary();
+        const replaced = await bridgeAdapter.replaceNotes(
+          {
+            clipId: args.clipId,
+            notes: args.notes
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Notes ${args.dryRun ? "previewed" : "replaced"} for ${args.clipId}.`,
+          replaced.affectedObjects ?? [args.clipId],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []

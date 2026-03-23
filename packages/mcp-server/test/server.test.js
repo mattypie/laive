@@ -88,6 +88,13 @@ function createServer() {
         affectedObjects: [payload.clipId]
       };
     },
+    async replaceNotes(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId]
+      };
+    },
     async launchClip(payload) {
       return {
         payload,
@@ -301,6 +308,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("stop_transport"));
   assert.ok(byName.has("create_scene"));
   assert.ok(byName.has("insert_notes"));
+  assert.ok(byName.has("replace_notes"));
   assert.ok(byName.has("launch_clip"));
   assert.ok(byName.has("launch_scene"));
   assert.ok(byName.has("stop_track_clips"));
@@ -468,6 +476,35 @@ test("insert_notes validates and returns mutation response", async () => {
   assert.equal(
     response.result.structuredContent.summary,
     "Notes inserted for clip:session:track:2:slot:1."
+  );
+});
+
+test("replace_notes validates and returns mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 16,
+    method: "tools/call",
+    params: {
+      name: "replace_notes",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        notes: [
+          {
+            pitch: 67,
+            startBeats: 0,
+            durationBeats: 0.5,
+            velocity: 100
+          }
+        ]
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Notes replaced for clip:session:track:2:slot:1."
   );
 });
 

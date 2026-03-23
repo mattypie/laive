@@ -199,6 +199,12 @@ class LaiveControlSurface(AbletonControlSurface):
                 notes=arguments.get("notes") or [],
                 dry_run=dry_run,
             )
+        if target == "replace_notes":
+            return self._live.replace_notes(
+                clip_id=arguments.get("clip_id"),
+                notes=arguments.get("notes") or [],
+                dry_run=dry_run,
+            )
         if target == "launch_clip":
             return self._live.launch_clip(
                 clip_id=arguments.get("clip_id"),

@@ -64,6 +64,19 @@ class LaiveControlSurfaceTests(unittest.TestCase):
                 request_id="notes-1",
             )
         )
+        replace_notes = self.surface.process_request(
+            create_request(
+                "call",
+                target="replace_notes",
+                arguments={
+                    "clip_id": clip_id,
+                    "notes": [
+                        {"pitch": 55, "startBeats": 2.0, "durationBeats": 0.5, "velocity": 90}
+                    ],
+                },
+                request_id="notes-2",
+            )
+        )
 
         self.assertEqual(set_tempo["result"]["value"], 130.0)
         self.assertEqual(self.song.tempo, 130.0)
@@ -71,13 +84,14 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(len(self.song.tracks), 3)
         self.assertEqual(create_clip["result"]["clip"]["name"], "Bassline")
         self.assertEqual(insert_notes["result"]["note_count"], 1)
+        self.assertEqual(replace_notes["result"]["note_count"], 1)
         created_clip = self.song.tracks[1].clip_slots[0].clip
         self.assertEqual(created_clip.last_add_new_notes_payload[0][1], 0.0)
         self.assertEqual(created_clip.last_add_new_notes_payload[0][2], 1.0)
         created_note = self.song.tracks[1].clip_slots[0].clip.notes[0]
-        self.assertEqual(created_note[0], 48)
-        self.assertEqual(created_note[1], 0.0)
-        self.assertEqual(created_note[2], 1.0)
+        self.assertEqual(created_note[0], 55)
+        self.assertEqual(created_note[1], 2.0)
+        self.assertEqual(created_note[2], 0.5)
 
     def test_browser_queries_and_load_item(self):
         browser_tree = self.surface.process_request(

@@ -7,6 +7,7 @@
     "create_scene": true,
     "create_clip": true,
     "insert_notes": true,
+    "replace_notes": true,
     "launch_clip": true,
     "launch_scene": true,
     "stop_track_clips": true,

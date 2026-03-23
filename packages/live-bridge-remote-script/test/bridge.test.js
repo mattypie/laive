@@ -101,6 +101,27 @@ test("bridge can create clips and insert notes", async () => {
   });
 });
 
+test("bridge can replace notes without appending", async () => {
+  await withBridge(async ({ client }) => {
+    const replace = await client.request("call", "replace_notes", {
+      clip_id: "clip:session:track:1:slot:1",
+      notes: [
+        {
+          pitch: 40,
+          start_beats: 1,
+          duration_beats: 0.25,
+          velocity: 90
+        }
+      ]
+    });
+    const clip = await client.request("get", "clip:session:track:1:slot:1");
+
+    assert.equal(replace.result.note_count, 1);
+    assert.equal(clip.result.notes.length, 1);
+    assert.equal(clip.result.notes[0].pitch, 40);
+  });
+});
+
 test("bridge can browse and load browser items", async () => {
   await withBridge(async ({ client }) => {
     const tree = await client.request("get", "browser.tree");

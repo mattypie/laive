@@ -55,6 +55,7 @@ class LiveSetAdapter(object):
             "create_scene": hasattr(self.song, "create_scene"),
             "create_clip": True,
             "insert_notes": True,
+            "replace_notes": True,
             "launch_clip": True,
             "launch_scene": True,
             "stop_track_clips": True,
@@ -216,6 +217,18 @@ class LiveSetAdapter(object):
         if not dry_run:
             self._clip_notes.write_notes(clip, normalized_notes)
         note_count = len(notes)
+        clip_state = self._serialize_clip(clip, track_id, slot_index)
+        if dry_run:
+            clip_state["note_count"] = note_count
+            clip_state["noteCount"] = note_count
+        return {"applied": not dry_run, "clip": clip_state, "note_count": note_count}
+
+    def replace_notes(self, clip_id, notes, dry_run=False):
+        clip, track_id, slot_index = self._find_clip(clip_id)
+        normalized_notes = [self._clip_notes.normalize_input(note) for note in notes]
+        if not dry_run:
+            self._clip_notes.replace_notes(clip, normalized_notes)
+        note_count = len(normalized_notes)
         clip_state = self._serialize_clip(clip, track_id, slot_index)
         if dry_run:
             clip_state["note_count"] = note_count

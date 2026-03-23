@@ -201,6 +201,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.createClip(args, dryRun);
       case "insert_notes":
         return this.insertNotes(args, dryRun);
+      case "replace_notes":
+        return this.replaceNotes(args, dryRun);
       case "get_browser_items":
         return this.getBrowserItems(args);
       case "load_browser_item":
@@ -448,6 +450,29 @@ export class FixtureLiveRuntime extends EventEmitter {
       applied: !dryRun,
       clip_id: clip.id,
       note_count: clip.notes.length
+    };
+  }
+
+  replaceNotes(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    const notes = Array.isArray(args.notes) ? clone(args.notes) : [];
+
+    if (!dryRun) {
+      clip.notes = notes;
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "notes-replaced",
+          clip_id: clip.id,
+          notes
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      clip_id: clip.id,
+      note_count: notes.length
     };
   }
 

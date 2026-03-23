@@ -39,7 +39,7 @@ class ClipNoteAdapter(object):
         return []
 
     def write_notes(self, clip, notes):
-        normalized_notes = [self.normalize_input(note) for note in notes]
+        normalized_notes = self._normalize_notes(notes)
 
         if hasattr(clip, "add_new_notes"):
             try:
@@ -67,8 +67,40 @@ class ClipNoteAdapter(object):
 
         raise RequestError("unsupported_runtime", "Clip does not expose a supported note write API")
 
+    def replace_notes(self, clip, notes):
+        normalized_notes = self._normalize_notes(notes)
+
+        if hasattr(clip, "set_notes"):
+            tuple_error = self._try_set_notes_tuple(clip, normalized_notes)
+            if tuple_error is None:
+                return normalized_notes
+
+            if self.supports_legacy_set_notes(clip):
+                self._set_notes_sequence(clip, normalized_notes)
+                return normalized_notes
+
+            raise RequestError("runtime_error", "replace_notes failed: {0}".format(tuple_error))
+
+        if self.supports_legacy_set_notes(clip):
+            self._set_notes_sequence(clip, normalized_notes)
+            return normalized_notes
+
+        notes_property = getattr(clip, "notes", None)
+        if isinstance(notes_property, list):
+            notes_property[:] = [self._legacy_tuple_note(note) for note in normalized_notes]
+            return normalized_notes
+
+        if hasattr(clip, "stored_notes"):
+            clip.stored_notes = [self._legacy_tuple_note(note) for note in normalized_notes]
+            return normalized_notes
+
+        raise RequestError("unsupported_runtime", "Clip does not expose a supported note replacement API")
+
     def supports_legacy_set_notes(self, clip):
         return all(hasattr(clip, method_name) for method_name in ("set_notes", "notes", "note", "done"))
+
+    def _normalize_notes(self, notes):
+        return [self.normalize_input(note) for note in notes]
 
     def _read_all_notes_extended(self, clip):
         getter = getattr(clip, "get_all_notes_extended", None)
