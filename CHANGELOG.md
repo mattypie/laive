@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.2.2 - 2026-03-23
+
 - Fixed legacy Remote Script MIDI note insertion by using the older `replace_selected_notes` command sequence when `add_new_notes` is unavailable, instead of incorrectly calling `set_notes` with a single tuple payload.
 
 ## v0.2.1 - 2026-03-22
@@ -41,3 +43,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
