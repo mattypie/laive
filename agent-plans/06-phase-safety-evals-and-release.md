@@ -45,6 +45,7 @@ Build benchmark scenarios:
 - load a device, change parameters, launch clips
 - export a render
 - benchmark live sketch-cleanup flows such as clip rename, slot moves, loop-length edits, duplicate, and delete with explicit safety expectations
+- benchmark mixer-control flows such as master FX insertion, send balancing, and routing or monitor changes on supported Live versions
 
 ### Reliability Benchmarks
 

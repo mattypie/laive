@@ -52,6 +52,7 @@ The bridge also reports lower-level support for subscriptions / event streaming,
 
 Known gap from live validation: clip rename, moving clips between Session slots, and explicit clip loop or length edits are not yet first-class MCP tools, so sketch cleanup is still rougher than sketch creation.
 Another current gap: quantized device parameters still come through mostly as numeric values plus `displayValue`, so named mode mappings for common controls like Auto Filter waveforms or filter types are not yet first-class metadata.
+Another current gap: return tracks, the master track, send levels, and per-track input/output or monitor configuration are not yet first-class bridge-backed MCP targets, so mixer control is still incomplete.
 
 If you are using this as an end user, the published npm entrypoint is `laive-mcp`. The Ableton-side control surface name remains `laive`.
 
