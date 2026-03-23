@@ -106,7 +106,7 @@ node ./bin/laive.mjs mcp
 ## Prerequisites
 
 - macOS
-- Node 20 or newer
+- Node 18.16 or newer
 - `python3` on `PATH` for `laive doctor`, `laive detect`, `laive package`, and `laive install`
 
 ## What Remains Manual

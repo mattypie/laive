@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.1 - 2026-03-23
+
 - documented the next clip-editing ergonomics work discovered during live validation: clip rename, moving Session clips between slots, explicit clip loop or length edits, and gated duplicate or delete workflows
 - documented a follow-up to expose enum-label metadata for common quantized device parameters so agents can reason about built-in device modes without guessing from raw numbers
 - documented a follow-up to expose return/master tracks, send levels, and routing or monitor configuration as first-class bridge-backed MCP controls
@@ -122,3 +124,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
