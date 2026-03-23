@@ -148,13 +148,15 @@ class LiveSetAdapter(object):
         if not dry_run:
             if hasattr(clip, "add_new_notes"):
                 clip.add_new_notes({"notes": normalized_notes})
+            elif self._supports_legacy_note_sequence(clip):
+                self._replace_selected_notes(clip, normalized_notes)
             elif hasattr(clip, "set_notes"):
-                clip.set_notes(tuple(normalized_notes))
+                clip.set_notes(tuple(self._legacy_tuple_note(note) for note in normalized_notes))
             else:
                 clip.notes.extend(normalized_notes)
         note_count = len(notes)
         clip_state = self._serialize_clip(clip, track_id, slot_index)
-        clip_state["note_count"] = len(getattr(clip, "notes", [])) if not dry_run else note_count
+        clip_state["note_count"] = len(self._clip_notes_snapshot(clip)) if not dry_run else note_count
         return {"applied": not dry_run, "clip": clip_state, "note_count": note_count}
 
     def _serialize_track(self, track, index):
@@ -191,7 +193,7 @@ class LiveSetAdapter(object):
             "name": getattr(clip, "name", "Clip {0}".format(slot_index + 1)),
             "length_beats": getattr(clip, "length", None),
             "is_playing": bool(getattr(clip, "is_playing", False)),
-            "notes": list(getattr(clip, "notes", [])),
+            "notes": self._clip_notes_snapshot(clip),
         }
 
     def _serialize_device(self, device, track_id, device_index):
@@ -274,3 +276,36 @@ class LiveSetAdapter(object):
             "velocity_deviation": note.get("velocity_deviation", note.get("velocityDeviation", 0.0)),
             "release_velocity": note.get("release_velocity", note.get("releaseVelocity", 64)),
         }
+
+    def _supports_legacy_note_sequence(self, clip):
+        return all(hasattr(clip, method_name) for method_name in ("replace_selected_notes", "notes", "note", "done"))
+
+    def _clip_notes_snapshot(self, clip):
+        notes = getattr(clip, "notes", [])
+        if callable(notes):
+            return list(getattr(clip, "stored_notes", []))
+        return list(notes)
+
+    def _replace_selected_notes(self, clip, notes):
+        if hasattr(clip, "deselect_all_notes"):
+            clip.deselect_all_notes()
+        clip.replace_selected_notes()
+        clip.notes(len(notes))
+        for note in notes:
+            clip.note(
+                note.get("pitch", 60),
+                note.get("start_time", 0.0),
+                note.get("duration", 0.25),
+                note.get("velocity", 100),
+                bool(note.get("mute", False)),
+            )
+        clip.done()
+
+    def _legacy_tuple_note(self, note):
+        return (
+            note.get("pitch", 60),
+            note.get("start_time", 0.0),
+            note.get("duration", 0.25),
+            note.get("velocity", 100),
+            bool(note.get("mute", False)),
+        )

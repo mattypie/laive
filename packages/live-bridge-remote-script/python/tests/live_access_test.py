@@ -5,9 +5,9 @@ import unittest
 from laive.live_access import LiveSetAdapter
 
 
-class SetNotesFallbackTests(unittest.TestCase):
-    def test_insert_notes_uses_note_spec_dicts_for_set_notes_fallback(self):
-        clip = SetNotesOnlyClip()
+class LegacyNoteSequenceTests(unittest.TestCase):
+    def test_insert_notes_uses_replace_selected_notes_sequence_when_available(self):
+        clip = ReplaceSelectedNotesClip()
         song = SongWithSingleClip(clip)
         adapter = LiveSetAdapter(song)
 
@@ -24,21 +24,17 @@ class SetNotesFallbackTests(unittest.TestCase):
         )
 
         self.assertEqual(result["note_count"], 1)
+        self.assertEqual(clip.calls[0], ("deselect_all_notes",))
+        self.assertEqual(clip.calls[1], ("replace_selected_notes",))
         self.assertEqual(
-            clip.received_notes,
-            (
-                {
-                    "pitch": 60,
-                    "start_time": 0.0,
-                    "duration": 0.5,
-                    "velocity": 100,
-                    "mute": False,
-                    "probability": 1.0,
-                    "velocity_deviation": 0.0,
-                    "release_velocity": 64,
-                },
-            ),
+            clip.calls[2],
+            ("notes", 1),
         )
+        self.assertEqual(
+            clip.calls[3],
+            ("note", 60, 0.0, 0.5, 100, False),
+        )
+        self.assertEqual(clip.calls[4], ("done",))
 
 
 class SongWithSingleClip(object):
@@ -68,14 +64,34 @@ class ClipSlotWithClip(object):
         return True
 
 
-class SetNotesOnlyClip(object):
+class ReplaceSelectedNotesClip(object):
     def __init__(self):
         self.name = "Clip 1"
         self.length = 4
         self.is_playing = False
-        self.notes = []
-        self.received_notes = None
+        self.stored_notes = []
+        self.calls = []
 
-    def set_notes(self, notes):
-        self.received_notes = notes
-        self.notes = list(notes)
+    def deselect_all_notes(self):
+        self.calls.append(("deselect_all_notes",))
+
+    def replace_selected_notes(self):
+        self.calls.append(("replace_selected_notes",))
+
+    def notes(self, count):
+        self.calls.append(("notes", count))
+
+    def note(self, pitch, start_time, duration, velocity, mute):
+        self.calls.append(("note", pitch, start_time, duration, velocity, mute))
+        self.stored_notes.append(
+            {
+                "pitch": pitch,
+                "start_time": start_time,
+                "duration": duration,
+                "velocity": velocity,
+                "mute": mute,
+            }
+        )
+
+    def done(self):
+        self.calls.append(("done",))

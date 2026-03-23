@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed legacy Remote Script MIDI note insertion by using the older `replace_selected_notes` command sequence when `add_new_notes` is unavailable, instead of incorrectly calling `set_notes` with a single tuple payload.
+
 ## v0.2.1 - 2026-03-22
 
 - Fixed Remote Script MIDI note insertion to send Live note-spec dictionaries instead of legacy Python tuples, covering both `add_new_notes` and `set_notes` bridge paths and resolving real-session `NPythonClip::TNoteSpecification` conversion failures for `insert_notes`.
