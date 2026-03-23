@@ -13,7 +13,7 @@
 - Made `ensure_sidecar_on_track` more robust by teaching it to prefer bridge-native browser loading when the sidecar is discoverable through Live's browser model, then fall back to UI automation only when that native path cannot resolve the item.
 - Added confirmation polling to sidecar placement so the adapter can wait briefly for the device to appear on the target track instead of reporting an immediate provisional warning.
 - Expanded the bridge-side browser root enumeration to include optional roots such as `user_library`, which is a prerequisite for eventually loading shipped sidecar devices without UI fallback when Live exposes them.
-- Reworked the source patcher again so the supported in-Live device UI is a `jsui`-rendered fixed-width ASCII `laive` banner, while keeping `logo.png` packaged for docs and future Max rendering experiments.
+- Reworked the source patcher again so the supported in-Live device UI is a `jsui` banner that draws `logo.png` first and falls back to built-in ASCII art if the image cannot be loaded.
 
 ## v0.3.4 - 2026-03-23
 

@@ -54,7 +54,7 @@ The staging helper copies the source project into the repository-level `artifact
 3. Open `laive-sidecar/patchers/laive-sidecar.maxpat` if you need the source patcher.
 4. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
 5. Confirm the `jsui` banner object points at `../code/laive-sidecar-banner.js`.
-6. The patcher renders the `laive` device banner through `jsui` in presentation mode after re-export. `logo.png` is retained as a packaged branding asset for README/docs and future Max rendering experiments.
+6. The patcher renders the `laive` device banner through `jsui` in presentation mode after re-export, using `logo.png` first and falling back to the built-in ASCII art only if image loading fails.
 7. Drop the `.amxd` onto a MIDI track in Live and validate context and sidecar-specific workflows.
 
 ## Roadmap

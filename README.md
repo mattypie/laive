@@ -194,7 +194,7 @@ Developer/source path:
 1. Open `artifacts/live-sidecar-m4l/laive-sidecar/laive-sidecar.maxproj` in Max if you want the full project view.
 2. Open `artifacts/live-sidecar-m4l/laive-sidecar/patchers/laive-sidecar.maxpat` directly if you only want the patcher.
 3. Confirm the `node.script` object points at `../code/laive-sidecar-node.js`.
-4. The source patcher now ships with bundled branding assets under `project/assets/` and uses a `jsui` renderer for the fixed-width ASCII `laive` banner in the in-Live device UI. `logo.png` is retained as a packaged branding asset for docs and future Max rendering experiments.
+4. The source patcher now ships with bundled branding assets under `project/assets/` and uses a `jsui` renderer for the in-Live device UI, drawing `logo.png` first with a built-in ASCII fallback if the image cannot be loaded.
 
 ### 6. Start The MCP Server For Agents
 

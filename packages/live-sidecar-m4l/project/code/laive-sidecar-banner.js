@@ -24,6 +24,8 @@ var lineColors = [
   [0.99, 0.74, 0.14, 1.0],
   [0.60, 0.92, 0.18, 1.0]
 ];
+var logoImage = null;
+var logoLoadAttempted = 0;
 
 function paint() {
   var size = mgraphics.size;
@@ -32,7 +34,9 @@ function paint() {
 
   drawBackground(width, height);
   drawBorder(width, height);
-  drawBanner();
+  if (!drawLogoImage(width, height)) {
+    drawAsciiBanner();
+  }
 }
 
 function drawBackground(width, height) {
@@ -48,7 +52,37 @@ function drawBorder(width, height) {
   mgraphics.stroke();
 }
 
-function drawBanner() {
+function drawLogoImage(width, height) {
+  var image = getLogoImage();
+  var availableWidth;
+  var availableHeight;
+  var scale;
+  var drawWidth;
+  var drawHeight;
+  var x;
+  var y;
+
+  if (!image || !image.size || image.size[0] <= 0 || image.size[1] <= 0) {
+    return false;
+  }
+
+  availableWidth = width - 28;
+  availableHeight = height - 22;
+  scale = Math.min(availableWidth / image.size[0], availableHeight / image.size[1]);
+  drawWidth = image.size[0] * scale;
+  drawHeight = image.size[1] * scale;
+  x = (width - drawWidth) / 2;
+  y = (height - drawHeight) / 2;
+
+  mgraphics.save();
+  mgraphics.translate(x, y);
+  mgraphics.scale(scale, scale);
+  mgraphics.image_surface_draw(image);
+  mgraphics.restore();
+  return true;
+}
+
+function drawAsciiBanner() {
   var x = 14;
   var y = 16;
   var lineHeight = 8.6;
@@ -63,6 +97,31 @@ function drawBanner() {
     mgraphics.move_to(x, y + i * lineHeight);
     mgraphics.show_text(bannerLines[i]);
   }
+}
+
+function getLogoImage() {
+  var candidates;
+  var i;
+
+  if (logoLoadAttempted) {
+    return logoImage;
+  }
+
+  logoLoadAttempted = 1;
+  candidates = ["logo.png", "../assets/logo.png"];
+
+  for (i = 0; i < candidates.length; i += 1) {
+    try {
+      logoImage = new Image(candidates[i]);
+      if (logoImage && logoImage.size && logoImage.size[0] > 0 && logoImage.size[1] > 0) {
+        return logoImage;
+      }
+    } catch (error) {
+      logoImage = null;
+    }
+  }
+
+  return null;
 }
 
 function roundedRect(x, y, width, height, radius) {

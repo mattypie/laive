@@ -93,7 +93,7 @@
           "presentation_rect": [36.0, 136.0, 420.0, 30.0],
           "fontname": "Arial Bold",
           "fontsize": 12.0,
-          "textcolor": [0.92, 0.94, 0.98, 1.0],
+          "textcolor": [0.11, 0.13, 0.17, 1.0],
           "text": "laive sidecar\nNode starts automatically before workflows and test commands are used."
         }
       },
