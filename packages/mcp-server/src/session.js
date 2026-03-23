@@ -99,7 +99,7 @@ function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks }) 
   };
 }
 
-function mapBridgeEvent(topic, payload) {
+export function mapBridgeEvent(topic, payload) {
   switch (topic) {
     case "transport.changed":
       return { event: "transport.changed", payload };
@@ -141,6 +141,13 @@ function mapBridgeEvent(topic, payload) {
         return {
           event: "scene.updated",
           payload: payload.scene ?? { id: payload.scene_id }
+        };
+      }
+
+      if (payload.action === "track-playback-changed" && payload.track) {
+        return {
+          event: "track.updated",
+          payload: normalizeTrack(payload.track)
         };
       }
 

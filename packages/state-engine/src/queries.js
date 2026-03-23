@@ -2,11 +2,40 @@ function valuesInOrder(ids, collection) {
   return ids.map((id) => collection[id]).filter(Boolean);
 }
 
+function resolvePlayingClips(state) {
+  const playingClips = new Map();
+
+  for (const clip of Object.values(state.clips)) {
+    if (clip.isPlaying) {
+      playingClips.set(clip.id, clip);
+    }
+  }
+
+  for (const track of valuesInOrder(state.trackOrder, state.tracks)) {
+    if (!Number.isInteger(track.playingSlotIndex) || track.playingSlotIndex < 0) {
+      continue;
+    }
+
+    const playingClip = valuesInOrder(track.sessionClipIds, state.clips).find(
+      (clip) => clip.slotIndex === track.playingSlotIndex
+    );
+
+    if (playingClip) {
+      playingClips.set(playingClip.id, {
+        ...playingClip,
+        isPlaying: true
+      });
+    }
+  }
+
+  return [...playingClips.values()];
+}
+
 export function summarizeProject(state) {
   const tracks = valuesInOrder(state.trackOrder, state.tracks);
   const scenes = valuesInOrder(state.sceneOrder, state.scenes);
   const clips = Object.values(state.clips);
-  const playingClips = clips.filter((clip) => clip.isPlaying);
+  const playingClips = resolvePlayingClips(state);
 
   return {
     snapshotVersion: state.meta.snapshotVersion,
@@ -97,8 +126,7 @@ export function findTrack(state, query) {
 }
 
 export function listPlayingClips(state) {
-  return Object.values(state.clips)
-    .filter((clip) => clip.isPlaying)
+  return resolvePlayingClips(state)
     .map((clip) => ({
       clip,
       track: state.tracks[clip.trackId] ?? null
@@ -112,7 +140,12 @@ export function getTrackDetails(state, trackId) {
     return null;
   }
 
-  const sessionClips = valuesInOrder(track.sessionClipIds, state.clips);
+  const sessionClips = valuesInOrder(track.sessionClipIds, state.clips).map((clip) => ({
+    ...clip,
+    isPlaying:
+      clip.isPlaying ||
+      (Number.isInteger(track.playingSlotIndex) && clip.slotIndex === track.playingSlotIndex)
+  }));
   const arrangementClips = valuesInOrder(track.arrangementClipIds, state.clips);
   const devices = valuesInOrder(track.deviceIds, state.devices).map((device) => ({
     ...device,

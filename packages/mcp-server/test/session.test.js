@@ -8,9 +8,11 @@ import {
   LaiveFixtureSession,
   createAllowAllPolicyAdapter,
   createBridgeAdapter,
-  createStateAdapter
+  createStateAdapter,
+  mapBridgeEvent
 } from "../src/session.js";
 import { BridgeServer, FixtureLiveRuntime } from "../../live-bridge-remote-script/src/index.js";
+import { createStateEngine } from "../../state-engine/src/index.js";
 
 test("fixture session wires bridge, state engine, and MCP tools together", async () => {
   const session = await LaiveFixtureSession.create();
@@ -242,6 +244,173 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
   } finally {
     await session.close();
   }
+});
+
+test("track playback events update mirrored session state", () => {
+  const stateEngine = createStateEngine();
+  stateEngine.applySnapshot(
+    {
+      observed_at: "2026-03-22T00:00:00Z",
+      bridge_version: "0.2.6",
+      live_version: "11.3.25",
+      application: {
+        version: "11.3.25",
+        mode: "live_set"
+      },
+      song: {
+        name: "Test Set",
+        tempo: 120,
+        is_playing: true,
+        is_recording: false
+      },
+      selection: null,
+      capabilities: {
+        runtime_version: "bridge",
+        supported_commands: [],
+        supported_events: [],
+        features: {}
+      },
+      scenes: [
+        {
+          id: "scene:1",
+          index: 0,
+          name: "Scene 1"
+        }
+      ],
+      tracks: [
+        {
+          id: "track:2",
+          index: 1,
+          name: "Bass",
+          section: "visible",
+          playing_slot_index: -1,
+          fired_slot_index: -1,
+          session_clips: [
+            {
+              id: "clip:session:track:2:slot:2",
+              track_id: "track:2",
+              location: "session",
+              slot_index: 1,
+              name: "Scene 2 Bass",
+              is_playing: false,
+              note_count: 4
+            }
+          ],
+          arrangement_clips: [],
+          devices: []
+        }
+      ]
+    },
+    {
+      observedAt: "2026-03-22T00:00:00Z"
+    }
+  );
+
+  const mapped = mapBridgeEvent("clips.changed", {
+    action: "track-playback-changed",
+    track_id: "track:2",
+    track: {
+      id: "track:2",
+      index: 1,
+      name: "Bass",
+      section: "visible",
+      playing_slot_index: 1,
+      fired_slot_index: 1,
+      session_clips: [
+        {
+          id: "clip:session:track:2:slot:2",
+          track_id: "track:2",
+          location: "session",
+          slot_index: 1,
+          name: "Scene 2 Bass",
+          is_playing: true,
+          note_count: 4
+        }
+      ],
+      arrangement_clips: [],
+      devices: []
+    }
+  });
+
+  stateEngine.applyEvent(mapped, {
+    observedAt: "2026-03-22T00:00:01Z"
+  });
+
+  const summary = stateEngine.query.summarizeProject();
+  const trackDetails = stateEngine.query.getTrackDetails("track:2");
+
+  assert.equal(summary.counts.playingClips, 1);
+  assert.equal(summary.playingClips[0].id, "clip:session:track:2:slot:2");
+  assert.equal(trackDetails.track.playingSlotIndex, 1);
+  assert.equal(trackDetails.sessionClips[0].isPlaying, true);
+});
+
+test("project summary derives playing clips from track slot state", () => {
+  const stateEngine = createStateEngine();
+  stateEngine.applySnapshot(
+    {
+      observed_at: "2026-03-22T00:00:00Z",
+      bridge_version: "0.2.6",
+      live_version: "11.3.25",
+      application: {
+        version: "11.3.25",
+        mode: "live_set"
+      },
+      song: {
+        name: "Test Set",
+        tempo: 120,
+        is_playing: true,
+        is_recording: false
+      },
+      selection: null,
+      capabilities: {
+        runtime_version: "bridge",
+        supported_commands: [],
+        supported_events: [],
+        features: {}
+      },
+      scenes: [
+        {
+          id: "scene:1",
+          index: 0,
+          name: "Scene 1"
+        }
+      ],
+      tracks: [
+        {
+          id: "track:1",
+          index: 0,
+          name: "Lead",
+          section: "visible",
+          playing_slot_index: 0,
+          fired_slot_index: 0,
+          session_clips: [
+            {
+              id: "clip:session:track:1:slot:1",
+              track_id: "track:1",
+              location: "session",
+              slot_index: 0,
+              name: "Lead Clip",
+              is_playing: false,
+              note_count: 8
+            }
+          ],
+          arrangement_clips: [],
+          devices: []
+        }
+      ]
+    },
+    {
+      observedAt: "2026-03-22T00:00:00Z"
+    }
+  );
+
+  const summary = stateEngine.query.summarizeProject();
+  const trackDetails = stateEngine.query.getTrackDetails("track:1");
+
+  assert.equal(summary.counts.playingClips, 1);
+  assert.equal(summary.playingClips[0].id, "clip:session:track:1:slot:1");
+  assert.equal(trackDetails.sessionClips[0].isPlaying, true);
 });
 
 test("real bridge session can connect to a live bridge socket and refresh state", async () => {
