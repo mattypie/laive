@@ -97,8 +97,8 @@ async function listActiveSidecarInstances(stateAdapter) {
 
 async function getSidecarStatus(stateAdapter) {
   const sidecarTarget = getDefaultSidecarInstallTarget();
-  const configured = existsSync(sidecarTarget.devicePath);
-  const activeInstances = configured ? await listActiveSidecarInstances(stateAdapter) : [];
+  const activeInstances = await listActiveSidecarInstances(stateAdapter);
+  const configured = existsSync(sidecarTarget.devicePath) || activeInstances.length > 0;
 
   return {
     configured,
@@ -279,7 +279,6 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
     },
     async ensureOnTrack({ trackId, dryRun = false } = {}) {
       const status = await getSidecarStatus(stateAdapter);
-      requireConfigured(status, "Max for Live sidecar");
       requireString(trackId, "trackId");
 
       const existingInstance = status.active_instances.find((instance) => instance.trackId === trackId);
@@ -303,14 +302,22 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         );
       }
 
+      const nativeBrowserItem = dryRun
+        ? null
+        : await findBrowserItem(bridgeAdapter, (item) => item?.is_loadable && isSidecarBrowserItem(item));
+
+      const resolvedUiAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
+      const uiStatus =
+        nativeBrowserItem || dryRun ? null : await resolvedUiAdapter.getStatus();
+
+      if (!nativeBrowserItem && !status.configured && !uiStatus?.configured) {
+        throw createSetupRequiredError("Max for Live sidecar is not configured", status);
+      }
+
       await bridgeAdapter.selectTrack({ trackId }, { dryRun });
       let method = null;
       let bridgeLoad = null;
       let uiWorkflow = null;
-
-      const nativeBrowserItem = dryRun
-        ? null
-        : await findBrowserItem(bridgeAdapter, (item) => item?.is_loadable && isSidecarBrowserItem(item));
 
       if (nativeBrowserItem && typeof bridgeAdapter.loadBrowserItem === "function") {
         method = "bridge_browser_load_item";
@@ -325,9 +332,8 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
               path: nativeBrowserItem.path ?? null
             });
       } else {
-        const resolvedUiAdapter = uiAutomationAdapter ?? createUiAutomationAdapter();
-        const uiStatus = await resolvedUiAdapter.getStatus();
-        requireConfigured(uiStatus, "UI helper");
+        const effectiveUiStatus = uiStatus ?? await resolvedUiAdapter.getStatus();
+        requireConfigured(effectiveUiStatus, "UI helper");
         method = "ui_browser_search_and_load";
         uiWorkflow = dryRun
           ? {

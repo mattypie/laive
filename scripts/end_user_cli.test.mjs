@@ -47,6 +47,13 @@ test("install stages both remote script and sidecar deliverables", () => {
   const payload = JSON.parse(output);
 
   assert.equal(payload.remote_script.status, "dry_run");
+  assert.equal(typeof payload.remote_script.live_install_detected, "boolean");
+  if (payload.remote_script.live_install_detected) {
+    assert.ok(typeof payload.remote_script.target_dir === "string");
+  } else {
+    assert.equal(payload.remote_script.target_dir, null);
+    assert.equal(typeof payload.remote_script.live_install_error?.message, "string");
+  }
   assert.ok(payload.sidecar.stagedProjectRoot.endsWith("laive-sidecar"));
   assert.equal(payload.sidecar.installPayload.status, "dry_run");
   assert.ok(payload.sidecar.installPayload.devicePath.endsWith("laive-sidecar.amxd"));

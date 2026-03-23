@@ -12,6 +12,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from remote_script_tooling import (
+    REMOTE_SCRIPT_SOURCE,
     detect_live_installs,
     doctor_report,
     install_remote_script,
@@ -50,6 +51,20 @@ class RemoteScriptToolingTests(unittest.TestCase):
             self.assertTrue(Path(second_payload["staging_dir"]).exists())
             self.assertTrue(Path(second_payload["archive_path"]).exists())
 
+    def test_stage_remote_script_ignores_bytecode_cache(self):
+        pycache_dir = REMOTE_SCRIPT_SOURCE / "__pycache__"
+        probe_file = pycache_dir / "ci-probe.pyc"
+        pycache_dir.mkdir(exist_ok=True)
+        probe_file.write_bytes(b"compiled")
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                payload = stage_remote_script(artifacts_dir=Path(temp_dir))
+                staged_pycache = Path(payload["staging_dir"]) / "__pycache__"
+                self.assertFalse(staged_pycache.exists())
+                self.assertTrue(Path(payload["archive_path"]).exists())
+        finally:
+            probe_file.unlink(missing_ok=True)
+
     def test_install_remote_script_dry_run_reports_target(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             app_path = Path(temp_dir) / "Ableton Live 11 Suite.app"
@@ -78,6 +93,22 @@ class RemoteScriptToolingTests(unittest.TestCase):
 
             self.assertEqual(payload["status"], "dry_run")
             self.assertEqual(payload["live_app_path"], str(app_path))
+
+    def test_install_remote_script_dry_run_reports_missing_live_install(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            original_candidate_roots = detect_live_installs.__globals__["candidate_live_search_roots"]
+            detect_live_installs.__globals__["candidate_live_search_roots"] = lambda: [root]
+            try:
+                payload = install_remote_script(None, dry_run=True)
+            finally:
+                detect_live_installs.__globals__["candidate_live_search_roots"] = original_candidate_roots
+
+            self.assertEqual(payload["status"], "dry_run")
+            self.assertEqual(payload["live_install_detected"], False)
+            self.assertEqual(payload["target_dir"], None)
+            self.assertIn("No Ableton Live installs were detected", payload["live_install_error"]["message"])
 
     def test_doctor_report_contains_core_fields(self):
         payload = doctor_report()

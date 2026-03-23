@@ -87,7 +87,12 @@ def stage_remote_script(
     if target_dir.exists():
         remove_tree(target_dir)
 
-    shutil.copytree(source_root, target_dir, dirs_exist_ok=True)
+    shutil.copytree(
+        source_root,
+        target_dir,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+    )
     archive_path = shutil.make_archive(
         str(artifacts_dir / archive_name), "zip", root_dir=staging_root, base_dir=source_root.name
     )
@@ -151,11 +156,36 @@ def install_remote_script(
     auto_package: bool = True,
 ) -> dict:
     source_root = ensure_source_exists(source_root)
-    chosen_install = choose_live_install(live_app_path)
+    package_payload = stage_remote_script(source_root=source_root) if auto_package else None
+
+    try:
+        chosen_install = choose_live_install(live_app_path)
+    except (FileNotFoundError, RuntimeError) as error:
+        if not dry_run:
+            raise
+        return {
+            "live_app_path": str(live_app_path) if live_app_path is not None else None,
+            "remote_scripts_dir": None,
+            "source_root": str(source_root),
+            "target_dir": None,
+            "dry_run": dry_run,
+            "overwrite": overwrite,
+            "auto_packaged": auto_package,
+            "package_payload": package_payload,
+            "status": "dry_run",
+            "would_install": False,
+            "remote_scripts_dir_exists": False,
+            "target_exists": False,
+            "live_install_detected": False,
+            "live_install_error": {
+                "type": error.__class__.__name__,
+                "message": str(error),
+            },
+        }
+
     live_app_path = chosen_install.app_path
     remote_scripts_dir = chosen_install.remote_scripts_dir
     target_dir = remote_scripts_dir / source_root.name
-    package_payload = stage_remote_script(source_root=source_root) if auto_package else None
 
     payload = {
         "live_app_path": str(live_app_path),
@@ -166,6 +196,7 @@ def install_remote_script(
         "overwrite": overwrite,
         "auto_packaged": auto_package,
         "package_payload": package_payload,
+        "live_install_detected": True,
     }
 
     if dry_run:

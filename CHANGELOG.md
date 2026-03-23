@@ -7,6 +7,8 @@
 - documented a follow-up to expose return/master tracks, send levels, and routing or monitor configuration as first-class bridge-backed MCP controls
 - documented a follow-up to make Arrangement View and clip-envelope control explicit roadmap items instead of leaving them implied in the earlier planning docs
 - sliced the current roadmap gaps into tentative versioned work units so future sessions can pick them up as concrete milestones
+- fixed CI regressions by letting `laive-mcp install --json` return a machine-readable dry-run payload when no Ableton Live install is detected, and by allowing native sidecar placement to proceed when the sidecar is discoverable through Live's browser even if the default `.amxd` path is absent
+- fixed Remote Script packaging to ignore transient Python bytecode caches so repeated package/install flows and CI archives no longer fail on disappearing `__pycache__` files
 
 ## v0.4.0 - 2026-03-23
 
