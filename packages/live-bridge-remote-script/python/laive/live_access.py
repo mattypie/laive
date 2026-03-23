@@ -5,7 +5,16 @@ try:
 except ImportError:  # pragma: no cover - fake harness path
     Live = None
 
+from .clip_notes import ClipNoteAdapter
 from .protocol import RequestError
+from .serializers import (
+    serialize_clip_state,
+    serialize_device_state,
+    serialize_parameter_state,
+    serialize_scene_state,
+    serialize_song_state,
+    serialize_track_state,
+)
 
 
 def _track_id(index):
@@ -31,6 +40,7 @@ def _parameter_id(device_id, parameter_index):
 class LiveSetAdapter(object):
     def __init__(self, song):
         self.song = song
+        self._clip_notes = ClipNoteAdapter(live_module=Live)
 
     @property
     def live_version(self):
@@ -49,16 +59,7 @@ class LiveSetAdapter(object):
         }
 
     def get_song_state(self):
-        return {
-            "id": "song:current",
-            "name": getattr(self.song, "name", "Untitled Set"),
-            "tempo": getattr(self.song, "tempo", None),
-            "time_signature_numerator": getattr(self.song, "signature_numerator", None),
-            "time_signature_denominator": getattr(self.song, "signature_denominator", None),
-            "is_playing": bool(getattr(self.song, "is_playing", False)),
-            "is_recording": bool(getattr(self.song, "is_recording", False)),
-            "metronome": bool(getattr(self.song, "metronome", False)),
-        }
+        return serialize_song_state(self.song)
 
     def get_tracks(self):
         return [self._serialize_track(track, index) for index, track in enumerate(getattr(self.song, "tracks", []))]
@@ -149,80 +150,56 @@ class LiveSetAdapter(object):
 
     def insert_notes(self, clip_id, notes, dry_run=False):
         clip, track_id, slot_index = self._find_clip(clip_id)
-        normalized_notes = [self._note_spec(note) for note in notes]
+        normalized_notes = [self._clip_notes.normalize_input(note) for note in notes]
         if not dry_run:
-            if hasattr(clip, "add_new_notes"):
-                try:
-                    clip.add_new_notes(tuple(self._add_new_note_spec(note) for note in normalized_notes))
-                except Exception as error:
-                    raise RequestError("runtime_error", "add_new_notes failed: {0}".format(error))
-            elif self._supports_set_notes_sequence(clip):
-                self._set_notes_sequence(clip, normalized_notes)
-            else:
-                clip.notes.extend(normalized_notes)
+            self._clip_notes.write_notes(clip, normalized_notes)
         note_count = len(notes)
         clip_state = self._serialize_clip(clip, track_id, slot_index)
-        clip_state["note_count"] = len(self._clip_notes_snapshot(clip)) if not dry_run else note_count
+        if dry_run:
+            clip_state["note_count"] = note_count
+            clip_state["noteCount"] = note_count
         return {"applied": not dry_run, "clip": clip_state, "note_count": note_count}
 
     def _serialize_track(self, track, index):
         track_id = getattr(track, "id", None) or _track_id(index)
         clip_slots = getattr(track, "clip_slots", [])
         devices = getattr(track, "devices", [])
-        return {
-            "id": track_id,
-            "index": index,
-            "name": getattr(track, "name", "Track {0}".format(index + 1)),
-            "type": getattr(track, "type", "midi"),
-            "arm": bool(getattr(track, "arm", False)),
-            "mute": bool(getattr(track, "mute", False)),
-            "solo": bool(getattr(track, "solo", False)),
-            "session_clips": [
-                self._serialize_clip(slot.clip, track_id, slot_index)
-                for slot_index, slot in enumerate(clip_slots)
-                if getattr(slot, "has_clip", False)
-            ],
-            "devices": [self._serialize_device(device, track_id, device_index) for device_index, device in enumerate(devices)],
-        }
+        session_clips = [
+            self._serialize_clip(slot.clip, track_id, slot_index)
+            for slot_index, slot in enumerate(clip_slots)
+            if getattr(slot, "has_clip", False)
+        ]
+        serialized_devices = [
+            self._serialize_device(device, track_id, device_index)
+            for device_index, device in enumerate(devices)
+        ]
+        return serialize_track_state(track, index, track_id, session_clips, serialized_devices)
 
     def _serialize_scene(self, scene, index):
-        return {
-            "id": getattr(scene, "id", None) or _scene_id(index),
-            "index": index,
-            "name": getattr(scene, "name", "Scene {0}".format(index + 1)),
-        }
+        return serialize_scene_state(scene, index, getattr(scene, "id", None) or _scene_id(index))
 
     def _serialize_clip(self, clip, track_id, slot_index):
-        return {
-            "id": getattr(clip, "id", None) or _clip_id(track_id, slot_index),
-            "slot_index": slot_index,
-            "name": getattr(clip, "name", "Clip {0}".format(slot_index + 1)),
-            "length_beats": getattr(clip, "length", None),
-            "is_playing": bool(getattr(clip, "is_playing", False)),
-            "notes": self._clip_notes_snapshot(clip),
-        }
+        return serialize_clip_state(
+            clip,
+            getattr(clip, "id", None) or _clip_id(track_id, slot_index),
+            track_id,
+            slot_index,
+            self._clip_notes.serialize_notes(clip),
+        )
 
     def _serialize_device(self, device, track_id, device_index):
         device_id = getattr(device, "id", None) or _device_id(track_id, device_index)
-        return {
-            "id": device_id,
-            "name": getattr(device, "name", "Device {0}".format(device_index + 1)),
-            "class_name": getattr(device, "class_name", "Device"),
-            "parameters": [
-                self._serialize_parameter(parameter, device_id, parameter_index)
-                for parameter_index, parameter in enumerate(getattr(device, "parameters", []))
-            ],
-        }
+        parameters = [
+            self._serialize_parameter(parameter, device_id, parameter_index)
+            for parameter_index, parameter in enumerate(getattr(device, "parameters", []))
+        ]
+        return serialize_device_state(device, device_id, parameters)
 
     def _serialize_parameter(self, parameter, device_id, parameter_index):
-        return {
-            "id": getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index),
-            "name": getattr(parameter, "name", "Parameter {0}".format(parameter_index + 1)),
-            "value": getattr(parameter, "value", None),
-            "min": getattr(parameter, "min", 0.0),
-            "max": getattr(parameter, "max", 1.0),
-            "display_value": getattr(parameter, "display_value", str(getattr(parameter, "value", ""))),
-        }
+        return serialize_parameter_state(
+            parameter,
+            getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index),
+        )
 
     def _find_track(self, track_id):
         for index, track in enumerate(getattr(self.song, "tracks", [])):
@@ -270,86 +247,3 @@ class LiveSetAdapter(object):
                     if candidate == parameter_id:
                         return parameter, device_id, parameter_index
         raise RequestError("not_found", "Parameter not found: {0}".format(parameter_id))
-
-    def _note_spec(self, note):
-        return {
-            "pitch": note.get("pitch", 60),
-            "start_time": note.get("start_time", note.get("start_beats", note.get("startBeats", 0.0))),
-            "duration": note.get("duration", note.get("duration_beats", note.get("durationBeats", 0.25))),
-            "velocity": note.get("velocity", 100),
-            "mute": bool(note.get("mute", False)),
-            "probability": note.get("probability", 1.0),
-            "velocity_deviation": note.get("velocity_deviation", note.get("velocityDeviation", 0.0)),
-            "release_velocity": note.get("release_velocity", note.get("releaseVelocity", 64)),
-        }
-
-    def _supports_set_notes_sequence(self, clip):
-        return all(hasattr(clip, method_name) for method_name in ("set_notes", "notes", "note", "done"))
-
-    def _clip_notes_snapshot(self, clip):
-        notes = getattr(clip, "notes", [])
-        if callable(notes):
-            return list(getattr(clip, "stored_notes", []))
-        return list(notes)
-
-    def _set_notes_sequence(self, clip, notes):
-        try:
-            clip.set_notes()
-        except Exception as error:
-            raise RequestError("runtime_error", "legacy set_notes sequence failed at set_notes: {0}".format(error))
-
-        try:
-            clip.notes(len(notes))
-        except Exception as error:
-            raise RequestError("runtime_error", "legacy set_notes sequence failed at notes(count): {0}".format(error))
-
-        for note in notes:
-            try:
-                clip.note(
-                    note.get("pitch", 60),
-                    note.get("start_time", 0.0),
-                    note.get("duration", 0.25),
-                    note.get("velocity", 100),
-                    bool(note.get("mute", False)),
-                )
-            except Exception as error:
-                raise RequestError(
-                    "runtime_error",
-                    "legacy set_notes sequence failed at note(...): {0}".format(error),
-                )
-
-        try:
-            clip.done()
-        except Exception as error:
-            raise RequestError("runtime_error", "legacy set_notes sequence failed at done(): {0}".format(error))
-
-    def _legacy_tuple_note(self, note):
-        return (
-            note.get("pitch", 60),
-            note.get("start_time", 0.0),
-            note.get("duration", 0.25),
-            note.get("velocity", 100),
-            bool(note.get("mute", False)),
-        )
-
-    def _add_new_note_spec(self, note):
-        if Live is not None and hasattr(Live, "Clip") and hasattr(Live.Clip, "MidiNoteSpecification"):
-            constructor = Live.Clip.MidiNoteSpecification
-            try:
-                return constructor(
-                    note.get("pitch", 60),
-                    note.get("start_time", 0.0),
-                    note.get("duration", 0.25),
-                    note.get("velocity", 100),
-                    bool(note.get("mute", False)),
-                )
-            except TypeError:
-                return constructor(
-                    pitch=note.get("pitch", 60),
-                    start_time=note.get("start_time", 0.0),
-                    duration=note.get("duration", 0.25),
-                    velocity=note.get("velocity", 100),
-                    mute=bool(note.get("mute", False)),
-                )
-
-        return self._legacy_tuple_note(note)

@@ -1,0 +1,82 @@
+from __future__ import absolute_import, print_function, unicode_literals
+
+
+def serialize_song_state(song):
+    return {
+        "id": "song:current",
+        "name": getattr(song, "name", "Untitled Set"),
+        "tempo": getattr(song, "tempo", None),
+        "time_signature_numerator": getattr(song, "signature_numerator", None),
+        "time_signature_denominator": getattr(song, "signature_denominator", None),
+        "is_playing": bool(getattr(song, "is_playing", False)),
+        "is_recording": bool(getattr(song, "is_recording", False)),
+        "metronome": bool(getattr(song, "metronome", False)),
+    }
+
+
+def serialize_track_state(track, index, track_id, session_clips, devices):
+    armed = bool(getattr(track, "arm", False))
+    muted = bool(getattr(track, "mute", False))
+    soloed = bool(getattr(track, "solo", False))
+
+    return {
+        "id": track_id,
+        "index": index,
+        "name": getattr(track, "name", "Track {0}".format(index + 1)),
+        "type": getattr(track, "type", "midi"),
+        "arm": armed,
+        "mute": muted,
+        "solo": soloed,
+        "armed": armed,
+        "muted": muted,
+        "soloed": soloed,
+        "session_clips": session_clips,
+        "arrangement_clips": [],
+        "devices": devices,
+    }
+
+
+def serialize_scene_state(scene, index, scene_id):
+    return {
+        "id": scene_id,
+        "index": index,
+        "name": getattr(scene, "name", "Scene {0}".format(index + 1)),
+    }
+
+
+def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
+    return {
+        "id": clip_id,
+        "track_id": track_id,
+        "location": "session",
+        "slot_index": slot_index,
+        "slotIndex": slot_index,
+        "name": getattr(clip, "name", "Clip {0}".format(slot_index + 1)),
+        "length_beats": getattr(clip, "length", None),
+        "is_playing": bool(getattr(clip, "is_playing", False)),
+        "notes": notes,
+        "note_count": len(notes),
+        "noteCount": len(notes),
+    }
+
+
+def serialize_device_state(device, device_id, parameters):
+    return {
+        "id": device_id,
+        "name": getattr(device, "name", "Device"),
+        "class_name": getattr(device, "class_name", "Device"),
+        "parameters": parameters,
+    }
+
+
+def serialize_parameter_state(parameter, parameter_id):
+    display_value = getattr(parameter, "display_value", str(getattr(parameter, "value", "")))
+    return {
+        "id": parameter_id,
+        "name": getattr(parameter, "name", "Parameter"),
+        "value": getattr(parameter, "value", None),
+        "min": getattr(parameter, "min", 0.0),
+        "max": getattr(parameter, "max", 1.0),
+        "display_value": display_value,
+        "displayValue": display_value,
+    }

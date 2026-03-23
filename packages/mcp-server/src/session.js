@@ -21,9 +21,11 @@ function parseLiveVersion(versionLabel) {
 }
 
 function normalizeParameter(parameter) {
+  const displayValue = parameter.display_value ?? parameter.displayValue ?? null;
   return {
     ...parameter,
-    display_value: parameter.display_value ?? parameter.displayValue ?? null
+    display_value: displayValue,
+    displayValue
   };
 }
 
@@ -35,21 +37,29 @@ function normalizeDevice(device) {
 }
 
 function normalizeClip(trackId, clip) {
+  const noteCount = clip.note_count ?? clip.noteCount ?? clip.notes?.length ?? null;
   return {
     ...clip,
-    track_id: trackId,
+    track_id: clip.track_id ?? trackId,
     location: clip.location ?? "session",
-    note_count: clip.note_count ?? clip.notes?.length ?? null
+    note_count: noteCount,
+    noteCount
   };
 }
 
 function normalizeTrack(track) {
+  const armed = track.armed ?? track.arm ?? false;
+  const muted = track.muted ?? track.mute ?? false;
+  const soloed = track.soloed ?? track.solo ?? false;
   return {
     ...track,
     section: track.section ?? "visible",
-    armed: track.armed ?? track.arm ?? false,
-    muted: track.muted ?? track.mute ?? false,
-    soloed: track.soloed ?? track.solo ?? false,
+    armed,
+    muted,
+    soloed,
+    arm: armed,
+    mute: muted,
+    solo: soloed,
     devices: (track.devices ?? []).map(normalizeDevice),
     session_clips: (track.session_clips ?? []).map((clip) => normalizeClip(track.id, clip)),
     arrangement_clips: (track.arrangement_clips ?? []).map((clip) =>

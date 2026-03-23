@@ -2,7 +2,11 @@
 
 ## Unreleased
 
+## v0.2.4 - 2026-03-23
+
 - Fixed Live 11 MIDI note insertion for the Python Remote Script bridge by constructing `Live.Clip.MidiNoteSpecification` objects for `add_new_notes`, matching Ableton's own built-in Remote Script usage instead of passing plain dicts or tuples.
+- Added a clip-note capability adapter in the Python bridge so note reads and note writes use the same runtime-specific API family instead of diverging across `add_new_notes`, legacy note commands, and fixture-only `clip.notes` access.
+- Added bridge-local serializers for songs, tracks, clips, devices, and parameters so the bridge emits stable DTOs, including explicit `note_count`/`noteCount` clip metadata and normalized armed/muted/soloed aliases.
 
 ## v0.2.3 - 2026-03-23
 
