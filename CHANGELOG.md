@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Tightened Live 11 note replacement so the bridge now verifies that the clear step actually removed existing notes before re-adding a new payload, instead of silently appending when `remove_notes_extended` or `remove_notes_by_id` no-op.
+- Added bridge regression coverage for dict-form `remove_notes_extended` plus the real-runtime failure mode where an extended-note clear reports success but leaves the original notes intact.
+
 ## v0.3.2 - 2026-03-23
 
 - Changed bridge note insertion to prefer Live 11's documented extended-note API by sending `add_new_notes` a single `{"notes": [...]}` payload instead of tuple-based note specs.
@@ -87,4 +90,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

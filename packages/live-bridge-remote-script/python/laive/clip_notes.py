@@ -380,21 +380,20 @@ class ClipNoteAdapter(object):
         return payload
 
     def _replace_all_notes_extended(self, clip, notes):
-        existing_notes = self.read_notes(clip)
-        removable_note_ids = [
-            note.get("id") for note in (self._normalize_runtime_note(note) for note in existing_notes) if note.get("id") is not None
-        ]
+        existing_notes = [self._normalize_runtime_note(note) for note in self.read_notes(clip)]
+        removable_note_ids = [note.get("id") for note in existing_notes if note.get("id") is not None]
 
         if removable_note_ids and hasattr(clip, "remove_notes_by_id"):
-            try:
-                clip.remove_notes_by_id(removable_note_ids)
-            except Exception as error:
-                raise RequestError("runtime_error", "remove_notes_by_id failed: {0}".format(error))
-        elif hasattr(clip, "remove_notes_extended"):
-            try:
-                clip.remove_notes_extended(0, 128, 0.0, self._clip_time_span(clip))
-            except Exception as error:
-                raise RequestError("runtime_error", "remove_notes_extended failed: {0}".format(error))
+            self._remove_notes_by_id(clip, removable_note_ids)
+        elif existing_notes and hasattr(clip, "remove_notes_extended"):
+            self._remove_notes_extended(clip)
+
+        remaining_notes = [self._normalize_runtime_note(note) for note in self.read_notes(clip)]
+        if remaining_notes:
+            raise RequestError(
+                "runtime_error",
+                "extended note clear step left {0} notes in the clip".format(len(remaining_notes)),
+            )
 
         if not notes:
             return None
@@ -403,3 +402,39 @@ class ClipNoteAdapter(object):
             clip.add_new_notes(self._extended_note_payload(notes))
         except Exception as error:
             raise RequestError("runtime_error", "add_new_notes failed after clearing notes: {0}".format(error))
+
+    def _remove_notes_by_id(self, clip, note_ids):
+        last_type_error = None
+        for candidate_args in ((note_ids,), ({"note_ids": note_ids},)):
+            try:
+                clip.remove_notes_by_id(*candidate_args)
+                return None
+            except TypeError as error:
+                last_type_error = error
+                continue
+            except Exception as error:
+                raise RequestError("runtime_error", "remove_notes_by_id failed: {0}".format(error))
+
+        if last_type_error is not None:
+            raise RequestError("runtime_error", "remove_notes_by_id failed: {0}".format(last_type_error))
+
+    def _remove_notes_extended(self, clip):
+        time_span = self._clip_time_span(clip)
+        candidate_args = (
+            ({"from_pitch": 0, "pitch_span": 128, "from_time": 0.0, "time_span": time_span},),
+            (0, 128, 0.0, time_span),
+        )
+        last_type_error = None
+
+        for args in candidate_args:
+            try:
+                clip.remove_notes_extended(*args)
+                return None
+            except TypeError as error:
+                last_type_error = error
+                continue
+            except Exception as error:
+                raise RequestError("runtime_error", "remove_notes_extended failed: {0}".format(error))
+
+        if last_type_error is not None:
+            raise RequestError("runtime_error", "remove_notes_extended failed: {0}".format(last_type_error))

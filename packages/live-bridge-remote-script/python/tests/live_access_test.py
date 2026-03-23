@@ -3,6 +3,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import unittest
 
 from laive.live_access import LiveSetAdapter
+from laive.protocol import RequestError
 
 
 class LegacyNoteSequenceTests(unittest.TestCase):
@@ -129,6 +130,71 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(clip.stored_notes[0]["pitch"], 67)
         self.assertEqual(result["clip"]["note_count"], 1)
         self.assertEqual(result["clip"]["notes"][0]["pitch"], 67)
+
+    def test_replace_notes_uses_dict_remove_notes_extended_when_ids_are_missing(self):
+        clip = RemoveNotesExtendedDictClip()
+        clip.stored_notes = [
+            {
+                "pitch": 36,
+                "start_time": 0.0,
+                "duration": 1.0,
+                "velocity": 100,
+                "mute": False,
+            }
+        ]
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.replace_notes(
+            "clip:session:track:1:slot:1",
+            [
+                {
+                    "pitch": 67,
+                    "startBeats": 2.0,
+                    "durationBeats": 0.5,
+                    "velocity": 92,
+                }
+            ],
+        )
+
+        self.assertEqual(result["note_count"], 1)
+        self.assertEqual(
+            clip.calls[0],
+            ("remove_notes_extended", {"from_pitch": 0, "pitch_span": 128, "from_time": 0.0, "time_span": 4.0}),
+        )
+        self.assertEqual(clip.calls[1][0], "add_new_notes")
+        self.assertEqual(len(clip.stored_notes), 1)
+        self.assertEqual(clip.stored_notes[0]["pitch"], 67)
+
+    def test_replace_notes_raises_when_clear_step_is_a_noop(self):
+        clip = NoOpRemoveNotesExtendedClip()
+        clip.stored_notes = [
+            {
+                "pitch": 36,
+                "start_time": 0.0,
+                "duration": 1.0,
+                "velocity": 100,
+                "mute": False,
+            }
+        ]
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        with self.assertRaises(RequestError) as context:
+            adapter.replace_notes(
+                "clip:session:track:1:slot:1",
+                [
+                    {
+                        "pitch": 67,
+                        "startBeats": 2.0,
+                        "durationBeats": 0.5,
+                        "velocity": 92,
+                    }
+                ],
+            )
+
+        self.assertIn("extended note clear step left 1 notes", str(context.exception))
+        self.assertEqual(len(clip.stored_notes), 1)
 
     def test_replace_notes_falls_back_to_replace_selected_notes_sequence(self):
         clip = ReplaceSelectedNotesClip()
@@ -433,6 +499,48 @@ class ReplaceByIdClip(object):
         self.calls.append(("add_new_notes", payload))
         self.add_new_notes_payload = payload
         self.stored_notes.extend(list(payload.get("notes", [])))
+
+
+class RemoveNotesExtendedDictClip(object):
+    def __init__(self):
+        self.name = "Remove Extended Dict"
+        self.length = 4
+        self.is_playing = False
+        self.stored_notes = []
+        self.calls = []
+        self.add_new_notes_payload = None
+
+    def get_all_notes_extended(self):
+        return {"notes": list(self.stored_notes)}
+
+    def remove_notes_extended(self, payload):
+        self.calls.append(("remove_notes_extended", payload))
+        if not isinstance(payload, dict):
+            raise TypeError("dict payload required")
+        self.stored_notes = []
+
+    def add_new_notes(self, payload):
+        self.calls.append(("add_new_notes", payload))
+        self.add_new_notes_payload = payload
+        self.stored_notes.extend(list(payload.get("notes", [])))
+
+
+class NoOpRemoveNotesExtendedClip(object):
+    def __init__(self):
+        self.name = "Remove Extended No-op"
+        self.length = 4
+        self.is_playing = False
+        self.stored_notes = []
+        self.calls = []
+
+    def get_all_notes_extended(self):
+        return {"notes": list(self.stored_notes)}
+
+    def remove_notes_extended(self, payload):
+        self.calls.append(("remove_notes_extended", payload))
+
+    def add_new_notes(self, payload):
+        self.calls.append(("add_new_notes", payload))
 
 
 class AddNewNotesClip(object):
