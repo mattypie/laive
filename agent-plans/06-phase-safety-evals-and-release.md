@@ -44,6 +44,7 @@ Build benchmark scenarios:
 - inspect and edit an existing arrangement
 - load a device, change parameters, launch clips
 - export a render
+- benchmark live sketch-cleanup flows such as clip rename, slot moves, loop-length edits, duplicate, and delete with explicit safety expectations
 
 ### Reliability Benchmarks
 
@@ -109,6 +110,7 @@ Add:
 5. Write full operator docs.
 6. Define release checklist and rollback plan.
 7. Validate the published `npx laive-mcp` path for sidecar placement and optional-component guidance, not just local source execution.
+8. Add eval coverage for session-editing ergonomics discovered in live testing, including rename, slot moves, loop-length edits, duplicate, and delete with confirmation-policy expectations for destructive actions.
 
 ## Acceptance Criteria
 

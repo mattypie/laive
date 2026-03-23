@@ -50,6 +50,8 @@ The optional components are intentionally soft-failable:
 
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
 
+Known gap from live validation: clip rename, moving clips between Session slots, and explicit clip loop or length edits are not yet first-class MCP tools, so sketch cleanup is still rougher than sketch creation.
+
 If you are using this as an end user, the published npm entrypoint is `laive-mcp`. The Ableton-side control surface name remains `laive`.
 
 ## Control Surface Vs Sidecar

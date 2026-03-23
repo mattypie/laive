@@ -50,6 +50,10 @@ A TypeScript MCP server with strongly-scoped tools, structured errors, and state
 - `set_parameter`
 - `rename_object`
 - `duplicate_clip`
+- `rename_clip`
+- `move_session_clip`
+- `set_clip_loop_or_length`
+- `delete_clip`
 
 ### Safety / Planning Tools
 
@@ -92,6 +96,7 @@ Examples:
 - `preview_mutation` should not execute writes; it should resolve targets and return what would change.
 - `ensure_sidecar_on_track` should select the target track, prefer official browser-backed insertion where possible, and return setup guidance when the UI helper or shipped device is unavailable.
 - sidecar-facing tools should explain whether the request can be satisfied by the primary bridge alone or whether the optional sidecar adds materially better context or behavior.
+- TODO: add session-editing tools for `rename_clip`, `move_session_clip`, `set_clip_loop_or_length`, `duplicate_clip`, and `delete_clip`, with preflight validation and localized post-write refresh so agents can clean up or reorganize sketches without dropping to raw bridge semantics.
 
 ## Implementation Tasks
 

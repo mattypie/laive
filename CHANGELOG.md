@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- documented the next clip-editing ergonomics work discovered during live validation: clip rename, moving Session clips between slots, explicit clip loop or length edits, and gated duplicate or delete workflows
+
 ## v0.4.0 - 2026-03-23
 
 - Added a bridge-level `select_track` action plus an MCP `ensure_sidecar_on_track` workflow so agents can select a target track and request `laive-sidecar` placement with structured setup guidance when the UI helper or sidecar is unavailable.
@@ -112,4 +114,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

@@ -96,9 +96,14 @@ Implement only the commands needed for a strong vertical slice:
 - create scene
 - create MIDI clip
 - add MIDI notes to clip
+- replace MIDI notes in clip
 - fire clip
+- fire scene
 - stop track clips
+- stop all clips
 - set parameter value
+- load browser item onto track
+- select target track for follow-on operations
 
 ### 4. Event Model
 
@@ -151,6 +156,7 @@ This harness should remain in the repo permanently as the lowest-level debugging
 - create track, clip, notes, fire clip
 - change transport and confirm events
 - disconnect and reconnect without restarting Live
+- TODO: validate bridge-level support for clip rename, clip-slot moves, clip loop or length edits, and duplicate or delete semantics in real Live sessions across supported Live versions.
 
 ### Failure Tests
 
