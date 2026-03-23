@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Live 11 MIDI note insertion for the Python Remote Script bridge by constructing `Live.Clip.MidiNoteSpecification` objects for `add_new_notes`, matching Ableton's own built-in Remote Script usage instead of passing plain dicts or tuples.
+
 ## v0.2.3 - 2026-03-23
 
 - Fixed the legacy Remote Script note-write fallback again to drive Live's command-style `set_notes -> notes -> note -> done` sequence, which is what the Live 11 Python bridge actually exposes when `add_new_notes` is unavailable.
@@ -47,4 +49,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

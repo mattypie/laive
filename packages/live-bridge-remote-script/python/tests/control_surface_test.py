@@ -72,12 +72,12 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(create_clip["result"]["clip"]["name"], "Bassline")
         self.assertEqual(insert_notes["result"]["note_count"], 1)
         created_clip = self.song.tracks[1].clip_slots[0].clip
-        self.assertEqual(created_clip.last_add_new_notes_payload["notes"][0]["start_time"], 0.0)
-        self.assertEqual(created_clip.last_add_new_notes_payload["notes"][0]["duration"], 1.0)
+        self.assertEqual(created_clip.last_add_new_notes_payload[0][1], 0.0)
+        self.assertEqual(created_clip.last_add_new_notes_payload[0][2], 1.0)
         created_note = self.song.tracks[1].clip_slots[0].clip.notes[0]
-        self.assertEqual(created_note["pitch"], 48)
-        self.assertEqual(created_note["start_time"], 0.0)
-        self.assertEqual(created_note["duration"], 1.0)
+        self.assertEqual(created_note[0], 48)
+        self.assertEqual(created_note[1], 0.0)
+        self.assertEqual(created_note[2], 1.0)
 
 
 if __name__ == "__main__":

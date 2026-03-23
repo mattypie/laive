@@ -1,5 +1,10 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
+try:
+    import Live  # type: ignore
+except ImportError:  # pragma: no cover - fake harness path
+    Live = None
+
 from .protocol import RequestError
 
 
@@ -147,7 +152,10 @@ class LiveSetAdapter(object):
         normalized_notes = [self._note_spec(note) for note in notes]
         if not dry_run:
             if hasattr(clip, "add_new_notes"):
-                clip.add_new_notes({"notes": normalized_notes})
+                try:
+                    clip.add_new_notes(tuple(self._add_new_note_spec(note) for note in normalized_notes))
+                except Exception as error:
+                    raise RequestError("runtime_error", "add_new_notes failed: {0}".format(error))
             elif self._supports_set_notes_sequence(clip):
                 self._set_notes_sequence(clip, normalized_notes)
             else:
@@ -285,14 +293,63 @@ class LiveSetAdapter(object):
         return list(notes)
 
     def _set_notes_sequence(self, clip, notes):
-        clip.set_notes()
-        clip.notes(len(notes))
+        try:
+            clip.set_notes()
+        except Exception as error:
+            raise RequestError("runtime_error", "legacy set_notes sequence failed at set_notes: {0}".format(error))
+
+        try:
+            clip.notes(len(notes))
+        except Exception as error:
+            raise RequestError("runtime_error", "legacy set_notes sequence failed at notes(count): {0}".format(error))
+
         for note in notes:
-            clip.note(
-                note.get("pitch", 60),
-                note.get("start_time", 0.0),
-                note.get("duration", 0.25),
-                note.get("velocity", 100),
-                bool(note.get("mute", False)),
-            )
-        clip.done()
+            try:
+                clip.note(
+                    note.get("pitch", 60),
+                    note.get("start_time", 0.0),
+                    note.get("duration", 0.25),
+                    note.get("velocity", 100),
+                    bool(note.get("mute", False)),
+                )
+            except Exception as error:
+                raise RequestError(
+                    "runtime_error",
+                    "legacy set_notes sequence failed at note(...): {0}".format(error),
+                )
+
+        try:
+            clip.done()
+        except Exception as error:
+            raise RequestError("runtime_error", "legacy set_notes sequence failed at done(): {0}".format(error))
+
+    def _legacy_tuple_note(self, note):
+        return (
+            note.get("pitch", 60),
+            note.get("start_time", 0.0),
+            note.get("duration", 0.25),
+            note.get("velocity", 100),
+            bool(note.get("mute", False)),
+        )
+
+    def _add_new_note_spec(self, note):
+        if Live is not None and hasattr(Live, "Clip") and hasattr(Live.Clip, "MidiNoteSpecification"):
+            constructor = Live.Clip.MidiNoteSpecification
+            try:
+                return constructor(
+                    note.get("pitch", 60),
+                    note.get("start_time", 0.0),
+                    note.get("duration", 0.25),
+                    note.get("velocity", 100),
+                    bool(note.get("mute", False)),
+                )
+            except TypeError:
+                return constructor(
+                    pitch=note.get("pitch", 60),
+                    start_time=note.get("start_time", 0.0),
+                    duration=note.get("duration", 0.25),
+                    velocity=note.get("velocity", 100),
+                    mute=bool(note.get("mute", False)),
+                )
+
+        return self._legacy_tuple_note(note)
