@@ -58,8 +58,16 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(clip.calls[3], ("done",))
 
     def test_replace_notes_overwrites_existing_payload(self):
-        clip = DirectSetNotesClip()
-        clip.set_notes_payload = ((36, 0.0, 1.0, 100, False),)
+        clip = ReplaceSelectedNotesClip()
+        clip.stored_notes = [
+            {
+                "pitch": 36,
+                "start_time": 0.0,
+                "duration": 1.0,
+                "velocity": 100,
+                "mute": False,
+            }
+        ]
         song = SongWithSingleClip(clip)
         adapter = LiveSetAdapter(song)
 
@@ -76,7 +84,14 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         )
 
         self.assertEqual(result["note_count"], 1)
-        self.assertEqual(clip.set_notes_payload, ((67, 2.0, 0.5, 92, False),))
+        self.assertEqual(clip.calls[0], ("select_all_notes",))
+        self.assertEqual(clip.calls[1], ("replace_selected_notes",))
+        self.assertEqual(clip.calls[2], ("notes", 1))
+        self.assertEqual(clip.calls[3], ("note", 67, 2.0, 0.5, 92, False))
+        self.assertEqual(clip.calls[4], ("done",))
+        self.assertEqual(clip.calls[5], ("deselect_all_notes",))
+        self.assertEqual(len(clip.stored_notes), 1)
+        self.assertEqual(clip.stored_notes[0]["pitch"], 67)
         self.assertEqual(result["clip"]["note_count"], 1)
         self.assertEqual(result["clip"]["notes"][0]["pitch"], 67)
 
@@ -288,6 +303,43 @@ class SetNotesSequenceClip(object):
 
     def done(self):
         self.calls.append(("done",))
+
+
+class ReplaceSelectedNotesClip(object):
+    def __init__(self):
+        self.name = "Replace Selected"
+        self.length = 4
+        self.is_playing = False
+        self.stored_notes = []
+        self.calls = []
+
+    def select_all_notes(self):
+        self.calls.append(("select_all_notes",))
+
+    def replace_selected_notes(self):
+        self.calls.append(("replace_selected_notes",))
+        self.stored_notes = []
+
+    def notes(self, count):
+        self.calls.append(("notes", count))
+
+    def note(self, pitch, start_time, duration, velocity, mute):
+        self.calls.append(("note", pitch, start_time, duration, velocity, mute))
+        self.stored_notes.append(
+            {
+                "pitch": pitch,
+                "start_time": start_time,
+                "duration": duration,
+                "velocity": velocity,
+                "mute": mute,
+            }
+        )
+
+    def done(self):
+        self.calls.append(("done",))
+
+    def deselect_all_notes(self):
+        self.calls.append(("deselect_all_notes",))
 
 
 class DirectSetNotesClip(object):

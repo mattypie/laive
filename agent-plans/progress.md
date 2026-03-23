@@ -71,4 +71,5 @@
 - Added regression coverage for delayed playback events so session launch/stop actions can correct the mirrored project state without requiring a manual full refresh.
 - Split clip note mutation semantics so `insert_notes` stays additive while `replace_notes` is now a first-class overwrite operation across the bridge, fixture runtime, and MCP tool surface.
 - Tightened optional sidecar status so sidecar workflows now require an active `laive-sidecar` device in the current Live set instead of silently falling back to the bridge when only the `.amxd` is installed on disk.
+- Switched bridge-level note replacement to Live's supported `select_all_notes` + `replace_selected_notes` flow, after the published `0.3.0` validation showed that relying on `set_notes` still failed to overwrite notes in a real Live 11 session.
 - Remaining follow-up after this slice: publish the note-replacement and sidecar-status fix through the published `npx laive-mcp` path, then re-run the live replacement matrix (`replace_notes`, `sidecar_replace_clip_notes`, optional sidecar load/install flow) in a real Live session.

@@ -70,6 +70,10 @@ class ClipNoteAdapter(object):
     def replace_notes(self, clip, notes):
         normalized_notes = self._normalize_notes(notes)
 
+        if self.supports_replace_selected_notes(clip):
+            self._replace_selected_notes_sequence(clip, normalized_notes)
+            return normalized_notes
+
         if hasattr(clip, "set_notes"):
             tuple_error = self._try_set_notes_tuple(clip, normalized_notes)
             if tuple_error is None:
@@ -98,6 +102,9 @@ class ClipNoteAdapter(object):
 
     def supports_legacy_set_notes(self, clip):
         return all(hasattr(clip, method_name) for method_name in ("set_notes", "notes", "note", "done"))
+
+    def supports_replace_selected_notes(self, clip):
+        return all(hasattr(clip, method_name) for method_name in ("replace_selected_notes", "notes", "note", "done"))
 
     def _normalize_notes(self, notes):
         return [self.normalize_input(note) for note in notes]
@@ -276,6 +283,63 @@ class ClipNoteAdapter(object):
             clip.done()
         except Exception as error:
             raise RequestError("runtime_error", "legacy set_notes sequence failed at done(): {0}".format(error))
+
+    def _replace_selected_notes_sequence(self, clip, notes):
+        select_all_notes = getattr(clip, "select_all_notes", None)
+        if callable(select_all_notes):
+            try:
+                select_all_notes()
+            except Exception as error:
+                raise RequestError(
+                    "runtime_error",
+                    "replace_selected_notes sequence failed at select_all_notes(): {0}".format(error),
+                )
+
+        try:
+            clip.replace_selected_notes()
+        except Exception as error:
+            raise RequestError(
+                "runtime_error",
+                "replace_selected_notes sequence failed at replace_selected_notes(): {0}".format(error),
+            )
+
+        try:
+            clip.notes(len(notes))
+        except Exception as error:
+            raise RequestError(
+                "runtime_error",
+                "replace_selected_notes sequence failed at notes(count): {0}".format(error),
+            )
+
+        for note in notes:
+            try:
+                clip.note(
+                    note.get("pitch", 60),
+                    note.get("start_time", 0.0),
+                    note.get("duration", 0.25),
+                    note.get("velocity", 100),
+                    bool(note.get("mute", False)),
+                )
+            except Exception as error:
+                raise RequestError(
+                    "runtime_error",
+                    "replace_selected_notes sequence failed at note(...): {0}".format(error),
+                )
+
+        try:
+            clip.done()
+        except Exception as error:
+            raise RequestError(
+                "runtime_error",
+                "replace_selected_notes sequence failed at done(): {0}".format(error),
+            )
+
+        deselect_all_notes = getattr(clip, "deselect_all_notes", None)
+        if callable(deselect_all_notes):
+            try:
+                deselect_all_notes()
+            except Exception:
+                return None
 
     def _legacy_tuple_note(self, note):
         return (
