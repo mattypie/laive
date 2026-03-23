@@ -12,6 +12,7 @@ export {
 export {
   activateApplication,
   clickMenuPath,
+  getSpecialKeyCode,
   getFrontmostApplication,
   runAppleScript,
   sendKeystroke,

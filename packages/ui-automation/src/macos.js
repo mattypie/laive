@@ -11,6 +11,21 @@ function quoteAppleScriptString(value) {
   return String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
+const SPECIAL_KEY_CODES = {
+  return: 36,
+  enter: 76,
+  tab: 48,
+  escape: 53,
+  up: 126,
+  down: 125,
+  left: 123,
+  right: 124
+};
+
+export function getSpecialKeyCode(value) {
+  return SPECIAL_KEY_CODES[String(value).toLowerCase()] ?? null;
+}
+
 export async function runAppleScript(lines) {
   assertMacOS();
 
@@ -61,10 +76,20 @@ export async function clickMenuPath(appName, menuPath) {
 }
 
 export async function sendKeystroke(value, modifiers = []) {
-  const safeValue = quoteAppleScriptString(value);
   const modifierExpression =
     modifiers.length > 0 ? ` using {${modifiers.map((item) => `${item} down`).join(", ")}}` : "";
+  const specialKeyCode = getSpecialKeyCode(value);
 
+  if (typeof specialKeyCode === "number") {
+    await runAppleScript([
+      'tell application "System Events"',
+      `key code ${specialKeyCode}${modifierExpression}`,
+      "end tell"
+    ]);
+    return;
+  }
+
+  const safeValue = quoteAppleScriptString(value);
   await runAppleScript([
     'tell application "System Events"',
     `keystroke "${safeValue}"${modifierExpression}`,

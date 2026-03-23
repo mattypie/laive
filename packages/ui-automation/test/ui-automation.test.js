@@ -7,6 +7,7 @@ import path from "node:path";
 
 import {
   assertSupportedLiveWindow,
+  getSpecialKeyCode,
   getWorkflow,
   installUiHelper,
   materializeWorkflow,
@@ -52,6 +53,12 @@ test("resolveLiveAppName prefers the captured Live app name", () => {
     "Ableton Live 12 Suite"
   );
   assert.equal(resolveLiveAppName({ appName: "Finder", isFrontmost: true }), "Ableton Live");
+});
+
+test("special key mapping exposes canonical key codes", () => {
+  assert.equal(getSpecialKeyCode("return"), 36);
+  assert.equal(getSpecialKeyCode("down"), 125);
+  assert.equal(getSpecialKeyCode("x"), null);
 });
 
 test("stageUiHelper creates a named app bundle with executable", async () => {
