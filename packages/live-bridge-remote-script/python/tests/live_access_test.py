@@ -6,7 +6,45 @@ from laive.live_access import LiveSetAdapter
 
 
 class LegacyNoteSequenceTests(unittest.TestCase):
-    def test_insert_notes_uses_direct_set_notes_when_available(self):
+    def test_insert_notes_prefers_add_new_notes_with_extended_payload(self):
+        clip = AddNewNotesClip()
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.insert_notes(
+            "clip:session:track:1:slot:1",
+            [
+                {
+                    "pitch": 64,
+                    "startBeats": 1.0,
+                    "durationBeats": 0.25,
+                    "velocity": 96,
+                }
+            ],
+        )
+
+        self.assertEqual(result["note_count"], 1)
+        self.assertEqual(
+            clip.add_new_notes_payload,
+            {
+                "notes": [
+                    {
+                        "pitch": 64,
+                        "start_time": 1.0,
+                        "duration": 0.25,
+                        "velocity": 96,
+                        "mute": False,
+                        "probability": 1.0,
+                        "velocity_deviation": 0.0,
+                        "release_velocity": 64,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(result["clip"]["note_count"], 1)
+        self.assertEqual(result["clip"]["notes"][0]["pitch"], 64)
+
+    def test_insert_notes_uses_direct_set_notes_when_add_new_notes_is_unavailable(self):
         clip = DirectSetNotesClip()
         song = SongWithSingleClip(clip)
         adapter = LiveSetAdapter(song)
@@ -57,7 +95,42 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         )
         self.assertEqual(clip.calls[3], ("done",))
 
-    def test_replace_notes_overwrites_existing_payload(self):
+    def test_replace_notes_prefers_remove_notes_by_id_plus_add_new_notes(self):
+        clip = ReplaceByIdClip()
+        clip.stored_notes = [
+            {
+                "pitch": 36,
+                "start_time": 0.0,
+                "duration": 1.0,
+                "velocity": 100,
+                "mute": False,
+                "note_id": 9001,
+            }
+        ]
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.replace_notes(
+            "clip:session:track:1:slot:1",
+            [
+                {
+                    "pitch": 67,
+                    "startBeats": 2.0,
+                    "durationBeats": 0.5,
+                    "velocity": 92,
+                }
+            ],
+        )
+
+        self.assertEqual(result["note_count"], 1)
+        self.assertEqual(clip.calls[0], ("remove_notes_by_id", [9001]))
+        self.assertEqual(clip.calls[1][0], "add_new_notes")
+        self.assertEqual(len(clip.stored_notes), 1)
+        self.assertEqual(clip.stored_notes[0]["pitch"], 67)
+        self.assertEqual(result["clip"]["note_count"], 1)
+        self.assertEqual(result["clip"]["notes"][0]["pitch"], 67)
+
+    def test_replace_notes_falls_back_to_replace_selected_notes_sequence(self):
         clip = ReplaceSelectedNotesClip()
         clip.stored_notes = [
             {
@@ -92,8 +165,6 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(clip.calls[5], ("deselect_all_notes",))
         self.assertEqual(len(clip.stored_notes), 1)
         self.assertEqual(clip.stored_notes[0]["pitch"], 67)
-        self.assertEqual(result["clip"]["note_count"], 1)
-        self.assertEqual(result["clip"]["notes"][0]["pitch"], 67)
 
     def test_clip_serialization_prefers_extended_note_reads(self):
         clip = ExtendedNotesClip()
@@ -340,6 +411,42 @@ class ReplaceSelectedNotesClip(object):
 
     def deselect_all_notes(self):
         self.calls.append(("deselect_all_notes",))
+
+
+class ReplaceByIdClip(object):
+    def __init__(self):
+        self.name = "Replace By Id"
+        self.length = 4
+        self.is_playing = False
+        self.stored_notes = []
+        self.calls = []
+        self.add_new_notes_payload = None
+
+    def get_all_notes_extended(self):
+        return {"notes": list(self.stored_notes)}
+
+    def remove_notes_by_id(self, note_ids):
+        self.calls.append(("remove_notes_by_id", list(note_ids)))
+        self.stored_notes = [note for note in self.stored_notes if note.get("note_id") not in set(note_ids)]
+
+    def add_new_notes(self, payload):
+        self.calls.append(("add_new_notes", payload))
+        self.add_new_notes_payload = payload
+        self.stored_notes.extend(list(payload.get("notes", [])))
+
+
+class AddNewNotesClip(object):
+    def __init__(self):
+        self.name = "Add New Notes"
+        self.length = 4
+        self.is_playing = False
+        self.add_new_notes_payload = None
+
+    def add_new_notes(self, payload):
+        self.add_new_notes_payload = payload
+
+    def get_all_notes_extended(self):
+        return self.add_new_notes_payload or {"notes": []}
 
 
 class DirectSetNotesClip(object):

@@ -110,13 +110,27 @@ class FakeClip(object):
         self.is_playing = False
         self.notes = []
         self.last_add_new_notes_payload = None
+        self.last_remove_notes_by_id_payload = None
+        self._next_note_id = 1
 
     def add_new_notes(self, notes):
         self.last_add_new_notes_payload = notes
         if isinstance(notes, dict):
-            self.notes.extend(notes.get("notes", []))
+            for note in notes.get("notes", []):
+                normalized = dict(note)
+                normalized.setdefault("note_id", self._next_note_id)
+                self._next_note_id += 1
+                self.notes.append(normalized)
             return
         self.notes.extend(notes)
+
+    def get_all_notes_extended(self):
+        return {"notes": list(self.notes)}
+
+    def remove_notes_by_id(self, note_ids):
+        self.last_remove_notes_by_id_payload = list(note_ids)
+        removable = set(note_ids)
+        self.notes = [note for note in self.notes if note.get("note_id") not in removable]
 
     def set_notes(self, notes):
         self.notes = list(notes)

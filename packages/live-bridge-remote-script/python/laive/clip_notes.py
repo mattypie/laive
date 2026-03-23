@@ -43,7 +43,7 @@ class ClipNoteAdapter(object):
 
         if hasattr(clip, "add_new_notes"):
             try:
-                clip.add_new_notes(tuple(self._add_new_note_spec(note) for note in normalized_notes))
+                clip.add_new_notes(self._extended_note_payload(normalized_notes))
                 return normalized_notes
             except Exception as error:
                 raise RequestError("runtime_error", "add_new_notes failed: {0}".format(error))
@@ -69,6 +69,12 @@ class ClipNoteAdapter(object):
 
     def replace_notes(self, clip, notes):
         normalized_notes = self._normalize_notes(notes)
+
+        if hasattr(clip, "add_new_notes") and (
+            hasattr(clip, "remove_notes_by_id") or hasattr(clip, "remove_notes_extended")
+        ):
+            self._replace_all_notes_extended(clip, normalized_notes)
+            return normalized_notes
 
         if self.supports_replace_selected_notes(clip):
             self._replace_selected_notes_sequence(clip, normalized_notes)
@@ -350,24 +356,50 @@ class ClipNoteAdapter(object):
             bool(note.get("mute", False)),
         )
 
-    def _add_new_note_spec(self, note):
-        if self._live_module is not None and hasattr(self._live_module, "Clip") and hasattr(self._live_module.Clip, "MidiNoteSpecification"):
-            constructor = self._live_module.Clip.MidiNoteSpecification
-            try:
-                return constructor(
-                    note.get("pitch", 60),
-                    note.get("start_time", 0.0),
-                    note.get("duration", 0.25),
-                    note.get("velocity", 100),
-                    bool(note.get("mute", False)),
-                )
-            except TypeError:
-                return constructor(
-                    pitch=note.get("pitch", 60),
-                    start_time=note.get("start_time", 0.0),
-                    duration=note.get("duration", 0.25),
-                    velocity=note.get("velocity", 100),
-                    mute=bool(note.get("mute", False)),
-                )
+    def _extended_note_payload(self, notes):
+        return {"notes": [self._extended_note_spec(note) for note in notes]}
 
-        return self._legacy_tuple_note(note)
+    def _extended_note_spec(self, note):
+        payload = {
+            "pitch": note.get("pitch", 60),
+            "start_time": note.get("start_time", 0.0),
+            "duration": note.get("duration", 0.25),
+            "velocity": note.get("velocity", 100),
+            "mute": bool(note.get("mute", False)),
+        }
+
+        for source_key, target_key, default_value in (
+            ("probability", "probability", 1.0),
+            ("velocity_deviation", "velocity_deviation", 0.0),
+            ("release_velocity", "release_velocity", 64),
+        ):
+            value = note.get(source_key, default_value)
+            if value is not None:
+                payload[target_key] = value
+
+        return payload
+
+    def _replace_all_notes_extended(self, clip, notes):
+        existing_notes = self.read_notes(clip)
+        removable_note_ids = [
+            note.get("id") for note in (self._normalize_runtime_note(note) for note in existing_notes) if note.get("id") is not None
+        ]
+
+        if removable_note_ids and hasattr(clip, "remove_notes_by_id"):
+            try:
+                clip.remove_notes_by_id(removable_note_ids)
+            except Exception as error:
+                raise RequestError("runtime_error", "remove_notes_by_id failed: {0}".format(error))
+        elif hasattr(clip, "remove_notes_extended"):
+            try:
+                clip.remove_notes_extended(0, 128, 0.0, self._clip_time_span(clip))
+            except Exception as error:
+                raise RequestError("runtime_error", "remove_notes_extended failed: {0}".format(error))
+
+        if not notes:
+            return None
+
+        try:
+            clip.add_new_notes(self._extended_note_payload(notes))
+        except Exception as error:
+            raise RequestError("runtime_error", "add_new_notes failed after clearing notes: {0}".format(error))
