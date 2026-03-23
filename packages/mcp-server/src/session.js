@@ -1,10 +1,10 @@
-import rootPackage from "../../../package.json" with { type: "json" };
 import {
   BridgeClient,
   BridgeServer,
   FixtureLiveRuntime
 } from "../../live-bridge-remote-script/src/index.js";
 import { createStateEngine } from "../../state-engine/src/index.js";
+import { getRootPackageVersion } from "./package-version.js";
 
 function parseLiveVersion(versionLabel) {
   const [major, minor, bugfix] = String(versionLabel ?? "0.0.0")
@@ -71,7 +71,7 @@ function normalizeTrack(track) {
 function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks }) {
   return {
     observed_at: new Date().toISOString(),
-    bridge_version: rootPackage.version,
+    bridge_version: getRootPackageVersion(),
     live_version: liveVersion,
     application: parseLiveVersion(liveVersion),
     song: {

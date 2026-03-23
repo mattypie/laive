@@ -10,6 +10,7 @@
 - fixed CI regressions by letting `laive-mcp install --json` return a machine-readable dry-run payload when no Ableton Live install is detected, and by allowing native sidecar placement to proceed when the sidecar is discoverable through Live's browser even if the default `.amxd` path is absent
 - fixed Remote Script packaging to ignore transient Python bytecode caches so repeated package/install flows and CI archives no longer fail on disappearing `__pycache__` files
 - updated the repo-local release workflow to require creating or updating the matching GitHub release from the versioned changelog section after npm publish
+- fixed published MCP startup on Node 18 clients such as Claude by replacing JSON import-attribute syntax with a Node-18-safe package-version loader and lowering the declared Node engine floor accordingly
 
 ## v0.4.0 - 2026-03-23
 

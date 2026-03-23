@@ -1,7 +1,7 @@
-import rootPackage from "../../../package.json" with { type: "json" };
 import { ToolRegistry } from "./tool-registry.js";
 import { buildDefaultTools } from "./default-tools.js";
 import { McpServerError, toErrorShape } from "./errors.js";
+import { getRootPackageVersion } from "./package-version.js";
 import {
   createIntegrationStatusAdapter,
   createSidecarAdapter,
@@ -17,10 +17,10 @@ export class LaiveMcpServer {
     uiAutomationAdapter,
     integrationStatusAdapter,
     serverInfo
-  } = {}) {
+    } = {}) {
     this.serverInfo = serverInfo ?? {
       name: "laive-mcp",
-      version: rootPackage.version
+      version: getRootPackageVersion()
     };
     this.stateAdapter = stateAdapter ?? createUnsupportedAdapter("state");
     this.bridgeAdapter = bridgeAdapter ?? createUnsupportedAdapter("bridge");
