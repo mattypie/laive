@@ -5,6 +5,8 @@
 - documented the next clip-editing ergonomics work discovered during live validation: clip rename, moving Session clips between slots, explicit clip loop or length edits, and gated duplicate or delete workflows
 - documented a follow-up to expose enum-label metadata for common quantized device parameters so agents can reason about built-in device modes without guessing from raw numbers
 - documented a follow-up to expose return/master tracks, send levels, and routing or monitor configuration as first-class bridge-backed MCP controls
+- documented a follow-up to make Arrangement View and clip-envelope control explicit roadmap items instead of leaving them implied in the earlier planning docs
+- sliced the current roadmap gaps into tentative versioned work units so future sessions can pick them up as concrete milestones
 
 ## v0.4.0 - 2026-03-23
 

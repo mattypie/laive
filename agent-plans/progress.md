@@ -6,6 +6,15 @@
 - Repository state: initialized
 - Active phase: Sidecar ergonomics and optional-component hardening, with branded Max UI delivery, explicit sidecar placement tooling, and follow-on sidecar roadmap alignment being added across the docs and MCP surface
 
+## Versioned Roadmap
+
+| Target version | Planned work unit | Scope |
+| --- | --- | --- |
+| `v0.5.0` | Session editing + parameter metadata | Clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
+| `v0.6.0` | Mixer and routing | Return/master tracks, send levels, monitor state, track routing, master/return device loading |
+| `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
+| `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
+
 ## Phase Status
 
 | Phase | Status | Notes |
@@ -89,4 +98,4 @@
 - Added sidecar placement confirmation polling so the adapter can wait for the device to appear on the target track before returning, instead of emitting a premature provisional warning.
 - Expanded bridge-side browser root enumeration to include optional roots such as `user_library`, which is necessary if the sidecar is to be loaded natively from Live's browser model rather than exclusively through UI keystrokes.
 - Reworked the Max sidecar source patch again so the deterministic in-Live device UI is a `jsui` banner that draws `logo.png` first and falls back to built-in ASCII art if the image cannot be loaded.
-- Remaining follow-up after this slice: validate `ensure_sidecar_on_track` against a real Live set, expand the sidecar beyond note replacement into selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows, keep the published `npx laive-mcp` path as the only supported end-to-end validation route, add first-class clip or session editing ergonomics validated in live testing: clip rename, move clip between session slots, set clip length or loop bounds, and evaluate duplicate or delete with proper safety gating, expose enum-label metadata for quantized device parameters so agents are not forced to guess meaning from raw numeric values on core devices such as Auto Filter and Operator, and expose return tracks, the master track, sends, and per-track routing or monitor configuration as first-class mixer targets.
+- Remaining follow-up after this slice: validate `ensure_sidecar_on_track` against a real Live set, expand the sidecar beyond note replacement into selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows, keep the published `npx laive-mcp` path as the only supported end-to-end validation route, add first-class clip or session editing ergonomics validated in live testing: clip rename, move clip between session slots, set clip length or loop bounds, and evaluate duplicate or delete with proper safety gating, expose enum-label metadata for quantized device parameters so agents are not forced to guess meaning from raw numeric values on core devices such as Auto Filter and Operator, expose return tracks, the master track, sends, and per-track routing or monitor configuration as first-class mixer targets, and promote Arrangement View to a first-class workflow surface with explicit arrangement-clip inspection, arrangement editing, transport-position or loop control, and clip-envelope read or write support.

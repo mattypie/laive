@@ -46,3 +46,46 @@ The current sidecar-improvement workstream also spans phases 0, 3, and 6 in para
 - Canonical state: event-fed graph owned outside Live, not inferred inside the LLM.
 - UI fallback: macOS accessibility helper for dialogs, browser actions, export flows, and plugin/UI gaps.
 - Offline support: `.als` parsing for cold-start state and version-aware diffs.
+
+## Versioned Follow-Up Roadmap
+
+These are the current planned work units for the next product slices. They are intentionally concrete and independently shippable, but still tentative until a release is cut.
+
+### Target `v0.5.0`
+
+- session-editing ergonomics:
+  - `rename_clip`
+  - `move_session_clip`
+  - `set_clip_loop_or_length`
+  - gated `duplicate_clip`
+  - gated `delete_clip`
+- parameter metadata ergonomics:
+  - enum labels or allowed values for common quantized parameters on built-in devices
+  - better parameter lookup by name and mode hints
+
+### Target `v0.6.0`
+
+- mixer and routing surface:
+  - return-track discovery
+  - master-track discovery
+  - send-level read/write
+  - monitor-state read/write
+  - input/output routing read/write
+  - device loading on return/master targets
+
+### Target `v0.7.0`
+
+- arrangement-view surface:
+  - arrangement-clip enumeration
+  - arrangement loop / transport-region control
+  - arrangement clip creation or movement where reliably supported
+  - arrangement-focused summaries instead of Session-only mirrors
+
+### Target `v0.8.0`
+
+- envelopes and deeper sidecar workflows:
+  - clip-envelope inspection
+  - clip-envelope editing
+  - selected-clip transforms
+  - parameter snapshot/restore
+  - lightweight analysis workflows
