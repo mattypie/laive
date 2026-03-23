@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.3.1 - 2026-03-23
+
 - Changed bridge note replacement to use Live's supported `select_all_notes` + `replace_selected_notes` sequence before any legacy `set_notes` fallback, matching the real Live 11 overwrite path instead of relying on test-harness-only semantics.
 - Added regression coverage for the `replace_selected_notes` sequence so bridge-level overwrite semantics are exercised against the same API family used by the real runtime.
 
@@ -79,3 +81,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
