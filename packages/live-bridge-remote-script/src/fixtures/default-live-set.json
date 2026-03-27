@@ -6,6 +6,11 @@
     "create_track": true,
     "create_scene": true,
     "create_clip": true,
+    "rename_clip": true,
+    "duplicate_clip": true,
+    "move_session_clip": true,
+    "delete_clip": true,
+    "set_clip_loop_or_length": true,
     "insert_notes": true,
     "replace_notes": true,
     "launch_clip": true,
@@ -67,6 +72,8 @@
               "value": 0.5,
               "min": 0,
               "max": 1,
+              "is_quantized": false,
+              "value_items": [],
               "display_value": "64"
             }
           ]
@@ -78,6 +85,9 @@
           "slot_index": 0,
           "name": "Beat A",
           "length_beats": 4,
+          "loop_start_beats": 0,
+          "loop_end_beats": 4,
+          "looping": true,
           "is_playing": false,
           "notes": [
             {
@@ -109,11 +119,25 @@
           "parameters": [
             {
               "id": "parameter:device:track:2:1:1",
-              "name": "Volume",
-              "value": 0.65,
+              "name": "Algorithm",
+              "value": 1,
               "min": 0,
-              "max": 1,
-              "display_value": "-3.1 dB"
+              "max": 10,
+              "is_quantized": true,
+              "value_items": [
+                "Algorithm 1",
+                "Algorithm 2",
+                "Algorithm 3",
+                "Algorithm 4",
+                "Algorithm 5",
+                "Algorithm 6",
+                "Algorithm 7",
+                "Algorithm 8",
+                "Algorithm 9",
+                "Algorithm 10",
+                "Algorithm 11"
+              ],
+              "display_value": "Algorithm 2"
             }
           ]
         }

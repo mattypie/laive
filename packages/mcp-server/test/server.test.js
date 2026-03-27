@@ -35,10 +35,54 @@ function createServer(options = {}) {
       ];
     },
     async getTrackDetails(target) {
+      const trackId = String(target) === "track:2" || String(target) === "Bass" ? "track:2" : "track:1";
       return {
-        id: String(target),
-        name: String(target),
-        clips: [],
+        id: trackId,
+        name: trackId === "track:2" ? "Bass" : "Drums",
+        track: {
+          id: trackId,
+          name: trackId === "track:2" ? "Bass" : "Drums"
+        },
+        sessionClips: [
+          {
+            id: `clip:session:${trackId}:slot:1`,
+            slotIndex: 0,
+            name: trackId === "track:2" ? "Bassline" : "Beat A",
+            lengthBeats: 4,
+            loopStartBeats: 0,
+            loopEndBeats: 4,
+            looping: true
+          }
+        ],
+        arrangementClips: [],
+        devices: trackId === "track:2"
+          ? [
+              {
+                id: "device:track:2:1",
+                name: "Operator",
+                parameters: [
+                  {
+                    id: "parameter:device:track:2:1:1",
+                    name: "Algorithm",
+                    value: 1,
+                    min: 0,
+                    max: 10,
+                    isQuantized: true,
+                    allowedValues: [
+                      { value: 0, label: "Algorithm 1" },
+                      { value: 1, label: "Algorithm 2" },
+                      { value: 2, label: "Algorithm 3" }
+                    ],
+                    enumLabels: {
+                      "0": "Algorithm 1",
+                      "1": "Algorithm 2",
+                      "2": "Algorithm 3"
+                    }
+                  }
+                ]
+              }
+            ]
+          : [],
         stateVersion
       };
     },
@@ -46,7 +90,34 @@ function createServer(options = {}) {
       return {
         trackId,
         stateVersion,
-        devices: [{ id: `${trackId}:device:1`, name: "EQ Eight" }]
+        devices: trackId === "track:2"
+          ? [
+              {
+                id: "device:track:2:1",
+                name: "Operator",
+                parameters: [
+                  {
+                    id: "parameter:device:track:2:1:1",
+                    name: "Algorithm",
+                    value: 1,
+                    min: 0,
+                    max: 10,
+                    isQuantized: true,
+                    allowedValues: [
+                      { value: 0, label: "Algorithm 1" },
+                      { value: 1, label: "Algorithm 2" },
+                      { value: 2, label: "Algorithm 3" }
+                    ],
+                    enumLabels: {
+                      "0": "Algorithm 1",
+                      "1": "Algorithm 2",
+                      "2": "Algorithm 3"
+                    }
+                  }
+                ]
+              }
+            ]
+          : [{ id: `${trackId}:device:1`, name: "EQ Eight", parameters: [] }]
       };
     },
     async refreshState(target) {
@@ -83,6 +154,33 @@ function createServer(options = {}) {
     },
     async createClip(payload) {
       return { affectedObjects: [payload.trackId, `clip:${payload.slotIndex}`] };
+    },
+    async renameClip(payload) {
+      return { payload, affectedObjects: [payload.clipId] };
+    },
+    async duplicateClip(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId, `clip:duplicate:${payload.targetSlotIndex}`],
+        clip: {
+          id: `clip:session:${payload.targetTrackId ?? "track:2"}:slot:${payload.targetSlotIndex + 1}`
+        }
+      };
+    },
+    async moveSessionClip(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId, `clip:moved:${payload.targetSlotIndex}`],
+        clip: {
+          id: `clip:session:${payload.targetTrackId ?? "track:2"}:slot:${payload.targetSlotIndex + 1}`
+        }
+      };
+    },
+    async deleteClip(payload) {
+      return { payload, affectedObjects: [payload.clipId] };
+    },
+    async setClipLoopOrLength(payload) {
+      return { payload, affectedObjects: [payload.clipId] };
     },
     async insertNotes(payload, options) {
       return {
@@ -379,16 +477,17 @@ test("tools/list returns registered tools", async () => {
     byName.get("create_clip").inputSchema.properties.slotIndex.type,
     "integer"
   );
-  assert.deepEqual(byName.get("set_parameter").inputSchema.required, [
-    "trackId",
-    "deviceId",
-    "parameterId",
-    "value"
-  ]);
+  assert.equal(byName.get("set_parameter").inputSchema.properties.trackName.type, "string");
+  assert.equal(byName.get("set_parameter").inputSchema.properties.valueLabel.type, "string");
   assert.equal(
     byName.get("get_track_details").inputSchema.properties.index.type,
     "integer"
   );
+  assert.ok(byName.has("rename_clip"));
+  assert.ok(byName.has("duplicate_clip"));
+  assert.ok(byName.has("move_session_clip"));
+  assert.ok(byName.has("set_clip_loop_or_length"));
+  assert.ok(byName.has("delete_clip"));
   assert.ok(byName.has("get_browser_tree"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
@@ -611,6 +710,114 @@ test("create_clip validates required arguments", async () => {
   assert.equal(response.result.structuredContent.error.code, "invalid_request");
 });
 
+test("session editing tools return structured mutation responses", async () => {
+  const server = createServer();
+
+  const rename = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 20,
+    method: "tools/call",
+    params: {
+      name: "rename_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        name: "Bassline B"
+      }
+    }
+  });
+
+  const move = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 21,
+    method: "tools/call",
+    params: {
+      name: "move_session_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        targetSlotIndex: 2
+      }
+    }
+  });
+
+  const loop = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 22,
+    method: "tools/call",
+    params: {
+      name: "set_clip_loop_or_length",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        lengthBeats: 8
+      }
+    }
+  });
+
+  const duplicateBlocked = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 23,
+    method: "tools/call",
+    params: {
+      name: "duplicate_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        targetSlotIndex: 1
+      }
+    }
+  });
+
+  const duplicateConfirmed = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 24,
+    method: "tools/call",
+    params: {
+      name: "duplicate_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        targetSlotIndex: 1,
+        confirm: true
+      }
+    }
+  });
+
+  const deleteBlocked = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 25,
+    method: "tools/call",
+    params: {
+      name: "delete_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1"
+      }
+    }
+  });
+
+  const deleteConfirmed = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 26,
+    method: "tools/call",
+    params: {
+      name: "delete_clip",
+      arguments: {
+        clipId: "clip:session:track:2:slot:1",
+        confirm: true
+      }
+    }
+  });
+
+  assert.equal(rename.result.isError, false);
+  assert.equal(rename.result.structuredContent.summary, "Clip renamed for clip:session:track:2:slot:1.");
+  assert.equal(move.result.isError, false);
+  assert.equal(move.result.structuredContent.summary, "Session clip moved for clip:session:track:2:slot:1.");
+  assert.equal(loop.result.isError, false);
+  assert.equal(loop.result.structuredContent.summary, "Clip loop or length updated for clip:session:track:2:slot:1.");
+  assert.equal(duplicateBlocked.result.isError, true);
+  assert.equal(duplicateBlocked.result.structuredContent.error.code, "confirmation_required");
+  assert.equal(duplicateConfirmed.result.isError, false);
+  assert.equal(deleteBlocked.result.isError, true);
+  assert.equal(deleteBlocked.result.structuredContent.error.code, "confirmation_required");
+  assert.equal(deleteConfirmed.result.isError, false);
+});
+
 test("play_transport returns structured mutation response", async () => {
   const server = createServer();
   const response = await server.safeHandleRpcMessage({
@@ -751,6 +958,30 @@ test("session launch tools return structured mutation responses", async () => {
   );
   assert.equal(stopAllClips.result.isError, false);
   assert.equal(stopAllClips.result.structuredContent.summary, "All clips stopped.");
+});
+
+test("set_parameter can resolve by names and enum label", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 27,
+    method: "tools/call",
+    params: {
+      name: "set_parameter",
+      arguments: {
+        trackName: "Bass",
+        deviceName: "Operator",
+        parameterName: "Algorithm",
+        valueLabel: "Algorithm 3"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Parameter Algorithm updated to Algorithm 3."
+  );
 });
 
 test("run_sidecar_workflow surfaces setup instructions when sidecar is unavailable", async () => {

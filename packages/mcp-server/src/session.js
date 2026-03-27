@@ -22,8 +22,20 @@ function parseLiveVersion(versionLabel) {
 
 function normalizeParameter(parameter) {
   const displayValue = parameter.display_value ?? parameter.displayValue ?? null;
+  const valueItems = parameter.value_items ?? parameter.valueItems ?? [];
+  const allowedValues = parameter.allowed_values ?? parameter.allowedValues ?? [];
+  const enumLabels = parameter.enum_labels ?? parameter.enumLabels ?? {};
+  const isQuantized = parameter.is_quantized ?? parameter.isQuantized ?? false;
   return {
     ...parameter,
+    is_quantized: isQuantized,
+    isQuantized,
+    value_items: valueItems,
+    valueItems,
+    allowed_values: allowedValues,
+    allowedValues,
+    enum_labels: enumLabels,
+    enumLabels,
     display_value: displayValue,
     displayValue
   };
@@ -295,6 +307,105 @@ export function createBridgeAdapter(target) {
       return {
         ...result,
         affectedObjects: result.clip ? [payload.trackId, result.clip.id] : [payload.trackId]
+      };
+    },
+    async renameClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "rename_clip",
+          {
+            clip_id: payload.clipId,
+            name: payload.name
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async duplicateClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "duplicate_clip",
+          {
+            clip_id: payload.clipId,
+            target_track_id: payload.targetTrackId ?? null,
+            target_slot_index: payload.targetSlotIndex
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId, result.clip?.id ?? null].filter(Boolean)
+      };
+    },
+    async moveSessionClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "move_session_clip",
+          {
+            clip_id: payload.clipId,
+            target_track_id: payload.targetTrackId ?? null,
+            target_slot_index: payload.targetSlotIndex
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId, result.clip?.id ?? null].filter(Boolean)
+      };
+    },
+    async deleteClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "delete_clip",
+          {
+            clip_id: payload.clipId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async setClipLoopOrLength(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "set_clip_loop_or_length",
+          {
+            clip_id: payload.clipId,
+            length_beats: payload.lengthBeats,
+            loop_start_beats: payload.loopStartBeats,
+            loop_end_beats: payload.loopEndBeats,
+            looping: payload.looping
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
       };
     },
     async insertNotes(payload, options = {}) {

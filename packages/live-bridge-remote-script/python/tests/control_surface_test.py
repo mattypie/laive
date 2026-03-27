@@ -190,6 +190,58 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertFalse(stop_track["result"]["track"]["session_clips"][0]["is_playing"])
         self.assertEqual(launch_scene["result"]["scene"]["id"], "scene:1")
 
+    def test_session_clip_edit_controls(self):
+        slot_class = self.song.tracks[0].clip_slots[0].__class__
+        self.song.tracks[0].clip_slots[0].create_clip(4)
+        self.song.tracks[0].clip_slots[0].clip.name = "Original"
+
+        rename_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="rename_clip",
+                arguments={"clip_id": "clip:session:track:1:slot:1", "name": "Renamed"},
+                request_id="clip-edit-1",
+            )
+        )
+        duplicate_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="duplicate_clip",
+                arguments={"clip_id": "clip:session:track:1:slot:1", "target_slot_index": 1},
+                request_id="clip-edit-2",
+            )
+        )
+        move_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="move_session_clip",
+                arguments={"clip_id": "clip:session:track:1:slot:2", "target_slot_index": 2},
+                request_id="clip-edit-3",
+            )
+        )
+        set_loop = self.surface.process_request(
+            create_request(
+                "call",
+                target="set_clip_loop_or_length",
+                arguments={"clip_id": "clip:session:track:1:slot:1", "length_beats": 8, "loop_end_beats": 8},
+                request_id="clip-edit-4",
+            )
+        )
+        delete_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="delete_clip",
+                arguments={"clip_id": "clip:session:track:1:slot:3"},
+                request_id="clip-edit-5",
+            )
+        )
+
+        self.assertEqual(rename_clip["result"]["clip"]["name"], "Renamed")
+        self.assertEqual(duplicate_clip["result"]["clip"]["id"], "clip:session:track:1:slot:2")
+        self.assertEqual(move_clip["result"]["clip"]["id"], "clip:session:track:1:slot:3")
+        self.assertEqual(set_loop["result"]["clip"]["length_beats"], 8.0)
+        self.assertEqual(delete_clip["result"]["clip_id"], "clip:session:track:1:slot:3")
+
 
 if __name__ == "__main__":
     unittest.main()

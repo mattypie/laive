@@ -26,12 +26,21 @@ class ListenerMixin(object):
 
 
 class FakeParameter(object):
-    def __init__(self, name, value, minimum=0.0, maximum=1.0):
+    def __init__(self, name, value, minimum=0.0, maximum=1.0, is_quantized=False, value_items=None):
         self.name = name
         self._value = value
         self.min = minimum
         self.max = maximum
-        self.display_value = str(value)
+        self.is_quantized = bool(is_quantized)
+        self.value_items = list(value_items or [])
+        self.display_value = self._display_for_value(value)
+
+    def _display_for_value(self, value):
+        if self.is_quantized and self.value_items:
+            index = int(round(float(value) - float(self.min)))
+            if 0 <= index < len(self.value_items):
+                return str(self.value_items[index])
+        return str(value)
 
     @property
     def value(self):
@@ -40,7 +49,7 @@ class FakeParameter(object):
     @value.setter
     def value(self, next_value):
         self._value = next_value
-        self.display_value = str(next_value)
+        self.display_value = self._display_for_value(next_value)
 
 
 class FakeDevice(object):
@@ -112,6 +121,9 @@ class FakeClip(object):
     def __init__(self, name="Clip 1", length=4):
         self.name = name
         self.length = length
+        self.looping = True
+        self.loop_start = 0.0
+        self.loop_end = length
         self.is_playing = False
         self.notes = []
         self.last_add_new_notes_payload = None
@@ -191,6 +203,23 @@ class FakeClipSlot(object):
         if self.track.song is not None:
             self.track.song.view.highlighted_clip_slot = self
             self.track.song.start_playing()
+            self.track.song._notify("tracks")
+
+    def delete_clip(self):
+        self.clip = None
+        if self.track is not None and self.track.song is not None:
+            self.track.song._notify("tracks")
+
+    def duplicate_clip_to(self, target_slot):
+        if self.clip is None:
+            return
+        target_slot.clip = FakeClip(name=self.clip.name, length=self.clip.length)
+        target_slot.clip.looping = self.clip.looping
+        target_slot.clip.loop_start = self.clip.loop_start
+        target_slot.clip.loop_end = self.clip.loop_end
+        target_slot.clip.notes = [dict(note) for note in self.clip.notes]
+        target_slot.clip.is_playing = False
+        if self.track is not None and self.track.song is not None:
             self.track.song._notify("tracks")
 
 

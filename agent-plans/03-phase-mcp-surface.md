@@ -112,8 +112,6 @@ Examples:
 - `preview_mutation` should not execute writes; it should resolve targets and return what would change.
 - `ensure_sidecar_on_track` should select the target track, prefer official browser-backed insertion where possible, and return setup guidance when the UI helper or shipped device is unavailable.
 - sidecar-facing tools should explain whether the request can be satisfied by the primary bridge alone or whether the optional sidecar adds materially better context or behavior.
-- TODO: add session-editing tools for `rename_clip`, `move_session_clip`, `set_clip_loop_or_length`, `duplicate_clip`, and `delete_clip`, with preflight validation and localized post-write refresh so agents can clean up or reorganize sketches without dropping to raw bridge semantics.
-- TODO: add a parameter-metadata layer for common quantized controls, including enum labels or allowed values for things like Auto Filter `LFO Waveform`, sync rates, filter types, and other built-in device modes.
 - TODO: add first-class mixer and routing tools for return tracks, master-track device loading, send levels, input/output routing, and monitor configuration, since live validation shows these are still missing from the bridge-backed MCP surface.
 - TODO: add first-class arrangement and envelope tools for arrangement-clip inspection/editing, arrangement loop control, and clip-envelope read/write, since live validation shows the current bridge remains strongly Session-biased.
 

@@ -4,13 +4,13 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: Sidecar ergonomics and optional-component hardening, with branded Max UI delivery, explicit sidecar placement tooling, and follow-on sidecar roadmap alignment being added across the docs and MCP surface
+- Active phase: `v0.5.0` session-editing and parameter-metadata slice, with clip-edit MCP workflows and enum-aware parameter targeting being finalized for release
 
 ## Versioned Roadmap
 
 | Target version | Planned work unit | Scope |
 | --- | --- | --- |
-| `v0.5.0` | Session editing + parameter metadata | Clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
+| `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Return/master tracks, send levels, monitor state, track routing, master/return device loading |
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
@@ -99,3 +99,10 @@
 - Expanded bridge-side browser root enumeration to include optional roots such as `user_library`, which is necessary if the sidecar is to be loaded natively from Live's browser model rather than exclusively through UI keystrokes.
 - Reworked the Max sidecar source patch again so the deterministic in-Live device UI is a `jsui` banner that draws `logo.png` first and falls back to built-in ASCII art if the image cannot be loaded.
 - Remaining follow-up after this slice: validate `ensure_sidecar_on_track` against a real Live set, expand the sidecar beyond note replacement into selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows, keep the published `npx laive-mcp` path as the only supported end-to-end validation route, add first-class clip or session editing ergonomics validated in live testing: clip rename, move clip between session slots, set clip length or loop bounds, and evaluate duplicate or delete with proper safety gating, expose enum-label metadata for quantized device parameters so agents are not forced to guess meaning from raw numeric values on core devices such as Auto Filter and Operator, expose return tracks, the master track, sends, and per-track routing or monitor configuration as first-class mixer targets, and promote Arrangement View to a first-class workflow surface with explicit arrangement-clip inspection, arrangement editing, transport-position or loop control, and clip-envelope read or write support.
+
+### 2026-03-27
+
+- Completed the `v0.5.0` clip-editing slice across the Python bridge, fixture runtime, state engine, and MCP server: session clips can now be renamed, duplicated with confirmation, moved between slots, looped or length-adjusted, and deleted with confirmation.
+- Added quantized-parameter metadata propagation through the bridge and state engine so `valueItems`, `allowedValues`, and `enumLabels` survive into MCP-facing device trees.
+- Expanded `set_parameter` so agents can target parameters by track name, track index, device name, and parameter name, and can set quantized controls by enum label instead of guessing from numeric values.
+- Added regression coverage for session clip editing and quantized parameter metadata across the bridge, state engine, MCP server, and delivery test suites.

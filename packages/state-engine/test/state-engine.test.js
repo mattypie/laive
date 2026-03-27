@@ -97,11 +97,13 @@ function createRuntimeSnapshot() {
             parameters: [
               {
                 index: 0,
-                name: "Macro 1",
-                value: 0.25,
+                name: "LFO Waveform",
+                value: 1,
                 min: 0,
-                max: 1,
-                display_value: "25%"
+                max: 2,
+                is_quantized: true,
+                value_items: ["Sine", "Square", "Random"],
+                display_value: "Square"
               }
             ]
           }
@@ -129,10 +131,15 @@ test("applySnapshot normalizes runtime data into a stable project graph", () => 
   assert.deepEqual(state.returnTrackIds, [makeTrackId("return", 0)]);
   assert.equal(state.sceneOrder.length, 2);
   assert.ok(state.clips[makeSessionClipId(makeTrackId("visible", 0), 1)].isPlaying);
-  assert.equal(
-    state.parameters[makeParameterId(makeDeviceId(makeTrackId("visible", 0), 0), 0)].displayValue,
-    "25%"
-  );
+  const parameter = state.parameters[makeParameterId(makeDeviceId(makeTrackId("visible", 0), 0), 0)];
+  assert.equal(parameter.displayValue, "Square");
+  assert.equal(parameter.isQuantized, true);
+  assert.deepEqual(parameter.valueItems, ["Sine", "Square", "Random"]);
+  assert.deepEqual(parameter.allowedValues, [
+    { value: 0, label: "Sine" },
+    { value: 1, label: "Square" },
+    { value: 2, label: "Random" }
+  ]);
 
   const summary = summarizeProject(state);
   assert.equal(summary.counts.playingClips, 1);

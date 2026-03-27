@@ -55,6 +55,11 @@ class LiveSetAdapter(object):
             "create_track": hasattr(self.song, "create_midi_track"),
             "create_scene": hasattr(self.song, "create_scene"),
             "create_clip": True,
+            "rename_clip": True,
+            "duplicate_clip": True,
+            "move_session_clip": True,
+            "delete_clip": True,
+            "set_clip_loop_or_length": True,
             "insert_notes": True,
             "replace_notes": True,
             "launch_clip": True,
@@ -217,6 +222,7 @@ class LiveSetAdapter(object):
     def create_clip(self, track_id, slot_index, length_beats=4, name=None, dry_run=False):
         track, _track_index = self._find_track(track_id)
         slot = self._find_clip_slot(track, slot_index)
+        self._ensure_slot_is_empty(slot, slot_index)
         if dry_run:
             clip = slot.preview_clip(length_beats=length_beats, name=name)
         else:
@@ -225,6 +231,117 @@ class LiveSetAdapter(object):
             if name:
                 clip.name = name
         return {"applied": not dry_run, "clip": self._serialize_clip(clip, track_id, slot_index)}
+
+    def rename_clip(self, clip_id, name, dry_run=False):
+        if not name:
+            raise RequestError("invalid_argument", "name is required")
+        clip, track_id, slot_index = self._find_clip(clip_id)
+        if not dry_run:
+            clip.name = name
+        return {"applied": not dry_run, "clip": self._serialize_clip(clip, track_id, slot_index)}
+
+    def duplicate_clip(self, clip_id, target_slot_index, target_track_id=None, dry_run=False):
+        source_clip, source_track_id, source_slot_index = self._find_clip(clip_id)
+        source_slot = self._find_clip_slot_by_id(clip_id)
+        target_track_id = target_track_id or source_track_id
+        target_track, _target_track_index = self._find_track(target_track_id)
+        target_slot = self._find_clip_slot(target_track, target_slot_index)
+        self._ensure_target_slot_is_distinct(
+            source_track_id, source_slot_index, target_track_id, target_slot_index
+        )
+        self._ensure_slot_is_empty(target_slot, target_slot_index)
+
+        if dry_run:
+            duplicated_clip = self._preview_duplicate_clip(source_clip, target_slot_index)
+        else:
+            duplicated_clip = self._duplicate_clip_to_slot(source_slot, source_clip, target_slot)
+
+        return {
+            "applied": not dry_run,
+            "source_clip_id": clip_id,
+            "clip": self._serialize_clip(duplicated_clip, target_track_id, target_slot_index),
+        }
+
+    def move_session_clip(self, clip_id, target_slot_index, target_track_id=None, dry_run=False):
+        duplication = self.duplicate_clip(
+            clip_id,
+            target_slot_index,
+            target_track_id=target_track_id,
+            dry_run=dry_run,
+        )
+
+        if not dry_run:
+            self.delete_clip(clip_id, dry_run=False)
+
+        return {
+            "applied": not dry_run,
+            "source_clip_id": clip_id,
+            "clip": duplication["clip"],
+        }
+
+    def delete_clip(self, clip_id, dry_run=False):
+        _clip, track_id, slot_index = self._find_clip(clip_id)
+        slot = self._find_clip_slot_by_id(clip_id)
+        if not dry_run:
+            delete_clip = getattr(slot, "delete_clip", None)
+            if callable(delete_clip):
+                delete_clip()
+            else:
+                slot.clip = None
+        return {
+            "applied": not dry_run,
+            "clip_id": clip_id,
+            "track_id": track_id,
+            "slot_index": slot_index,
+        }
+
+    def set_clip_loop_or_length(
+        self,
+        clip_id,
+        length_beats=None,
+        loop_start_beats=None,
+        loop_end_beats=None,
+        looping=None,
+        dry_run=False,
+    ):
+        clip, track_id, slot_index = self._find_clip(clip_id)
+
+        if length_beats is None and loop_start_beats is None and loop_end_beats is None and looping is None:
+            raise RequestError(
+                "invalid_argument",
+                "At least one of length_beats, loop_start_beats, loop_end_beats, or looping is required",
+            )
+
+        if loop_start_beats is not None and loop_end_beats is not None and float(loop_end_beats) <= float(loop_start_beats):
+            raise RequestError("invalid_argument", "loop_end_beats must be greater than loop_start_beats")
+
+        if length_beats is not None and float(length_beats) <= 0:
+            raise RequestError("invalid_argument", "length_beats must be positive")
+
+        if not dry_run:
+            if length_beats is not None:
+                clip.length = float(length_beats)
+            if loop_start_beats is not None and hasattr(clip, "loop_start"):
+                clip.loop_start = float(loop_start_beats)
+            if loop_end_beats is not None and hasattr(clip, "loop_end"):
+                clip.loop_end = float(loop_end_beats)
+            if looping is not None and hasattr(clip, "looping"):
+                clip.looping = bool(looping)
+
+        clip_state = self._serialize_clip(clip, track_id, slot_index)
+        if dry_run:
+            if length_beats is not None:
+                clip_state["length_beats"] = float(length_beats)
+            if loop_start_beats is not None:
+                clip_state["loop_start_beats"] = float(loop_start_beats)
+                clip_state["loopStartBeats"] = float(loop_start_beats)
+            if loop_end_beats is not None:
+                clip_state["loop_end_beats"] = float(loop_end_beats)
+                clip_state["loopEndBeats"] = float(loop_end_beats)
+            if looping is not None:
+                clip_state["looping"] = bool(looping)
+
+        return {"applied": not dry_run, "clip": clip_state}
 
     def insert_notes(self, clip_id, notes, dry_run=False):
         clip, track_id, slot_index = self._find_clip(clip_id)
@@ -374,6 +491,47 @@ class LiveSetAdapter(object):
                 if candidate == clip_id:
                     return slot
         raise RequestError("not_found", "Clip slot not found for clip: {0}".format(clip_id))
+
+    def _ensure_slot_is_empty(self, slot, slot_index):
+        if getattr(slot, "has_clip", False):
+            raise RequestError("invalid_argument", "Target clip slot already contains a clip: {0}".format(slot_index))
+
+    def _ensure_target_slot_is_distinct(self, source_track_id, source_slot_index, target_track_id, target_slot_index):
+        if source_track_id == target_track_id and int(source_slot_index) == int(target_slot_index):
+            raise RequestError("invalid_argument", "Target slot must differ from the source clip slot")
+
+    def _preview_duplicate_clip(self, source_clip, target_slot_index):
+        preview = type("PreviewClip", (), {})()
+        preview.name = getattr(source_clip, "name", "Clip {0}".format(target_slot_index + 1))
+        preview.length = getattr(source_clip, "length", None)
+        preview.looping = bool(getattr(source_clip, "looping", True))
+        preview.loop_start = getattr(source_clip, "loop_start", 0.0)
+        preview.loop_end = getattr(source_clip, "loop_end", getattr(source_clip, "length", None))
+        preview.is_playing = False
+        preview.notes = list(self._clip_notes.serialize_notes(source_clip))
+        return preview
+
+    def _duplicate_clip_to_slot(self, source_slot, source_clip, target_slot):
+        duplicate_clip_to = getattr(source_slot, "duplicate_clip_to", None)
+        if callable(duplicate_clip_to):
+            duplicate_clip_to(target_slot)
+            if getattr(target_slot, "clip", None) is not None:
+                return target_slot.clip
+
+        target_slot.create_clip(getattr(source_clip, "length", 4))
+        duplicated_clip = target_slot.clip
+        duplicated_clip.name = getattr(source_clip, "name", duplicated_clip.name)
+        if hasattr(duplicated_clip, "looping"):
+            duplicated_clip.looping = bool(getattr(source_clip, "looping", True))
+        if hasattr(duplicated_clip, "loop_start"):
+            duplicated_clip.loop_start = getattr(source_clip, "loop_start", 0.0)
+        if hasattr(duplicated_clip, "loop_end"):
+            duplicated_clip.loop_end = getattr(source_clip, "loop_end", getattr(source_clip, "length", None))
+        self._clip_notes.replace_notes(
+            duplicated_clip,
+            [self._clip_notes.normalize_input(note) for note in self._clip_notes.serialize_notes(source_clip)],
+        )
+        return duplicated_clip
 
     def _find_scene(self, scene_id):
         for index, scene in enumerate(getattr(self.song, "scenes", [])):

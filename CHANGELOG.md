@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- added first-class Session clip editing tools across the bridge and MCP surface: `rename_clip`, `duplicate_clip`, `move_session_clip`, `set_clip_loop_or_length`, and `delete_clip`, including confirmation gates for duplicate/delete mutations
+- added quantized parameter metadata propagation so bridge/state snapshots preserve `valueItems`, derive `allowedValues` / `enumLabels`, and expose them through MCP-facing device trees
+- expanded `set_parameter` to resolve targets by track, device, and parameter name or track index, and to accept enum-label writes for quantized controls instead of only raw numeric values
+- added regression coverage for the new clip-editing and parameter-metadata flows across the Python bridge, fixture runtime, state engine, and MCP server
+
 ## v0.4.1 - 2026-03-23
 
 - documented the next clip-editing ergonomics work discovered during live validation: clip rename, moving Session clips between slots, explicit clip loop or length edits, and gated duplicate or delete workflows
@@ -124,4 +129,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

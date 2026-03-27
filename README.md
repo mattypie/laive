@@ -28,6 +28,11 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - create MIDI or audio tracks
 - create scenes
 - create MIDI clips in session slots
+- rename Session clips
+- move Session clips between slots
+- change Session clip loop or length settings
+- duplicate Session clips with explicit confirmation
+- delete Session clips with explicit confirmation
 - insert MIDI notes into clips
 - replace a clip's note payload without appending
 - launch Session View clips
@@ -36,6 +41,8 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - browse Ableton browser roots and category paths through the control-surface bridge
 - load browser items such as devices onto a target track through the control-surface browser API
 - set device parameter values
+- resolve device parameters by track/device/parameter name instead of only canonical IDs
+- resolve quantized parameter modes by enum label when metadata is available
 - report optional sidecar and UI-helper availability with setup guidance
 - list and invoke optional sidecar workflows
 - ensure the optional `laive-sidecar` device is present on a target MIDI track, preferring bridge-native browser loading and falling back to the UI helper when needed
@@ -50,14 +57,11 @@ The optional components are intentionally soft-failable:
 
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
 
-Known gap from live validation: clip rename, moving clips between Session slots, and explicit clip loop or length edits are not yet first-class MCP tools, so sketch cleanup is still rougher than sketch creation.
-Another current gap: quantized device parameters still come through mostly as numeric values plus `displayValue`, so named mode mappings for common controls like Auto Filter waveforms or filter types are not yet first-class metadata.
 Another current gap: return tracks, the master track, send levels, and per-track input/output or monitor configuration are not yet first-class bridge-backed MCP targets, so mixer control is still incomplete.
 Another current gap: Arrangement View and clip-envelope control are not yet first-class MCP workflows, so `laive` remains much stronger in Session View than in arrangement editing today.
 
 The current roadmap is intentionally sliced into concrete follow-up releases:
 
-- `v0.5.0`: session-editing ergonomics plus parameter enum metadata
 - `v0.6.0`: mixer/routing coverage including return/master tracks and sends
 - `v0.7.0`: Arrangement View support
 - `v0.8.0`: clip envelopes and deeper sidecar workflows

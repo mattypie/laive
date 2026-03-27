@@ -193,6 +193,40 @@ class LaiveControlSurface(AbletonControlSurface):
                 name=arguments.get("name"),
                 dry_run=dry_run,
             )
+        if target == "rename_clip":
+            return self._live.rename_clip(
+                clip_id=arguments.get("clip_id"),
+                name=arguments.get("name"),
+                dry_run=dry_run,
+            )
+        if target == "duplicate_clip":
+            return self._live.duplicate_clip(
+                clip_id=arguments.get("clip_id"),
+                target_slot_index=arguments.get("target_slot_index"),
+                target_track_id=arguments.get("target_track_id"),
+                dry_run=dry_run,
+            )
+        if target == "move_session_clip":
+            return self._live.move_session_clip(
+                clip_id=arguments.get("clip_id"),
+                target_slot_index=arguments.get("target_slot_index"),
+                target_track_id=arguments.get("target_track_id"),
+                dry_run=dry_run,
+            )
+        if target == "delete_clip":
+            return self._live.delete_clip(
+                clip_id=arguments.get("clip_id"),
+                dry_run=dry_run,
+            )
+        if target == "set_clip_loop_or_length":
+            return self._live.set_clip_loop_or_length(
+                clip_id=arguments.get("clip_id"),
+                length_beats=arguments.get("length_beats"),
+                loop_start_beats=arguments.get("loop_start_beats"),
+                loop_end_beats=arguments.get("loop_end_beats"),
+                looping=arguments.get("looping"),
+                dry_run=dry_run,
+            )
         if target == "insert_notes":
             return self._live.insert_notes(
                 clip_id=arguments.get("clip_id"),

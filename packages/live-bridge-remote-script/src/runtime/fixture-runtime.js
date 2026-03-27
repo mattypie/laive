@@ -199,6 +199,16 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.createScene(args, dryRun);
       case "create_clip":
         return this.createClip(args, dryRun);
+      case "rename_clip":
+        return this.renameClip(args, dryRun);
+      case "duplicate_clip":
+        return this.duplicateClip(args, dryRun);
+      case "move_session_clip":
+        return this.moveSessionClip(args, dryRun);
+      case "delete_clip":
+        return this.deleteClip(args, dryRun);
+      case "set_clip_loop_or_length":
+        return this.setClipLoopOrLength(args, dryRun);
       case "insert_notes":
         return this.insertNotes(args, dryRun);
       case "replace_notes":
@@ -401,17 +411,27 @@ export class FixtureLiveRuntime extends EventEmitter {
     const nextIndex = Number.isInteger(args.slot_index) && args.slot_index >= 0
       ? args.slot_index
       : track.session_clips.length;
+    if (track.session_clips.some((candidate) => candidate.slot_index === nextIndex)) {
+      throw new Error(`Target clip slot already contains a clip: ${nextIndex}`);
+    }
+    const lengthBeats = Number(args.length_beats ?? 4);
     const clip = {
       id: `clip:session:${track.id}:slot:${nextIndex + 1}`,
       slot_index: nextIndex,
+      slotIndex: nextIndex,
       name: args.name ?? `Clip ${nextIndex + 1}`,
-      length_beats: args.length_beats ?? 4,
+      length_beats: lengthBeats,
+      lengthBeats,
+      loop_start_beats: 0,
+      loopStartBeats: 0,
+      loop_end_beats: lengthBeats,
+      loopEndBeats: lengthBeats,
+      looping: true,
       is_playing: false,
       notes: []
     };
 
     if (!dryRun) {
-      track.session_clips = track.session_clips.filter((candidate) => candidate.slot_index !== nextIndex);
       track.session_clips.push(clip);
       track.session_clips.sort((left, right) => left.slot_index - right.slot_index);
       this.emit("event", {
@@ -427,6 +447,178 @@ export class FixtureLiveRuntime extends EventEmitter {
     return {
       applied: !dryRun,
       clip
+    };
+  }
+
+  renameClip(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (!args.name) {
+      throw new Error("name is required");
+    }
+    if (!dryRun) {
+      clip.name = args.name;
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-renamed",
+          clip_id: clip.id,
+          clip: clone(clip)
+        }
+      });
+    }
+    return {
+      applied: !dryRun,
+      clip: clone(clip)
+    };
+  }
+
+  duplicateClip(args, dryRun) {
+    const sourceClip = this.findClip(args.clip_id);
+    const sourceTrack = this.state.tracks.find((track) =>
+      track.session_clips.some((candidate) => candidate.id === args.clip_id)
+    );
+    const targetTrack = this.findTrack(args.target_track_id ?? sourceTrack.id);
+    const targetSlotIndex = Number(args.target_slot_index);
+    if (!Number.isInteger(targetSlotIndex) || targetSlotIndex < 0) {
+      throw new Error("target_slot_index must be a non-negative integer");
+    }
+    if (sourceTrack.id === targetTrack.id && sourceClip.slot_index === targetSlotIndex) {
+      throw new Error("target slot must differ from source clip slot");
+    }
+    if (targetTrack.session_clips.some((candidate) => candidate.slot_index === targetSlotIndex)) {
+      throw new Error(`Target clip slot already contains a clip: ${targetSlotIndex}`);
+    }
+
+    const duplicatedClip = {
+      ...clone(sourceClip),
+      id: `clip:session:${targetTrack.id}:slot:${targetSlotIndex + 1}`,
+      slot_index: targetSlotIndex,
+      slotIndex: targetSlotIndex,
+      is_playing: false
+    };
+
+    if (!dryRun) {
+      targetTrack.session_clips.push(duplicatedClip);
+      targetTrack.session_clips.sort((left, right) => left.slot_index - right.slot_index);
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-created",
+          track_id: targetTrack.id,
+          clip: clone(duplicatedClip)
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      source_clip_id: args.clip_id,
+      clip: duplicatedClip
+    };
+  }
+
+  moveSessionClip(args, dryRun) {
+    const duplication = this.duplicateClip(args, dryRun);
+    if (!dryRun) {
+      this.deleteClip({ clip_id: args.clip_id }, false);
+    }
+    return {
+      applied: !dryRun,
+      source_clip_id: args.clip_id,
+      clip: duplication.clip
+    };
+  }
+
+  deleteClip(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    const track = this.state.tracks.find((item) =>
+      item.session_clips.some((candidate) => candidate.id === args.clip_id)
+    );
+
+    if (!dryRun) {
+      track.session_clips = track.session_clips.filter((candidate) => candidate.id !== args.clip_id);
+      if (track.playing_slot_index === clip.slot_index) {
+        track.playing_slot_index = -1;
+      }
+      if (track.fired_slot_index === clip.slot_index) {
+        track.fired_slot_index = -1;
+      }
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-deleted",
+          clip_id: args.clip_id,
+          track_id: track.id
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      clip_id: args.clip_id,
+      track_id: track.id,
+      slot_index: clip.slot_index
+    };
+  }
+
+  setClipLoopOrLength(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+
+    if (
+      args.length_beats === undefined &&
+      args.loop_start_beats === undefined &&
+      args.loop_end_beats === undefined &&
+      args.looping === undefined
+    ) {
+      throw new Error("At least one clip loop or length field is required");
+    }
+
+    if (!dryRun) {
+      if (args.length_beats !== undefined) {
+        clip.length_beats = Number(args.length_beats);
+      }
+      if (args.loop_start_beats !== undefined) {
+        clip.loop_start_beats = Number(args.loop_start_beats);
+        clip.loopStartBeats = Number(args.loop_start_beats);
+      }
+      if (args.loop_end_beats !== undefined) {
+        clip.loop_end_beats = Number(args.loop_end_beats);
+        clip.loopEndBeats = Number(args.loop_end_beats);
+      }
+      if (args.looping !== undefined) {
+        clip.looping = Boolean(args.looping);
+      }
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-loop-updated",
+          clip_id: clip.id,
+          clip: clone(clip)
+        }
+      });
+    }
+
+    const nextClip = clone(clip);
+    if (dryRun) {
+      if (args.length_beats !== undefined) {
+        nextClip.length_beats = Number(args.length_beats);
+      }
+      if (args.loop_start_beats !== undefined) {
+        nextClip.loop_start_beats = Number(args.loop_start_beats);
+        nextClip.loopStartBeats = Number(args.loop_start_beats);
+      }
+      if (args.loop_end_beats !== undefined) {
+        nextClip.loop_end_beats = Number(args.loop_end_beats);
+        nextClip.loopEndBeats = Number(args.loop_end_beats);
+      }
+      if (args.looping !== undefined) {
+        nextClip.looping = Boolean(args.looping);
+      }
+    }
+
+    return {
+      applied: !dryRun,
+      clip: nextClip
     };
   }
 

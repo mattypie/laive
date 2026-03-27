@@ -33,6 +33,155 @@ function requireNotes(notes) {
   }
 }
 
+function normalizeLookup(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function pickUniqueMatch(candidates, requested, label) {
+  const normalizedRequested = normalizeLookup(requested);
+  if (!normalizedRequested) {
+    return null;
+  }
+
+  const exactMatches = candidates.filter((candidate) => normalizeLookup(candidate.name) === normalizedRequested);
+  if (exactMatches.length === 1) {
+    return exactMatches[0];
+  }
+  if (exactMatches.length > 1) {
+    throw new McpServerError(
+      "ambiguous_target",
+      `${label} name matched multiple objects: ${exactMatches.map((candidate) => candidate.name).join(", ")}`
+    );
+  }
+
+  const partialMatches = candidates.filter((candidate) =>
+    normalizeLookup(candidate.name).includes(normalizedRequested)
+  );
+  if (partialMatches.length === 1) {
+    return partialMatches[0];
+  }
+  if (partialMatches.length > 1) {
+    throw new McpServerError(
+      "ambiguous_target",
+      `${label} name matched multiple objects: ${partialMatches.map((candidate) => candidate.name).join(", ")}`
+    );
+  }
+
+  throw new McpServerError("not_found", `${label} not found for name: ${requested}`);
+}
+
+function requireConfirmation(args, toolName) {
+  if (args.dryRun) {
+    return;
+  }
+  if (args.confirm !== true) {
+    throw new McpServerError(
+      "confirmation_required",
+      `${toolName} requires confirm=true unless dryRun is enabled`
+    );
+  }
+}
+
+async function resolveParameterReference(stateAdapter, args) {
+  const trackCandidates = await stateAdapter.listTracks();
+  let matchingTracks = trackCandidates;
+
+  if (args.trackId) {
+    matchingTracks = trackCandidates.filter((track) => track.id === args.trackId);
+    if (matchingTracks.length === 0) {
+      throw new McpServerError("not_found", `Track not found: ${args.trackId}`);
+    }
+  } else if (args.trackName) {
+    matchingTracks = [pickUniqueMatch(trackCandidates, args.trackName, "Track")];
+  } else if (Number.isInteger(args.trackIndex)) {
+    matchingTracks = trackCandidates.filter((track) => track.index === args.trackIndex);
+    if (matchingTracks.length === 0) {
+      throw new McpServerError("not_found", `Track not found for index: ${args.trackIndex}`);
+    }
+  }
+
+  if (!args.parameterId && !args.parameterName) {
+    throw new McpServerError(
+      "invalid_request",
+      "Provide parameterId or parameterName for set_parameter"
+    );
+  }
+
+  const matches = [];
+  for (const track of matchingTracks) {
+    const details = await stateAdapter.getTrackDetails(track.id);
+    const devices = details.devices ?? [];
+
+    const matchingDevices = args.deviceId
+      ? devices.filter((device) => device.id === args.deviceId)
+      : args.deviceName
+        ? [pickUniqueMatch(devices, args.deviceName, "Device")]
+        : devices;
+
+    for (const device of matchingDevices) {
+      const parameters = device.parameters ?? [];
+      const matchingParameters = args.parameterId
+        ? parameters.filter((parameter) => parameter.id === args.parameterId)
+        : [pickUniqueMatch(parameters, args.parameterName, "Parameter")];
+
+      for (const parameter of matchingParameters) {
+        matches.push({ track, device, parameter });
+      }
+    }
+  }
+
+  if (matches.length === 0) {
+    throw new McpServerError("not_found", "Parameter target could not be resolved");
+  }
+  if (matches.length > 1) {
+    throw new McpServerError(
+      "ambiguous_target",
+      `Parameter target matched multiple objects: ${matches
+        .map(({ track, device, parameter }) => `${track.name} > ${device.name} > ${parameter.name}`)
+        .join(", ")}`
+    );
+  }
+
+  return matches[0];
+}
+
+function resolveParameterValue(parameter, args) {
+  if (args.valueLabel !== undefined) {
+    const candidates = Array.isArray(parameter.allowedValues) ? parameter.allowedValues : [];
+    const normalizedRequested = normalizeLookup(args.valueLabel);
+    const matching = candidates.filter((candidate) =>
+      normalizeLookup(candidate.label ?? candidate.value).includes(normalizedRequested)
+    );
+    if (matching.length === 1) {
+      return {
+        value: matching[0].value,
+        label: matching[0].label ?? String(matching[0].value)
+      };
+    }
+    if (matching.length > 1) {
+      throw new McpServerError(
+        "ambiguous_target",
+        `valueLabel matched multiple enum values: ${matching.map((candidate) => candidate.label).join(", ")}`
+      );
+    }
+    throw new McpServerError(
+      "not_found",
+      `valueLabel not found on parameter ${parameter.name}: ${args.valueLabel}`
+    );
+  }
+
+  const nextValue = Number(args.value);
+  if (!Number.isFinite(nextValue)) {
+    throw new McpServerError("invalid_request", "value must be numeric");
+  }
+
+  const label = parameter.enumLabels?.[String(nextValue)] ?? null;
+  return {
+    value: nextValue,
+    label
+  };
+}
+
 function buildMutationResult(summary, affectedObjects, beforeVersion, afterVersion, warnings = []) {
   return {
     summary,
@@ -512,6 +661,248 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "rename_clip",
+      description: "Rename a Session View clip by canonical clip id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id such as clip:session:track:8:slot:1."
+          },
+          name: {
+            type: "string",
+            description: "New clip name."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "name"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireString(args.name, "name");
+
+        await policyAdapter.assertAllowed("rename_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.renameClip(
+          {
+            clipId: args.clipId,
+            name: args.name
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Clip ${args.dryRun ? "rename previewed" : "renamed"} for ${args.clipId}.`,
+          [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "duplicate_clip",
+      description: "Duplicate a Session View clip to a target slot, optionally on another track.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Source clip id."
+          },
+          targetTrackId: {
+            type: "string",
+            description: "Optional target track id. Defaults to the source clip track."
+          },
+          targetSlotIndex: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based target Session slot index."
+          },
+          confirm: {
+            type: "boolean",
+            description: "Required for non-dry-run duplication because this changes Session topology."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "targetSlotIndex"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireConfirmation(args, "duplicate_clip");
+
+        await policyAdapter.assertAllowed("duplicate_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await bridgeAdapter.duplicateClip(
+          {
+            clipId: args.clipId,
+            targetTrackId: args.targetTrackId ?? null,
+            targetSlotIndex: args.targetSlotIndex
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Clip ${args.dryRun ? "duplication previewed" : "duplicated"} for ${args.clipId}.`,
+          [args.clipId, result.clip?.id].filter(Boolean),
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "move_session_clip",
+      description: "Move a Session View clip to a target slot, optionally on another track.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Source clip id."
+          },
+          targetTrackId: {
+            type: "string",
+            description: "Optional target track id. Defaults to the source clip track."
+          },
+          targetSlotIndex: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based target Session slot index."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "targetSlotIndex"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+
+        await policyAdapter.assertAllowed("move_session_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await bridgeAdapter.moveSessionClip(
+          {
+            clipId: args.clipId,
+            targetTrackId: args.targetTrackId ?? null,
+            targetSlotIndex: args.targetSlotIndex
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Session clip ${args.dryRun ? "move previewed" : "moved"} for ${args.clipId}.`,
+          [args.clipId, result.clip?.id].filter(Boolean),
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_clip_loop_or_length",
+      description: "Adjust Session clip loop and length properties.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          lengthBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Optional new clip length in beats."
+          },
+          loopStartBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Optional new loop start in beats."
+          },
+          loopEndBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Optional new loop end in beats."
+          },
+          looping: {
+            type: "boolean",
+            description: "Optional new loop-enabled state."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        if (
+          args.lengthBeats === undefined &&
+          args.loopStartBeats === undefined &&
+          args.loopEndBeats === undefined &&
+          args.looping === undefined
+        ) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide at least one of lengthBeats, loopStartBeats, loopEndBeats, or looping"
+          );
+        }
+
+        await policyAdapter.assertAllowed("set_clip_loop_or_length", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.setClipLoopOrLength(
+          {
+            clipId: args.clipId,
+            lengthBeats: args.lengthBeats,
+            loopStartBeats: args.loopStartBeats,
+            loopEndBeats: args.loopEndBeats,
+            looping: args.looping
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Clip loop or length ${args.dryRun ? "previewed" : "updated"} for ${args.clipId}.`,
+          [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "delete_clip",
+      description: "Delete a Session View clip by canonical clip id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          confirm: {
+            type: "boolean",
+            description: "Required for non-dry-run deletion."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireConfirmation(args, "delete_clip");
+
+        await policyAdapter.assertAllowed("delete_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.deleteClip(
+          {
+            clipId: args.clipId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Clip ${args.dryRun ? "deletion previewed" : "deleted"} for ${args.clipId}.`,
+          [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "insert_notes",
       description: "Insert notes into a target MIDI clip without clearing existing notes.",
       inputSchema: createObjectSchema({
@@ -724,57 +1115,78 @@ export function buildDefaultTools({
     },
     {
       name: "set_parameter",
-      description: "Set a device parameter by track/device/parameter identifiers.",
+      description: "Set a device parameter by explicit ids or by track/device/parameter names, with optional enum-label lookup for quantized controls.",
       inputSchema: createObjectSchema({
         properties: {
           trackId: {
             type: "string",
             description: "Track identifier containing the target device."
           },
+          trackName: {
+            type: "string",
+            description: "Track name to resolve when trackId is not known."
+          },
+          trackIndex: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based visible-track index to resolve when trackId is not known."
+          },
           deviceId: {
             type: "string",
             description: "Device identifier containing the target parameter."
+          },
+          deviceName: {
+            type: "string",
+            description: "Device name to resolve when deviceId is not known."
           },
           parameterId: {
             type: "string",
             description: "Parameter identifier to update."
           },
+          parameterName: {
+            type: "string",
+            description: "Parameter name to resolve when parameterId is not known."
+          },
           value: {
             type: "number",
             description: "Target numeric parameter value."
+          },
+          valueLabel: {
+            type: "string",
+            description: "Enum label to resolve for quantized parameters, for example `Algorithm 3`."
           },
           dryRun: {
             type: "boolean",
             description: "If true, preview the action without mutating Live."
           }
-        },
-        required: ["trackId", "deviceId", "parameterId", "value"]
+        }
       }),
       async execute(args) {
-        requireString(args.trackId, "trackId");
-        requireString(args.deviceId, "deviceId");
-        requireString(args.parameterId, "parameterId");
-
-        const nextValue = Number(args.value);
-        if (!Number.isFinite(nextValue)) {
-          throw new McpServerError("invalid_request", "value must be numeric");
+        if (args.value === undefined && args.valueLabel === undefined) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide value or valueLabel for set_parameter"
+          );
         }
+
+        const target = await resolveParameterReference(stateAdapter, args);
+        const resolvedValue = resolveParameterValue(target.parameter, args);
 
         await policyAdapter.assertAllowed("set_parameter", args);
         const before = await stateAdapter.getProjectSummary();
         await bridgeAdapter.setParameter(
           {
-            trackId: args.trackId,
-            deviceId: args.deviceId,
-            parameterId: args.parameterId,
-            value: nextValue
+            trackId: target.track.id,
+            deviceId: target.device.id,
+            parameterId: target.parameter.id,
+            value: resolvedValue.value
           },
           { dryRun: Boolean(args.dryRun) }
         );
-        const after = await stateAdapter.refreshState(`device:${args.deviceId}`);
+        const after = await stateAdapter.refreshState(target.device.id);
         return buildMutationResult(
-          `Parameter ${args.parameterId} ${args.dryRun ? "previewed" : "updated"}.`,
-          [args.trackId, args.deviceId, args.parameterId],
+          `Parameter ${target.parameter.name} ${args.dryRun ? "previewed" : "updated"}${resolvedValue.label ? ` to ${resolvedValue.label}` : ""}.`,
+          [target.track.id, target.device.id, target.parameter.id],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []

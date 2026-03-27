@@ -101,6 +101,37 @@ test("bridge can create clips and insert notes", async () => {
   });
 });
 
+test("bridge create_clip rejects occupied slots and emits loop aliases on new clips", async () => {
+  await withBridge(async ({ client }) => {
+    const response = await client.request("call", "create_clip", {
+      track_id: "track:2",
+      slot_index: 1,
+      name: "Long Bass",
+      length_beats: 8
+    });
+    const clip = await client.request("get", response.result.clip.id);
+
+    await assert.rejects(
+      () =>
+        client.request("call", "create_clip", {
+          track_id: "track:2",
+          slot_index: 1,
+          name: "Overwrite Attempt"
+        }),
+      /Target clip slot already contains a clip: 1/
+    );
+
+    assert.equal(clip.result.slotIndex, 1);
+    assert.equal(clip.result.length_beats, 8);
+    assert.equal(clip.result.lengthBeats, 8);
+    assert.equal(clip.result.loop_start_beats, 0);
+    assert.equal(clip.result.loopStartBeats, 0);
+    assert.equal(clip.result.loop_end_beats, 8);
+    assert.equal(clip.result.loopEndBeats, 8);
+    assert.equal(clip.result.looping, true);
+  });
+});
+
 test("bridge can replace notes without appending", async () => {
   await withBridge(async ({ client }) => {
     const replace = await client.request("call", "replace_notes", {
@@ -138,6 +169,50 @@ test("bridge can browse and load browser items", async () => {
     assert.equal(items.result.items[0].name, "Operator");
     assert.equal(load.result.track.id, "track:1");
     assert.equal(track.result.devices.some((device) => device.name === "Operator"), true);
+  });
+});
+
+test("bridge can edit session clips", async () => {
+  await withBridge(async ({ client }) => {
+    await client.request("call", "rename_clip", {
+      clip_id: "clip:session:track:1:slot:1",
+      name: "Beat B"
+    });
+    await client.request("call", "duplicate_clip", {
+      clip_id: "clip:session:track:1:slot:1",
+      target_slot_index: 1
+    });
+    await client.request("call", "set_clip_loop_or_length", {
+      clip_id: "clip:session:track:1:slot:1",
+      length_beats: 8,
+      loop_end_beats: 8
+    });
+    await client.request("call", "move_session_clip", {
+      clip_id: "clip:session:track:1:slot:2",
+      target_slot_index: 2
+    });
+    await client.request("call", "delete_clip", {
+      clip_id: "clip:session:track:1:slot:3"
+    });
+
+    const track = await client.request("get", "track:1");
+    const renamed = track.result.session_clips.find((clip) => clip.slot_index === 0);
+
+    assert.equal(renamed.name, "Beat B");
+    assert.equal(renamed.length_beats, 8);
+    assert.equal(renamed.loop_end_beats, 8);
+    assert.equal(track.result.session_clips.some((clip) => clip.slot_index === 1), false);
+    assert.equal(track.result.session_clips.some((clip) => clip.slot_index === 2), false);
+  });
+});
+
+test("bridge exposes quantized parameter metadata", async () => {
+  await withBridge(async ({ client }) => {
+    const parameter = await client.request("get", "parameter:device:track:2:1:1");
+
+    assert.equal(parameter.result.is_quantized, true);
+    assert.equal(parameter.result.value_items[0], "Algorithm 1");
+    assert.equal(parameter.result.value_items[2], "Algorithm 3");
   });
 });
 

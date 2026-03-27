@@ -51,7 +51,7 @@ The current sidecar-improvement workstream also spans phases 0, 3, and 6 in para
 
 These are the current planned work units for the next product slices. They are intentionally concrete and independently shippable, but still tentative until a release is cut.
 
-### Target `v0.5.0`
+### Delivered in `v0.5.0`
 
 - session-editing ergonomics:
   - `rename_clip`
@@ -60,8 +60,8 @@ These are the current planned work units for the next product slices. They are i
   - gated `duplicate_clip`
   - gated `delete_clip`
 - parameter metadata ergonomics:
-  - enum labels or allowed values for common quantized parameters on built-in devices
-  - better parameter lookup by name and mode hints
+  - enum labels or allowed values for quantized parameters carried through the bridge and state mirror
+  - `set_parameter` lookup by track, device, and parameter name plus enum-label targeting
 
 ### Target `v0.6.0`
 

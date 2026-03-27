@@ -51,6 +51,9 @@ def serialize_scene_state(scene, index, scene_id):
 
 
 def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
+    loop_start = getattr(clip, "loop_start", 0.0)
+    loop_end = getattr(clip, "loop_end", getattr(clip, "length", None))
+    looping = bool(getattr(clip, "looping", True))
     return {
         "id": clip_id,
         "track_id": track_id,
@@ -59,6 +62,11 @@ def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
         "slotIndex": slot_index,
         "name": getattr(clip, "name", "Clip {0}".format(slot_index + 1)),
         "length_beats": getattr(clip, "length", None),
+        "loop_start_beats": loop_start,
+        "loopStartBeats": loop_start,
+        "loop_end_beats": loop_end,
+        "loopEndBeats": loop_end,
+        "looping": looping,
         "is_playing": bool(getattr(clip, "is_playing", False)),
         "notes": notes,
         "note_count": len(notes),
@@ -77,12 +85,18 @@ def serialize_device_state(device, device_id, parameters):
 
 def serialize_parameter_state(parameter, parameter_id):
     display_value = getattr(parameter, "display_value", str(getattr(parameter, "value", "")))
+    is_quantized = bool(getattr(parameter, "is_quantized", False))
+    value_items = list(getattr(parameter, "value_items", []) or [])
     return {
         "id": parameter_id,
         "name": getattr(parameter, "name", "Parameter"),
         "value": getattr(parameter, "value", None),
         "min": getattr(parameter, "min", 0.0),
         "max": getattr(parameter, "max", 1.0),
+        "is_quantized": is_quantized,
+        "isQuantized": is_quantized,
+        "value_items": value_items,
+        "valueItems": value_items,
         "display_value": display_value,
         "displayValue": display_value,
     }

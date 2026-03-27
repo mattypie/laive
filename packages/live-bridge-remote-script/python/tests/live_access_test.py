@@ -323,6 +323,57 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["track"]["id"], "track:1")
         self.assertFalse(song.tracks[0].clip_slots[0].clip.is_playing)
 
+    def test_session_clip_editing_primitives(self):
+        clip = DirectSetNotesClip()
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+        song.tracks[0].clip_slots.append(ClipSlotWithClip(None, song.tracks[0], 1))
+        song.tracks[0].clip_slots.append(ClipSlotWithClip(None, song.tracks[0], 2))
+
+        renamed = adapter.rename_clip("clip:session:track:1:slot:1", "Renamed Clip")
+        duplicated = adapter.duplicate_clip("clip:session:track:1:slot:1", 1)
+        moved = adapter.move_session_clip("clip:session:track:1:slot:2", 2)
+        looped = adapter.set_clip_loop_or_length(
+            "clip:session:track:1:slot:1",
+            length_beats=8,
+            loop_end_beats=8,
+        )
+        deleted = adapter.delete_clip("clip:session:track:1:slot:3")
+
+        self.assertEqual(renamed["clip"]["name"], "Renamed Clip")
+        self.assertEqual(duplicated["clip"]["id"], "clip:session:track:1:slot:2")
+        self.assertEqual(moved["clip"]["id"], "clip:session:track:1:slot:3")
+        self.assertEqual(looped["clip"]["length_beats"], 8.0)
+        self.assertEqual(looped["clip"]["loop_end_beats"], 8.0)
+        self.assertEqual(deleted["clip_id"], "clip:session:track:1:slot:3")
+        self.assertFalse(song.tracks[0].clip_slots[2].has_clip)
+
+    def test_parameter_serialization_exposes_quantized_value_items(self):
+        clip = DirectSetNotesClip()
+        song = SongWithSingleClip(clip)
+        song.tracks[0].devices.append(
+            SimpleDevice(
+                "Auto Filter",
+                parameters=[
+                    QuantizedParameter(
+                        "LFO Waveform",
+                        1,
+                        minimum=0,
+                        maximum=2,
+                        value_items=["Sine", "Square", "Random"],
+                    )
+                ],
+            )
+        )
+        adapter = LiveSetAdapter(song)
+
+        device = adapter.get_tracks()[0]["devices"][-1]
+        parameter = device["parameters"][0]
+
+        self.assertTrue(parameter["is_quantized"])
+        self.assertEqual(parameter["value_items"][0], "Sine")
+        self.assertEqual(parameter["value_items"][2], "Random")
+
 
 class SongWithSingleClip(object):
     def __init__(self, clip):
@@ -417,7 +468,24 @@ class ClipSlotWithClip(object):
 
     @property
     def has_clip(self):
-        return True
+        return self.clip is not None
+
+    def create_clip(self, length):
+        self.clip = DirectSetNotesClip()
+        self.clip.length = length
+        self.clip.loop_end = length
+
+    def delete_clip(self):
+        self.clip = None
+
+    def duplicate_clip_to(self, target_slot):
+        target_slot.clip = DirectSetNotesClip()
+        target_slot.clip.name = self.clip.name
+        target_slot.clip.length = self.clip.length
+        target_slot.clip.loop_start = self.clip.loop_start
+        target_slot.clip.loop_end = self.clip.loop_end
+        target_slot.clip.looping = self.clip.looping
+        target_slot.clip.stored_notes = list(getattr(self.clip, "stored_notes", []))
 
     def fire(self):
         for slot in self.track.clip_slots:
@@ -578,6 +646,9 @@ class AddNewNotesClip(object):
     def __init__(self):
         self.name = "Add New Notes"
         self.length = 4
+        self.looping = True
+        self.loop_start = 0.0
+        self.loop_end = 4
         self.is_playing = False
         self.add_new_notes_payload = None
 
@@ -593,11 +664,16 @@ class DirectSetNotesClip(object):
     def __init__(self):
         self.name = "Direct Set"
         self.length = 4
+        self.looping = True
+        self.loop_start = 0.0
+        self.loop_end = 4
         self.is_playing = False
         self.set_notes_payload = None
+        self.stored_notes = []
 
     def set_notes(self, notes):
         self.set_notes_payload = notes
+        self.stored_notes = [coerce_note_spec(note) for note in notes]
 
     def get_all_notes(self):
         return self.set_notes_payload or []
@@ -668,10 +744,21 @@ class BrowserItem(object):
 
 
 class SimpleDevice(object):
-    def __init__(self, name):
+    def __init__(self, name, parameters=None):
         self.name = name
         self.class_name = name
-        self.parameters = []
+        self.parameters = list(parameters or [])
+
+
+class QuantizedParameter(object):
+    def __init__(self, name, value, minimum=0, maximum=1, value_items=None):
+        self.name = name
+        self.value = value
+        self.min = minimum
+        self.max = maximum
+        self.is_quantized = True
+        self.value_items = list(value_items or [])
+        self.display_value = self.value_items[int(value)] if self.value_items else str(value)
 
 
 class FakeMidiNoteSpecification(object):

@@ -292,6 +292,31 @@ export function normalizeParameter(parameter, deviceId, existingEntity, options 
   const parameterId = parameter.id ?? makeParameterId(deviceId, index);
   const observedAt = isoNow(options.observedAt ?? parameter.observed_at);
 
+  const valueItems = asArray(pickFirst(parameter.value_items, parameter.valueItems)).map(String);
+  const hasExplicitEnumLabels = valueItems.length > 0;
+  const isQuantized = Boolean(pickFirst(parameter.is_quantized, parameter.isQuantized));
+  const allowedValues = hasExplicitEnumLabels
+    ? valueItems.map((label, offset) => ({
+        value: (parameter.min ?? 0) + offset,
+        label
+      }))
+    : isQuantized &&
+        Number.isFinite(parameter.min) &&
+        Number.isFinite(parameter.max) &&
+        Number.isInteger(parameter.min) &&
+        Number.isInteger(parameter.max) &&
+        parameter.max - parameter.min <= 32
+      ? Array.from({ length: parameter.max - parameter.min + 1 }, (_, offset) => ({
+          value: parameter.min + offset,
+          label: String(parameter.min + offset)
+        }))
+      : [];
+  const enumLabels = Object.fromEntries(
+    allowedValues
+      .filter((entry) => entry.label)
+      .map((entry) => [String(entry.value), entry.label])
+  );
+
   return {
     ...createBaseEntity({
       existingEntity,
@@ -306,9 +331,12 @@ export function normalizeParameter(parameter, deviceId, existingEntity, options 
     value: parameter.value ?? null,
     min: parameter.min ?? null,
     max: parameter.max ?? null,
-    isQuantized: Boolean(pickFirst(parameter.is_quantized, parameter.isQuantized)),
+    isQuantized,
     displayValue: pickFirst(parameter.display_value, parameter.displayValue) ?? null,
-    unit: parameter.unit ?? null
+    unit: parameter.unit ?? null,
+    valueItems,
+    allowedValues,
+    enumLabels
   };
 }
 
