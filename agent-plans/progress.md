@@ -4,7 +4,7 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.5.0` session-editing and parameter-metadata slice, with clip-edit MCP workflows and enum-aware parameter targeting being finalized for release
+- Active phase: post-`v0.5.0` release follow-through, with the next planned slice moving to `v0.6.0` mixer and routing coverage
 
 ## Versioned Roadmap
 
