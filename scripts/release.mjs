@@ -2,6 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +10,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const changelogPath = path.join(repoRoot, "CHANGELOG.md");
 const packageJsonPath = path.join(repoRoot, "package.json");
 const versionScriptPath = path.join(repoRoot, "scripts", "version-workspaces.mjs");
+const defaultNpmCache = path.join(os.tmpdir(), "laive-npm-cache");
 
 function parseArgs(argv) {
   const [command, bump, ...rest] = argv;
@@ -79,10 +81,22 @@ function finalizeChangelog(changelog, nextVersion, releaseDate) {
   return changelog.replace(/## Unreleased\s+([\s\S]*?)(\n## |\s*$)/, `${replacement}$2`);
 }
 
+function buildCommandEnv(command) {
+  if (command !== "npm") {
+    return process.env;
+  }
+
+  return {
+    ...process.env,
+    npm_config_cache: process.env.npm_config_cache || defaultNpmCache
+  };
+}
+
 function runCommand(command, args) {
   execFileSync(command, args, {
     cwd: repoRoot,
-    stdio: "inherit"
+    stdio: "inherit",
+    env: buildCommandEnv(command)
   });
 }
 

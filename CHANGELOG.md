@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- hardened the release script to use a temp npm cache automatically for npm-driven checks, avoiding local `~/.npm` ownership issues during `release:check`
+
 ## v0.5.0 - 2026-03-27
 
 - added first-class Session clip editing tools across the bridge and MCP surface: `rename_clip`, `duplicate_clip`, `move_session_clip`, `set_clip_loop_or_length`, and `delete_clip`, including confirmation gates for duplicate/delete mutations
@@ -131,4 +133,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-
