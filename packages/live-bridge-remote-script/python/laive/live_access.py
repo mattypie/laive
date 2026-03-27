@@ -319,14 +319,15 @@ class LiveSetAdapter(object):
             raise RequestError("invalid_argument", "length_beats must be positive")
 
         if not dry_run:
-            if length_beats is not None:
-                clip.length = float(length_beats)
-            if loop_start_beats is not None and hasattr(clip, "loop_start"):
-                clip.loop_start = float(loop_start_beats)
-            if loop_end_beats is not None and hasattr(clip, "loop_end"):
-                clip.loop_end = float(loop_end_beats)
-            if looping is not None and hasattr(clip, "looping"):
-                clip.looping = bool(looping)
+            next_loop_start = float(loop_start_beats) if loop_start_beats is not None else getattr(clip, "loop_start", 0.0)
+            if loop_start_beats is not None:
+                self._set_clip_attribute(clip, "loop_start", next_loop_start)
+            if length_beats is not None and loop_end_beats is None:
+                loop_end_beats = next_loop_start + float(length_beats)
+            if loop_end_beats is not None:
+                self._set_clip_attribute(clip, "loop_end", float(loop_end_beats))
+            if looping is not None:
+                self._set_clip_attribute(clip, "looping", bool(looping))
 
         clip_state = self._serialize_clip(clip, track_id, slot_index)
         if dry_run:
@@ -532,6 +533,17 @@ class LiveSetAdapter(object):
             [self._clip_notes.normalize_input(note) for note in self._clip_notes.serialize_notes(source_clip)],
         )
         return duplicated_clip
+
+    def _set_clip_attribute(self, clip, attribute_name, value):
+        if not hasattr(clip, attribute_name):
+            return
+        try:
+            setattr(clip, attribute_name, value)
+        except (AttributeError, TypeError):
+            raise RequestError(
+                "unsupported_operation",
+                "Clip attribute is not writable in this Live runtime: {0}".format(attribute_name),
+            )
 
     def _find_scene(self, scene_id):
         for index, scene in enumerate(getattr(self.song, "scenes", [])):

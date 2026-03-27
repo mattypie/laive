@@ -374,6 +374,38 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(parameter["value_items"][0], "Sine")
         self.assertEqual(parameter["value_items"][2], "Random")
 
+    def test_parameter_serialization_ignores_value_items_on_non_quantized_parameters(self):
+        clip = DirectSetNotesClip()
+        song = SongWithSingleClip(clip)
+        song.tracks[0].devices.append(
+            SimpleDevice(
+                "Operator",
+                parameters=[NonQuantizedValueItemsParameter("Algorithm", 0)],
+            )
+        )
+        adapter = LiveSetAdapter(song)
+
+        device = adapter.get_tracks()[0]["devices"][-1]
+        parameter = device["parameters"][0]
+
+        self.assertFalse(parameter["is_quantized"])
+        self.assertEqual(parameter["value_items"], [])
+
+    def test_set_clip_loop_or_length_uses_loop_markers_when_length_is_read_only(self):
+        clip = ReadOnlyLengthClip()
+        song = SongWithSingleClip(clip)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_clip_loop_or_length(
+            "clip:session:track:1:slot:1",
+            length_beats=8,
+            looping=True,
+        )
+
+        self.assertEqual(result["clip"]["loop_end_beats"], 8.0)
+        self.assertEqual(result["clip"]["length_beats"], 8.0)
+        self.assertEqual(clip.loop_end, 8.0)
+
 
 class SongWithSingleClip(object):
     def __init__(self, clip):
@@ -759,6 +791,38 @@ class QuantizedParameter(object):
         self.is_quantized = True
         self.value_items = list(value_items or [])
         self.display_value = self.value_items[int(value)] if self.value_items else str(value)
+
+
+class NonQuantizedValueItemsParameter(object):
+    def __init__(self, name, value, minimum=0, maximum=10):
+        self.name = name
+        self.value = value
+        self.min = minimum
+        self.max = maximum
+        self.is_quantized = False
+        self.display_value = str(value)
+
+    @property
+    def value_items(self):
+        raise RuntimeError("Only quantized parameters have value items")
+
+
+class ReadOnlyLengthClip(object):
+    def __init__(self):
+        self.name = "Read Only Length"
+        self._length = 4
+        self.looping = True
+        self.loop_start = 0.0
+        self.loop_end = 4.0
+        self.is_playing = False
+        self.stored_notes = []
+
+    @property
+    def length(self):
+        return self.loop_end - self.loop_start
+
+    def get_all_notes_extended(self):
+        return {"notes": list(self.stored_notes)}
 
 
 class FakeMidiNoteSpecification(object):

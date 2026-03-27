@@ -1,6 +1,13 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 
+def _safe_getattr(target, name, default=None):
+    try:
+        return getattr(target, name)
+    except Exception:
+        return default
+
+
 def serialize_song_state(song):
     return {
         "id": "song:current",
@@ -54,6 +61,12 @@ def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
     loop_start = getattr(clip, "loop_start", 0.0)
     loop_end = getattr(clip, "loop_end", getattr(clip, "length", None))
     looping = bool(getattr(clip, "looping", True))
+    length_beats = getattr(clip, "length", None)
+    if loop_end is not None and loop_start is not None:
+        try:
+            length_beats = float(loop_end) - float(loop_start)
+        except Exception:
+            length_beats = getattr(clip, "length", None)
     return {
         "id": clip_id,
         "track_id": track_id,
@@ -61,7 +74,7 @@ def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
         "slot_index": slot_index,
         "slotIndex": slot_index,
         "name": getattr(clip, "name", "Clip {0}".format(slot_index + 1)),
-        "length_beats": getattr(clip, "length", None),
+        "length_beats": length_beats,
         "loop_start_beats": loop_start,
         "loopStartBeats": loop_start,
         "loop_end_beats": loop_end,
@@ -84,15 +97,16 @@ def serialize_device_state(device, device_id, parameters):
 
 
 def serialize_parameter_state(parameter, parameter_id):
-    display_value = getattr(parameter, "display_value", str(getattr(parameter, "value", "")))
-    is_quantized = bool(getattr(parameter, "is_quantized", False))
-    value_items = list(getattr(parameter, "value_items", []) or [])
+    value = _safe_getattr(parameter, "value", None)
+    display_value = _safe_getattr(parameter, "display_value", str(value if value is not None else ""))
+    is_quantized = bool(_safe_getattr(parameter, "is_quantized", False))
+    value_items = list(_safe_getattr(parameter, "value_items", []) or []) if is_quantized else []
     return {
         "id": parameter_id,
-        "name": getattr(parameter, "name", "Parameter"),
-        "value": getattr(parameter, "value", None),
-        "min": getattr(parameter, "min", 0.0),
-        "max": getattr(parameter, "max", 1.0),
+        "name": _safe_getattr(parameter, "name", "Parameter"),
+        "value": value,
+        "min": _safe_getattr(parameter, "min", 0.0),
+        "max": _safe_getattr(parameter, "max", 1.0),
         "is_quantized": is_quantized,
         "isQuantized": is_quantized,
         "value_items": value_items,
