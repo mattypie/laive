@@ -2,14 +2,15 @@
 
 ## Unreleased
 
-- hardened the release script to use a temp npm cache automatically for npm-driven checks, avoiding local `~/.npm` ownership issues during `release:check`
-
 ## v0.5.0 - 2026-03-27
 
 - added first-class Session clip editing tools across the bridge and MCP surface: `rename_clip`, `duplicate_clip`, `move_session_clip`, `set_clip_loop_or_length`, and `delete_clip`, including confirmation gates for duplicate/delete mutations
 - added quantized parameter metadata propagation so bridge/state snapshots preserve `valueItems`, derive `allowedValues` / `enumLabels`, and expose them through MCP-facing device trees
 - expanded `set_parameter` to resolve targets by track, device, and parameter name or track index, and to accept enum-label writes for quantized controls instead of only raw numeric values
 - added regression coverage for the new clip-editing and parameter-metadata flows across the Python bridge, fixture runtime, state engine, and MCP server
+- hardened the release script to use a temp npm cache automatically for npm-driven checks, avoiding local `~/.npm` ownership issues during `release:check`
+- fixed real Live parameter serialization so non-quantized device parameters no longer break bridge refreshes when `value_items` is only valid on quantized controls
+- fixed clip loop and length writes against the Live 11 runtime by updating loop markers instead of trying to assign the read-only `clip.length` attribute directly
 
 ## v0.4.1 - 2026-03-23
 
