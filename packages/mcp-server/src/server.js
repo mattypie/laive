@@ -16,7 +16,8 @@ export class LaiveMcpServer {
     sidecarAdapter,
     uiAutomationAdapter,
     integrationStatusAdapter,
-    serverInfo
+    serverInfo,
+    logger = null
     } = {}) {
     this.serverInfo = serverInfo ?? {
       name: "laive-mcp",
@@ -43,6 +44,7 @@ export class LaiveMcpServer {
         return true;
       }
     };
+    this.logger = logger;
     this.tools = new ToolRegistry();
 
     for (const tool of buildDefaultTools({
@@ -71,6 +73,10 @@ export class LaiveMcpServer {
     }
 
     if (message.method === "initialize") {
+      this.logger?.info("mcp.initialize", {
+        protocolVersion: message.params?.protocolVersion ?? null,
+        clientInfo: message.params?.clientInfo ?? null
+      });
       const requestedProtocolVersion =
         typeof message.params?.protocolVersion === "string"
           ? message.params.protocolVersion
@@ -92,6 +98,7 @@ export class LaiveMcpServer {
     }
 
     if (message.method === "ping") {
+      this.logger?.debug("mcp.ping");
       return {
         jsonrpc: "2.0",
         id: message.id ?? null,
@@ -100,10 +107,14 @@ export class LaiveMcpServer {
     }
 
     if (typeof message.method === "string" && message.method.startsWith("notifications/")) {
+      this.logger?.debug("mcp.notification", {
+        method: message.method
+      });
       return null;
     }
 
     if (message.method === "tools/list") {
+      this.logger?.debug("mcp.tools_list");
       return {
         jsonrpc: "2.0",
         id: message.id ?? null,
@@ -117,6 +128,10 @@ export class LaiveMcpServer {
     if (message.method === "tools/call") {
       const params = message.params ?? {};
       try {
+        this.logger?.info("mcp.tools_call", {
+          name: params.name,
+          requestId: message.id ?? null
+        });
         const result = await this.invokeTool(params.name, params.arguments ?? {}, {
           requestId: message.id ?? null
         });
@@ -127,6 +142,11 @@ export class LaiveMcpServer {
           result: toToolResult(result)
         };
       } catch (error) {
+        this.logger?.warn("mcp.tools_call_error", {
+          name: params.name,
+          requestId: message.id ?? null,
+          error
+        });
         return {
           jsonrpc: "2.0",
           id: message.id ?? null,
@@ -142,6 +162,11 @@ export class LaiveMcpServer {
     try {
       return await this.handleRpcMessage(message);
     } catch (error) {
+      this.logger?.error("mcp.rpc_error", {
+        requestId: message?.id ?? null,
+        method: message?.method ?? null,
+        error
+      });
       return {
         jsonrpc: "2.0",
         id: message?.id ?? null,

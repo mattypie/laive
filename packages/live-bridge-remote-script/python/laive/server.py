@@ -41,10 +41,12 @@ class RemoteCommandServer(object):
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         self._socket.bind((self._host, self._port))
         self._socket.listen(4)
         self._socket.settimeout(0.5)
         self._running = True
+        self._log("remote server listening", event="bridge.server_started", host=self._host, port=self._port)
         self._thread = threading.Thread(target=self._serve, name="laive-remote-script-server")
         self._thread.daemon = True
         self._thread.start()
@@ -52,6 +54,7 @@ class RemoteCommandServer(object):
 
     def stop(self):
         self._running = False
+        self._log("remote server stopping", event="bridge.server_stopping", client_count=self.client_count)
         if self._socket is not None:
             try:
                 self._socket.close()
@@ -69,6 +72,13 @@ class RemoteCommandServer(object):
         event = make_event(topic, payload)
         recipients = self._subscriptions.get(topic) or self._clients
         encoded = encode_json_line(event).encode("utf-8")
+        self._log(
+            "broadcasting event",
+            level="debug",
+            event="bridge.broadcast_event",
+            topic=topic,
+            recipient_count=len(recipients),
+        )
         for client in list(recipients):
             try:
                 client.sendall(encoded)
@@ -84,7 +94,13 @@ class RemoteCommandServer(object):
             except Exception:
                 continue
 
+            client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             self._clients.add(client)
+            self._log(
+                "client connected",
+                event="bridge.client_connected",
+                client_count=self.client_count,
+            )
             worker = threading.Thread(target=self._handle_client, args=(client,))
             worker.daemon = True
             worker.start()
@@ -97,6 +113,14 @@ class RemoteCommandServer(object):
                 if not chunk:
                     break
                 for request in parser.push(chunk):
+                    self._log(
+                        "request received",
+                        level="debug",
+                        event="bridge.request",
+                        operation=request.get("operation"),
+                        target=request.get("target"),
+                        request_id=request.get("request_id"),
+                    )
                     if request.get("operation") == "subscribe":
                         self._subscriptions.setdefault(request.get("target"), set()).add(client)
                         response = self._request_handler(
@@ -117,6 +141,8 @@ class RemoteCommandServer(object):
                     else:
                         response = self._request_handler(request)
                     client.sendall(encode_json_line(response).encode("utf-8"))
+        except Exception as error:
+            self._log("client handler error", level="error", event="bridge.client_error", error=error)
         finally:
             self._drop_client(client)
 
@@ -128,3 +154,12 @@ class RemoteCommandServer(object):
             client.close()
         except Exception:
             pass
+        self._log("client disconnected", event="bridge.client_disconnected", client_count=self.client_count)
+
+    def _log(self, message, level="info", **fields):
+        if not self._logger:
+            return
+        try:
+            self._logger(message, level=level, **fields)
+        except Exception:
+            return

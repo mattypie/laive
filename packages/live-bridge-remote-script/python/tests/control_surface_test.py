@@ -1,5 +1,8 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
+import json
+import os
+import tempfile
 import unittest
 
 from laive.control_surface import LaiveControlSurface
@@ -26,6 +29,31 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertTrue(hello["ok"])
         self.assertEqual(hello["result"]["bridge"], "laive-remote-script")
         self.assertTrue(capabilities["result"]["create_track"])
+
+    def test_writes_structured_log_file(self):
+        with tempfile.TemporaryDirectory() as log_dir:
+            previous = os.environ.get("LAIVE_LOG_DIR")
+            os.environ["LAIVE_LOG_DIR"] = log_dir
+            try:
+                surface = LaiveControlSurface(
+                    self.instance,
+                    auto_start_server=False,
+                )
+                try:
+                    surface.process_request(create_request("hello", request_id="log-1"))
+                finally:
+                    surface.disconnect()
+            finally:
+                if previous is None:
+                    os.environ.pop("LAIVE_LOG_DIR", None)
+                else:
+                    os.environ["LAIVE_LOG_DIR"] = previous
+
+            log_path = os.path.join(log_dir, "remote-script.jsonl")
+            self.assertTrue(os.path.exists(log_path))
+            with open(log_path, "r") as handle:
+                first_entry = json.loads(handle.readline())
+            self.assertEqual(first_entry["component"], "remote-script")
 
     def test_get_song_and_tracks(self):
         song_response = self.surface.process_request(create_request("get", target="song", request_id="song-1"))

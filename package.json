@@ -33,6 +33,7 @@
     "packages/live-bridge-remote-script/python/laive/control_surface.py",
     "packages/live-bridge-remote-script/python/laive/fake_live.py",
     "packages/live-bridge-remote-script/python/laive/listeners.py",
+    "packages/live-bridge-remote-script/python/laive/logging.py",
     "packages/live-bridge-remote-script/python/laive/live_access.py",
     "packages/live-bridge-remote-script/python/laive/protocol.py",
     "packages/live-bridge-remote-script/python/laive/serializers.py",

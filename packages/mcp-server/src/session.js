@@ -3,6 +3,7 @@ import {
   BridgeServer,
   FixtureLiveRuntime
 } from "../../live-bridge-remote-script/src/index.js";
+import { createStructuredLogger } from "../../common/src/index.js";
 import { createStateEngine } from "../../state-engine/src/index.js";
 import { getRootPackageVersion } from "./package-version.js";
 
@@ -696,11 +697,15 @@ export function createStateAdapter(session) {
 }
 
 export class LaiveBridgeSession {
-  constructor({ bridgeClient, stateEngine = createStateEngine(), teardown = () => {} }) {
+  constructor({ bridgeClient, stateEngine = createStateEngine(), teardown = () => {}, logger = null }) {
     this.bridgeClient = bridgeClient;
     this.stateEngine = stateEngine;
     this.teardown = teardown;
+    this.logger = logger ?? createStructuredLogger({ component: "mcp-session" });
     this.boundEventHandler = (message) => {
+      this.logger.debug("bridge_session.event", {
+        topic: message.topic
+      });
       const mapped = mapBridgeEvent(message.topic, message.payload ?? {});
       if (mapped) {
         this.stateEngine.applyEvent(mapped, {
@@ -714,16 +719,21 @@ export class LaiveBridgeSession {
     host = process.env.LAIVE_BRIDGE_HOST ?? "127.0.0.1",
     port = Number.parseInt(process.env.LAIVE_BRIDGE_PORT ?? "7612", 10),
     clientId = process.env.LAIVE_BRIDGE_CLIENT_ID ?? "laive-mcp-session",
-    socketFactory = null
+    socketFactory = null,
+    logger = null
   } = {}) {
+    const sessionLogger = logger ?? createStructuredLogger({ component: "mcp-session" });
     const bridgeClient = new BridgeClient({
       host,
       port,
       clientId,
-      socketFactory
+      socketFactory,
+      logger: sessionLogger.child("bridge-client", {
+        fileName: "bridge-client.jsonl"
+      })
     });
     await bridgeClient.connect();
-    const session = new LaiveBridgeSession({ bridgeClient });
+    const session = new LaiveBridgeSession({ bridgeClient, logger: sessionLogger });
     await session.start();
     return session;
   }
@@ -733,6 +743,7 @@ export class LaiveBridgeSession {
   }
 
   async start() {
+    this.logger.info("bridge_session.starting");
     this.bridgeClient.on("event", this.boundEventHandler);
     await Promise.all([
       this.bridgeClient.subscribe("transport.changed"),
@@ -741,17 +752,23 @@ export class LaiveBridgeSession {
       this.bridgeClient.subscribe("parameters.changed")
     ]);
     await this.syncSnapshot();
+    this.logger.info("bridge_session.started");
   }
 
   async syncSnapshot() {
+    this.logger.debug("bridge_session.sync_snapshot");
     const snapshot = await buildRuntimeSnapshot(this.bridgeClient);
     this.stateEngine.applySnapshot(snapshot, {
+      observedAt: snapshot.observed_at
+    });
+    this.logger.debug("bridge_session.snapshot_applied", {
       observedAt: snapshot.observed_at
     });
     return this.stateEngine.getState();
   }
 
   async close() {
+    this.logger.info("bridge_session.closing");
     this.bridgeClient.off("event", this.boundEventHandler);
     await this.bridgeClient.disconnect();
     this.teardown();
@@ -793,32 +810,54 @@ export class LaiveLazySession {
     host = process.env.LAIVE_BRIDGE_HOST ?? "127.0.0.1",
     port = Number.parseInt(process.env.LAIVE_BRIDGE_PORT ?? "7612", 10),
     clientId = process.env.LAIVE_BRIDGE_CLIENT_ID ?? "laive-mcp-session",
-    socketFactory = null
+    socketFactory = null,
+    logger = null
   } = {}) {
     this.connectionOptions = {
       host,
       port,
       clientId,
-      socketFactory
+      socketFactory,
+      logger
     };
     this.stateEngine = createStateEngine();
     this.bridgeClient = null;
     this.activeSession = null;
     this.connectingPromise = null;
+    this.logger = logger ?? createStructuredLogger({ component: "mcp-session" });
+    this.boundActiveSessionClose = null;
   }
 
   async ensureConnected() {
-    if (this.activeSession) {
+    if (this.activeSession && this.bridgeClient?.socket) {
       return this.activeSession;
     }
 
+    if (this.activeSession && !this.bridgeClient?.socket) {
+      this.logger.warn("bridge_session.stale_session_detected");
+      this._clearActiveSession();
+    }
+
     if (!this.connectingPromise) {
+      this.logger.info("bridge_session.connecting", {
+        host: this.connectionOptions.host,
+        port: this.connectionOptions.port
+      });
       this.connectingPromise = LaiveBridgeSession.connect(this.connectionOptions)
         .then((session) => {
+          this._bindActiveSession(session);
           this.activeSession = session;
           this.bridgeClient = session.bridgeClient;
           this.stateEngine = session.stateEngine;
+          this.logger.info("bridge_session.connected", {
+            host: this.connectionOptions.host,
+            port: this.connectionOptions.port
+          });
           return session;
+        })
+        .catch((error) => {
+          this.logger.error("bridge_session.connect_failed", error);
+          throw error;
         })
         .finally(() => {
           this.connectingPromise = null;
@@ -837,6 +876,31 @@ export class LaiveLazySession {
     if (this.activeSession) {
       await this.activeSession.close();
     }
+    this._clearActiveSession();
+  }
+
+  _bindActiveSession(session) {
+    const onClose = () => {
+      if (this.activeSession === session) {
+        this.logger.warn("bridge_session.connection_closed");
+        this._clearActiveSession();
+      }
+    };
+    this.boundActiveSessionClose = onClose;
+    session.bridgeClient.on("close", onClose);
+    session.bridgeClient.on("error", (error) => {
+      this.logger.error("bridge_session.connection_error", error);
+    });
+  }
+
+  _clearActiveSession() {
+    if (this.activeSession?.bridgeClient && this.boundActiveSessionClose) {
+      this.activeSession.bridgeClient.off("close", this.boundActiveSessionClose);
+    }
+    this.boundActiveSessionClose = null;
+    this.activeSession = null;
+    this.bridgeClient = null;
+    this.stateEngine = createStateEngine();
   }
 }
 

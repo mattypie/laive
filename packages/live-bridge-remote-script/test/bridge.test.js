@@ -74,6 +74,30 @@ test("bridge supports dry run mutations", async () => {
   });
 });
 
+test("bridge client rejects pending requests when the socket closes", async () => {
+  const sockets = createLoopbackSocketPair();
+  sockets.serverSocket.on("data", () => {
+    sockets.serverSocket.end();
+  });
+
+  const client = new BridgeClient({
+    clientId: "closing-client-test",
+    socketFactory() {
+      queueMicrotask(() => {
+        sockets.clientSocket.emit("connect");
+      });
+      return sockets.clientSocket;
+    }
+  });
+
+  await client.connect();
+
+  await assert.rejects(
+    () => client.request("hello"),
+    /Bridge connection closed/
+  );
+});
+
 test("bridge can create clips and insert notes", async () => {
   await withBridge(async ({ client }) => {
     const createClip = await client.request("call", "create_clip", {

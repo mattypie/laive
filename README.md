@@ -56,6 +56,7 @@ The optional components are intentionally soft-failable:
 - if the macOS UI helper is not installed or Accessibility is not granted, the MCP tools return setup instructions instead of silently failing
 
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
+For debugging, the MCP server, JS bridge client, and Python Remote Script now write structured JSONL logs under `~/.local/share/laive/logs` by default. Set `LAIVE_LOG_DIR` if you want to redirect logs elsewhere.
 
 Another current gap: return tracks, the master track, send levels, and per-track input/output or monitor configuration are not yet first-class bridge-backed MCP targets, so mixer control is still incomplete.
 Another current gap: Arrangement View and clip-envelope control are not yet first-class MCP workflows, so `laive` remains much stronger in Session View than in arrangement editing today.
@@ -275,6 +276,7 @@ If you want to use it, grant Accessibility permission to the installed helper ap
   - stage the `laive-ui-helper.app` bundle for Accessibility permissions
 
 If `laive` does not appear in Live's `Control Surface` list after install, restart Live and rerun `node ./bin/laive.mjs install --json` or `npx laive-mcp install --json` to confirm the target app bundle and `MIDI Remote Scripts` path.
+If the MCP server or bridge drops after a period of inactivity, inspect `~/.local/share/laive/logs/mcp-server.jsonl`, `~/.local/share/laive/logs/bridge-client.jsonl`, and `~/.local/share/laive/logs/remote-script.jsonl` before restarting everything; the lazy bridge session now reconnects automatically after socket close, so the logs should make it obvious whether the failure is in the MCP process or the Live-side bridge.
 
 ## Sidecar Role
 

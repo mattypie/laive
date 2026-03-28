@@ -28,6 +28,7 @@ except ImportError:  # pragma: no cover - exercised via fake harness tests
             return None
 
 from .listeners import ListenerHub
+from .logging import StructuredFileLogger
 from .live_access import LiveSetAdapter
 from .protocol import PROTOCOL_VERSION, RequestError, make_error_response, make_response
 from .server import RemoteCommandServer
@@ -45,21 +46,32 @@ class LaiveControlSurface(AbletonControlSurface):
         self._host = host
         self._port = port
         self._disposed = False
+        self._structured_logger = StructuredFileLogger(
+            "remote-script",
+            filename="remote-script.jsonl",
+            fallback=self.log_message,
+        )
         self._task_queue = MainThreadTaskQueue(self._schedule_on_main_thread)
         self._live = LiveSetAdapter(self.song(), application=self.application())
         self._server = RemoteCommandServer(
             host=host,
             port=port,
             request_handler=self.process_request,
-            logger=self.log_message,
+            logger=self._structured_logger,
         )
-        self._listeners = ListenerHub(self._live, self.publish_event, logger=self.log_message)
+        self._listeners = ListenerHub(self._live, self.publish_event, logger=self._structured_logger)
         self._listeners.attach()
 
         if auto_start_server:
             self.start_server()
 
-        self.log_message("laive Remote Script initialized")
+        self._structured_logger.info(
+            "laive Remote Script initialized",
+            event="remote_script.initialized",
+            host=host,
+            port=port,
+            log_path=self._structured_logger.path,
+        )
         self.show_message("laive: bridge ready on port {0}".format(self._port))
 
     def start_server(self):
@@ -68,10 +80,17 @@ class LaiveControlSurface(AbletonControlSurface):
 
         if not self._server.running:
             self._server.start()
+            self._structured_logger.info(
+                "remote command server started",
+                event="remote_script.server_started",
+                host=self._host,
+                port=self._port,
+            )
         return self._server.address
 
     def disconnect(self):
         self._disposed = True
+        self._structured_logger.info("remote script disconnect requested", event="remote_script.disconnect")
         try:
             self._listeners.detach()
         finally:
@@ -87,11 +106,24 @@ class LaiveControlSurface(AbletonControlSurface):
         return self._server
 
     def publish_event(self, topic, payload):
+        self._structured_logger.debug(
+            "bridge event published",
+            event="remote_script.event_published",
+            topic=topic,
+        )
         self._server.broadcast_event(topic, payload)
 
     def process_request(self, request):
         try:
             operation = request.get("operation")
+            self._structured_logger.debug(
+                "bridge request received",
+                event="remote_script.request",
+                operation=operation,
+                target=request.get("target"),
+                request_id=request.get("request_id"),
+                dry_run=request.get("dry_run", False),
+            )
 
             if operation == "hello":
                 result = {
@@ -128,8 +160,26 @@ class LaiveControlSurface(AbletonControlSurface):
             else:
                 raise RequestError("unsupported_operation", "Unsupported operation: {0}".format(operation))
 
-            return make_response(request.get("request_id"), ok=True, result=result, live_version=self._live.live_version)
+            response = make_response(request.get("request_id"), ok=True, result=result, live_version=self._live.live_version)
+            self._structured_logger.debug(
+                "bridge request handled",
+                event="remote_script.response",
+                operation=operation,
+                target=request.get("target"),
+                request_id=request.get("request_id"),
+                ok=True,
+            )
+            return response
         except RequestError as error:
+            self._structured_logger.warn(
+                "bridge request failed",
+                event="remote_script.response",
+                operation=request.get("operation"),
+                target=request.get("target"),
+                request_id=request.get("request_id"),
+                ok=False,
+                error=error,
+            )
             return make_error_response(
                 request.get("request_id"),
                 error.code,
@@ -137,6 +187,15 @@ class LaiveControlSurface(AbletonControlSurface):
                 live_version=self._live.live_version,
             )
         except Exception as error:  # pragma: no cover - safety path
+            self._structured_logger.error(
+                "bridge runtime error",
+                event="remote_script.response",
+                operation=request.get("operation"),
+                target=request.get("target"),
+                request_id=request.get("request_id"),
+                ok=False,
+                error=error,
+            )
             return make_error_response(
                 request.get("request_id"),
                 "runtime_error",

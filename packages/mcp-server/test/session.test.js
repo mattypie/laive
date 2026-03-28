@@ -482,6 +482,55 @@ test("real bridge session can connect to a live bridge socket and refresh state"
   }
 });
 
+test("lazy bridge session reconnects after the underlying socket closes", async () => {
+  const runtime = await FixtureLiveRuntime.fromFixture();
+  const server = new BridgeServer({ runtime });
+  const sockets = [];
+  let connectionCount = 0;
+  runtime.on("event", server.boundRuntimeEventHandler);
+
+  const session = LaiveBridgeSession.createLazy({
+    clientId: "lazy-bridge-test",
+    socketFactory() {
+      const pair = createLoopbackSocketPair();
+      sockets.push(pair);
+      connectionCount += 1;
+      server.attachClient(pair.serverSocket);
+      queueMicrotask(() => {
+        pair.clientSocket.emit("connect");
+      });
+      return pair.clientSocket;
+    }
+  });
+
+  try {
+    const firstSession = await session.ensureConnected();
+    const firstClient = firstSession.bridgeClient;
+    const firstSummary = await createStateAdapter(session).getProjectSummary();
+    assert.equal(firstSummary.song.tempo, 124);
+    assert.equal(connectionCount, 1);
+
+    const closePromise = once(firstClient, "close");
+    firstClient.socket.end();
+    await closePromise;
+
+    assert.equal(session.activeSession, null);
+    assert.equal(session.bridgeClient, null);
+
+    const secondSession = await session.ensureConnected();
+    const secondSummary = await createStateAdapter(session).getProjectSummary();
+    assert.equal(secondSummary.song.tempo, 124);
+    assert.equal(connectionCount, 2);
+    assert.notEqual(secondSession.bridgeClient, firstClient);
+  } finally {
+    await session.close();
+    runtime.off("event", server.boundRuntimeEventHandler);
+    for (const pair of sockets) {
+      pair.serverSocket.destroy();
+    }
+  }
+});
+
 function createLoopbackSocketPair() {
   const serverSocket = new FakeSocket();
   const clientSocket = new FakeSocket();
