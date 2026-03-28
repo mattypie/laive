@@ -20,10 +20,15 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - read the current project summary
 - read the selected track, scene, clip, and device context
 - list tracks
+- list return tracks
+- inspect the master track
 - read detailed track state, including session clips
 - read a track's device tree and parameter state
 - refresh the mirrored project state
 - set song tempo
+- set send levels
+- set monitor state
+- set track routing fields
 - start and stop transport
 - create MIDI or audio tracks
 - create scenes
