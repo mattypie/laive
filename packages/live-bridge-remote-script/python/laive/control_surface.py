@@ -208,6 +208,10 @@ class LaiveControlSurface(AbletonControlSurface):
             return self._live.get_song_state()
         if target == "tracks":
             return self._live.get_tracks()
+        if target == "return_tracks":
+            return self._live.get_return_tracks()
+        if target == "master_track":
+            return self._live.get_master_track()
         if target == "scenes":
             return self._live.get_scenes()
         if target == "browser.tree":
@@ -229,6 +233,28 @@ class LaiveControlSurface(AbletonControlSurface):
             return self._live.set_tempo(arguments.get("value"), dry_run=dry_run)
         if isinstance(target, str) and target.startswith("parameter:"):
             return self._live.set_parameter(target, arguments.get("value"), dry_run=dry_run)
+        if target == "track.send":
+            return self._live.set_send_level(
+                arguments.get("track_id"),
+                arguments.get("send_index"),
+                arguments.get("value"),
+                dry_run=dry_run,
+            )
+        if target == "track.monitoring_state":
+            return self._live.set_monitor_state(
+                arguments.get("track_id"),
+                arguments.get("monitoring_state"),
+                dry_run=dry_run,
+            )
+        if target == "track.routing":
+            return self._live.set_track_routing(
+                arguments.get("track_id"),
+                input_routing_type=arguments.get("input_routing_type"),
+                input_routing_channel=arguments.get("input_routing_channel"),
+                output_routing_type=arguments.get("output_routing_type"),
+                output_routing_channel=arguments.get("output_routing_channel"),
+                dry_run=dry_run,
+            )
         raise RequestError("unknown_target", "Unknown set target: {0}".format(target))
 
     def _handle_call(self, target, arguments, dry_run):

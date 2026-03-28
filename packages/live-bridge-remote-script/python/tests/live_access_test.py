@@ -3,6 +3,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import unittest
 
 from laive.clip_notes import ClipNoteAdapter
+from laive.fake_live import FakeSong
 from laive.live_access import LiveSetAdapter
 from laive.protocol import RequestError
 
@@ -405,6 +406,50 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["clip"]["loop_end_beats"], 8.0)
         self.assertEqual(result["clip"]["length_beats"], 8.0)
         self.assertEqual(clip.loop_end, 8.0)
+
+    def test_return_and_master_tracks_are_serialized(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        tracks = adapter.get_tracks()
+        return_tracks = adapter.get_return_tracks()
+        master_track = adapter.get_master_track()
+
+        self.assertTrue(any(track["section"] == "return" for track in tracks))
+        self.assertEqual(return_tracks[0]["id"], "track:return:1")
+        self.assertEqual(master_track["section"], "master")
+
+    def test_set_send_level_updates_track_send(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_send_level("track:1", 0, 0.45)
+
+        self.assertEqual(result["send"]["value"], 0.45)
+        self.assertEqual(result["track"]["sends"][0]["value"], 0.45)
+
+    def test_set_monitor_state_updates_visible_track(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_monitor_state("track:1", 2)
+
+        self.assertEqual(result["track"]["monitoring_state"], 2)
+        self.assertEqual(song.tracks[0].current_monitoring_state, 2)
+
+    def test_set_track_routing_matches_display_name(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_track_routing(
+            "track:1",
+            output_routing_type="Sends Only",
+        )
+
+        self.assertEqual(
+            result["track"]["output_routing_type"]["identifier"],
+            "sends_only",
+        )
 
 
 class SongWithSingleClip(object):
@@ -859,3 +904,38 @@ def coerce_note_spec(spec):
         "velocity": getattr(spec, "velocity", 100),
         "mute": bool(getattr(spec, "mute", False)),
     }
+
+
+class MixerAndRoutingTests(unittest.TestCase):
+    def test_tracks_include_return_and_master_sections(self):
+        adapter = LiveSetAdapter(FakeSong())
+
+        tracks = adapter.get_tracks()
+        track_ids = [track["id"] for track in tracks]
+
+        self.assertIn("track:1", track_ids)
+        self.assertIn("track:return:1", track_ids)
+        self.assertIn("track:master", track_ids)
+        self.assertEqual(
+            next(track for track in tracks if track["id"] == "track:return:1")["section"],
+            "return",
+        )
+        self.assertEqual(
+            next(track for track in tracks if track["id"] == "track:master")["section"],
+            "master",
+        )
+
+    def test_set_send_level_monitor_state_and_routing(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        send_result = adapter.set_send_level("track:1", 0, 0.45)
+        monitor_result = adapter.set_monitor_state("track:1", "off")
+        routing_result = adapter.set_track_routing("track:1", output_routing_type="sends_only")
+
+        self.assertEqual(send_result["track"]["sends"][0]["value"], 0.45)
+        self.assertEqual(monitor_result["track"]["monitoring_state"], 2)
+        self.assertEqual(
+            routing_result["track"]["output_routing_type"]["identifier"],
+            "sends_only",
+        )

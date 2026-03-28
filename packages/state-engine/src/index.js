@@ -31,8 +31,10 @@ export {
 } from "./normalize.js";
 export {
   findTrack,
+  getMasterTrack,
   getSelectedContext,
   getTrackDetails,
+  listReturnTracks,
   listPlayingClips,
   searchEntities,
   summarizeProject

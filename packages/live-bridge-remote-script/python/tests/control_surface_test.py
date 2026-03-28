@@ -60,7 +60,7 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         tracks_response = self.surface.process_request(create_request("get", target="tracks", request_id="tracks-1"))
 
         self.assertEqual(song_response["result"]["tempo"], 124.0)
-        self.assertEqual(len(tracks_response["result"]), 2)
+        self.assertEqual(len(tracks_response["result"]), 5)
         self.assertEqual(tracks_response["result"][0]["name"], "Drums")
 
     def test_mutations_change_fake_live_state(self):
@@ -176,6 +176,39 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(response["result"]["track"]["id"], "track:2")
         self.assertEqual(self.song.view.selected_track, self.song.tracks[1])
+
+    def test_mixer_and_routing_mutations(self):
+        send_response = self.surface.process_request(
+            create_request(
+                "set",
+                target="track.send",
+                arguments={"track_id": "track:1", "send_index": 0, "value": 0.4},
+                request_id="track-send-1",
+            )
+        )
+        monitor_response = self.surface.process_request(
+            create_request(
+                "set",
+                target="track.monitoring_state",
+                arguments={"track_id": "track:1", "monitoring_state": "off"},
+                request_id="track-monitor-1",
+            )
+        )
+        routing_response = self.surface.process_request(
+            create_request(
+                "set",
+                target="track.routing",
+                arguments={"track_id": "track:1", "output_routing_type": "sends_only"},
+                request_id="track-routing-1",
+            )
+        )
+
+        self.assertEqual(send_response["result"]["track"]["sends"][0]["value"], 0.4)
+        self.assertEqual(monitor_response["result"]["track"]["monitoring_state"], 2)
+        self.assertEqual(
+            routing_response["result"]["track"]["output_routing_type"]["identifier"],
+            "sends_only",
+        )
 
     def test_session_launch_controls(self):
         create_clip = self.surface.process_request(

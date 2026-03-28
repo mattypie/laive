@@ -134,7 +134,17 @@ export class FixtureLiveRuntime extends EventEmitter {
       case "song":
         return clone(this.state.song);
       case "tracks":
-        return clone(this.state.tracks);
+        return clone(this.allTracks());
+      case "return_tracks":
+        return clone(
+          this.state.return_tracks ?? this.allTracks().filter((track) => track.section === "return")
+        );
+      case "master_track":
+        return clone(
+          this.state.master_track ??
+            this.allTracks().find((track) => track.section === "master") ??
+            null
+        );
       case "scenes":
         return clone(this.state.scenes);
       case "browser.tree":
@@ -168,6 +178,18 @@ export class FixtureLiveRuntime extends EventEmitter {
 
     if (target?.startsWith("parameter:")) {
       return this.setParameter(target, args, dryRun);
+    }
+
+    if (target === "track.send") {
+      return this.setSendLevel(args, dryRun);
+    }
+
+    if (target === "track.monitoring_state") {
+      return this.setMonitorState(args, dryRun);
+    }
+
+    if (target === "track.routing") {
+      return this.setTrackRouting(args, dryRun);
     }
 
     throw new Error(`Unsupported set target: ${target}`);
@@ -257,15 +279,23 @@ export class FixtureLiveRuntime extends EventEmitter {
   }
 
   findTrack(trackId) {
-    const track = this.state.tracks.find((item) => item.id === trackId);
+    const track = this.allTracks().find((item) => item.id === trackId);
     if (!track) {
       throw new Error(`Track not found: ${trackId}`);
     }
     return track;
   }
 
+  allTracks() {
+    return [
+      ...(this.state.tracks ?? []),
+      ...(this.state.return_tracks ?? []),
+      ...(this.state.master_track ? [this.state.master_track] : [])
+    ];
+  }
+
   findDevice(deviceId) {
-    for (const track of this.state.tracks) {
+    for (const track of this.allTracks()) {
       const device = track.devices.find((item) => item.id === deviceId);
       if (device) {
         return device;
@@ -275,7 +305,7 @@ export class FixtureLiveRuntime extends EventEmitter {
   }
 
   findParameter(parameterId) {
-    for (const track of this.state.tracks) {
+    for (const track of this.allTracks()) {
       for (const device of track.devices) {
         const parameter = device.parameters.find((item) => item.id === parameterId);
         if (parameter) {
@@ -352,18 +382,146 @@ export class FixtureLiveRuntime extends EventEmitter {
     };
   }
 
+  setSendLevel(args, dryRun) {
+    const track = this.findTrack(args.track_id);
+    const sendIndex = Number(args.send_index);
+    const value = Number(args.value);
+    if (!Number.isInteger(sendIndex) || sendIndex < 0) {
+      throw new Error("send_index must be a non-negative integer");
+    }
+    const send = (track.sends ?? [])[sendIndex];
+    if (!send) {
+      throw new Error(`Send not found: ${sendIndex}`);
+    }
+    if (!Number.isFinite(value)) {
+      throw new Error("send value must be numeric");
+    }
+    if (!dryRun) {
+      send.value = Math.min(send.max ?? 1, Math.max(send.min ?? 0, value));
+      this.emit("event", {
+        topic: "tracks.changed",
+        payload: { action: "updated", track: clone(track) }
+      });
+    }
+    return {
+      applied: !dryRun,
+      track: clone(track),
+      send: clone(send)
+    };
+  }
+
+  setMonitorState(args, dryRun) {
+    const track = this.findTrack(args.track_id);
+    const monitoringState = Number(args.monitoring_state);
+    if (!Number.isFinite(monitoringState)) {
+      throw new Error("monitoring_state must be numeric");
+    }
+    if (!dryRun) {
+      track.monitoring_state = monitoringState;
+      track.monitoringState = monitoringState;
+      this.emit("event", {
+        topic: "tracks.changed",
+        payload: { action: "updated", track: clone(track) }
+      });
+    }
+    return {
+      applied: !dryRun,
+      track: clone(track)
+    };
+  }
+
+  setTrackRouting(args, dryRun) {
+    const track = this.findTrack(args.track_id);
+    if (!dryRun) {
+      if (args.input_routing_type !== undefined) {
+        const selected = this.resolveRoutingChoice(
+          track.available_input_routing_types,
+          args.input_routing_type
+        );
+        track.input_routing_type = selected;
+        track.inputRoutingType = selected;
+      }
+      if (args.input_routing_channel !== undefined) {
+        const selected = this.resolveRoutingChoice(
+          track.available_input_routing_channels,
+          args.input_routing_channel
+        );
+        track.input_routing_channel = selected;
+        track.inputRoutingChannel = selected;
+      }
+      if (args.output_routing_type !== undefined) {
+        const selected = this.resolveRoutingChoice(
+          track.available_output_routing_types,
+          args.output_routing_type
+        );
+        track.output_routing_type = selected;
+        track.outputRoutingType = selected;
+      }
+      if (args.output_routing_channel !== undefined) {
+        const selected = this.resolveRoutingChoice(
+          track.available_output_routing_channels,
+          args.output_routing_channel
+        );
+        track.output_routing_channel = selected;
+        track.outputRoutingChannel = selected;
+      }
+      this.emit("event", {
+        topic: "tracks.changed",
+        payload: { action: "updated", track: clone(track) }
+      });
+    }
+    return {
+      applied: !dryRun,
+      track: clone(track)
+    };
+  }
+
+  resolveRoutingChoice(candidates = [], requested) {
+    const normalized = String(requested ?? "").trim().toLowerCase();
+    return (
+      (candidates ?? []).find((candidate) =>
+        [candidate.display_name, candidate.identifier]
+          .filter(Boolean)
+          .some((value) => String(value).trim().toLowerCase() === normalized)
+      ) ?? {
+        identifier: requested,
+        display_name: requested
+      }
+    );
+  }
+
   createTrack(args, dryRun) {
-    const nextIndex = this.state.tracks.length;
+    const nextIndex = this.state.tracks.filter((track) => (track.section ?? "visible") === "visible").length;
     const nextId = `track:${nextIndex + 1}`;
+    const returnTrackCount = this.allTracks().filter((track) => (track.section ?? "visible") === "return").length;
     const track = {
       id: nextId,
       index: nextIndex,
+      section: "visible",
       name: args.name ?? `Track ${nextIndex + 1}`,
       type: args.type ?? "midi",
       color: args.color ?? 0,
       arm: false,
       mute: false,
       solo: false,
+      monitoring_state: 1,
+      monitoringState: 1,
+      input_routing_type: { display_name: "All Ins", identifier: "all_ins" },
+      inputRoutingType: { display_name: "All Ins", identifier: "all_ins" },
+      input_routing_channel: { display_name: "All Channels", identifier: "all_channels" },
+      inputRoutingChannel: { display_name: "All Channels", identifier: "all_channels" },
+      output_routing_type: { display_name: "Master", identifier: "master" },
+      outputRoutingType: { display_name: "Master", identifier: "master" },
+      output_routing_channel: { display_name: "Post Mixer", identifier: "post_mixer" },
+      outputRoutingChannel: { display_name: "Post Mixer", identifier: "post_mixer" },
+      sends: Array.from({ length: returnTrackCount }, (_, index) => ({
+        id: `${nextId}:send:${index + 1}`,
+        name: `Send ${String.fromCharCode(65 + index)}`,
+        value: 0,
+        min: 0,
+        max: 1,
+        display_value: "0"
+      })),
       playing_slot_index: -1,
       fired_slot_index: -1,
       devices: [],

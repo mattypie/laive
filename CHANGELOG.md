@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge-backed MCP targets instead of roadmap-only gaps
+- added mixer metadata to bridged track snapshots, including sends, monitor state, and input/output routing state
+- added MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`
+- hardened track identity handling so legacy visible IDs like `track:1` coexist cleanly with `track:return:1` and `track:master`
+- added regression coverage for the new mixer/routing surface across the Python bridge, fixture runtime, state engine, MCP server, and CLI tests
+
+- started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge/state/MCP targets instead of treating only visible tracks as addressable
+- added bridge-backed send-level, monitor-state, and track-routing controls across the Python Remote Script, fixture runtime, state engine, and MCP surface
+- preserved visible-track semantics for `list_tracks` while adding dedicated `list_return_tracks` and `get_master_track` MCP tools
+- added regression coverage for mixer/routing reads and writes across the bridge, fixture runtime, MCP server, CLI entrypoint, and state mirror
+
 ## v0.5.1 - 2026-03-28
 
 - added structured JSONL logging for the MCP server, JS bridge client, and Python Remote Script under `~/.local/share/laive/logs` by default, with `LAIVE_LOG_DIR` override support for debugging and tests
@@ -140,4 +151,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

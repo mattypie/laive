@@ -241,6 +241,48 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
       ),
       true
     );
+
+    const returnTracks = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: {
+        name: "list_return_tracks",
+        arguments: {}
+      }
+    });
+
+    assert.equal(returnTracks.result.isError, false);
+    assert.equal(returnTracks.result.structuredContent.tracks[0].id, "track:return:1");
+
+    const masterTrack = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 11,
+      method: "tools/call",
+      params: {
+        name: "get_master_track",
+        arguments: {}
+      }
+    });
+
+    assert.equal(masterTrack.result.isError, false);
+    assert.equal(masterTrack.result.structuredContent.track.id, "track:master");
+
+    const sendLevel = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 12,
+      method: "tools/call",
+      params: {
+        name: "set_send_level",
+        arguments: {
+          trackId: "track:2",
+          sendIndex: 0,
+          value: 0.33
+        }
+      }
+    });
+
+    assert.equal(sendLevel.result.isError, false);
   } finally {
     await session.close();
   }
@@ -433,11 +475,30 @@ test("real bridge session can connect to a live bridge socket and refresh state"
   try {
     const summary = await createStateAdapter(session).getProjectSummary();
     assert.equal(summary.song.tempo, 124);
+    assert.equal(summary.counts.returnTracks, 1);
+    assert.equal(summary.counts.masterTracks, 1);
+    const returnTracks = await createStateAdapter(session).listReturnTracks();
+    assert.equal(returnTracks[0].id, "track:return:1");
+    const masterTrack = await createStateAdapter(session).getMasterTrack();
+    assert.equal(masterTrack.id, "track:master");
 
     await createBridgeAdapter(session.bridgeClient).setTempo(140);
     await createBridgeAdapter(session.bridgeClient).playTransport();
     await createBridgeAdapter(session.bridgeClient).stopTransport();
     await createBridgeAdapter(session.bridgeClient).createScene("Bridge Scene");
+    await createBridgeAdapter(session.bridgeClient).setSendLevel({
+      trackId: "track:1",
+      sendIndex: 0,
+      value: 0.5
+    });
+    await createBridgeAdapter(session.bridgeClient).setMonitorState({
+      trackId: "track:1",
+      monitoringState: 2
+    });
+    await createBridgeAdapter(session.bridgeClient).setTrackRouting({
+      trackId: "track:1",
+      outputRoutingType: "master"
+    });
 
     const eventPromise = once(session.bridgeClient, "event:transport.changed");
     await createBridgeAdapter(session.bridgeClient).setTempo(142);

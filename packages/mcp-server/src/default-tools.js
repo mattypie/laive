@@ -33,6 +33,28 @@ function requireNotes(notes) {
   }
 }
 
+function resolveMonitoringState(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const normalized = normalizeLookup(value);
+  if (normalized === "in") {
+    return 0;
+  }
+  if (normalized === "auto") {
+    return 1;
+  }
+  if (normalized === "off") {
+    return 2;
+  }
+
+  throw new McpServerError(
+    "invalid_request",
+    "monitoringState must be 0/1/2 or one of In/Auto/Off"
+  );
+}
+
 function normalizeLookup(value) {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -143,6 +165,61 @@ async function resolveParameterReference(stateAdapter, args) {
   }
 
   return matches[0];
+}
+
+function resolveTrackCandidate(tracks, args) {
+  if (args.trackId) {
+    const track = tracks.find((candidate) => candidate.id === args.trackId);
+    if (!track) {
+      throw new McpServerError("not_found", `Track not found: ${args.trackId}`);
+    }
+    return track;
+  }
+  if (args.trackName) {
+    return pickUniqueMatch(tracks, args.trackName, "Track");
+  }
+  throw new McpServerError("invalid_request", "Provide trackId or trackName");
+}
+
+async function listMixerTracks(stateAdapter) {
+  const [visibleTracks, returnTracks, masterTrack] = await Promise.all([
+    stateAdapter.listTracks(),
+    stateAdapter.listReturnTracks(),
+    stateAdapter.getMasterTrack()
+  ]);
+
+  return [
+    ...visibleTracks,
+    ...returnTracks,
+    ...(masterTrack ? [{ id: masterTrack.id, name: masterTrack.name, section: "master" }] : [])
+  ];
+}
+
+async function resolveSendReference(stateAdapter, args) {
+  const tracks = await listMixerTracks(stateAdapter);
+  const track = resolveTrackCandidate(tracks, args);
+  const details = await stateAdapter.getTrackDetails(track.id);
+  const sends = (details.track?.sends ?? []).map((send, index) => ({
+    ...send,
+    index: Number.isInteger(send.index) ? send.index : index
+  }));
+
+  if (Number.isInteger(args.sendIndex)) {
+    const send = sends.find((candidate) => candidate.index === args.sendIndex);
+    if (!send) {
+      throw new McpServerError("not_found", `Send not found for index: ${args.sendIndex}`);
+    }
+    return { track, send };
+  }
+
+  if (args.sendName) {
+    return {
+      track,
+      send: pickUniqueMatch(sends, args.sendName, "Send")
+    };
+  }
+
+  throw new McpServerError("invalid_request", "Provide sendIndex or sendName");
 }
 
 function resolveParameterValue(parameter, args) {
@@ -317,6 +394,38 @@ export function buildDefaultTools({
           next_suggested_actions: ["get_track_details"],
           tracks
         };
+      }
+    },
+    {
+      name: "list_return_tracks",
+      description: "List return tracks in compact form.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const tracks = await stateAdapter.listReturnTracks();
+        return buildInformationalResult(
+          `Found ${tracks.length} return track(s).`,
+          {
+            affected_objects: tracks.map((track) => track.id),
+            tracks
+          },
+          ["get_track_details", "load_browser_item"]
+        );
+      }
+    },
+    {
+      name: "get_master_track",
+      description: "Return detailed state for the Live master track.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const track = await stateAdapter.getMasterTrack();
+        return buildInformationalResult(
+          `Loaded master track ${track.name}.`,
+          {
+            affected_objects: [track.id],
+            track
+          },
+          ["get_device_tree", "load_browser_item"]
+        );
       }
     },
     {
@@ -1107,6 +1216,179 @@ export function buildDefaultTools({
         return buildMutationResult(
           `All clips ${args.dryRun ? "stop previewed" : "stopped"}.`,
           stopped.affectedObjects ?? ["song"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_send_level",
+      description: "Set a mixer send level on a track, including return-capable mixer targets.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Track identifier containing the send."
+          },
+          trackName: {
+            type: "string",
+            description: "Track name to resolve when trackId is not known."
+          },
+          sendIndex: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based send index."
+          },
+          sendName: {
+            type: "string",
+            description: "Send name, for example `Send A`."
+          },
+          value: {
+            type: "number",
+            description: "Target send level."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["value"]
+      }),
+      async execute(args) {
+        const { track, send } = await resolveSendReference(stateAdapter, args);
+        const value = Number(args.value);
+        if (!Number.isFinite(value)) {
+          throw new McpServerError("invalid_request", "value must be numeric");
+        }
+        await policyAdapter.assertAllowed("set_send_level", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.setSendLevel(
+          {
+            trackId: track.id,
+            sendIndex: send.index,
+            value,
+            dryRun: Boolean(args.dryRun)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(track.id);
+        return buildMutationResult(
+          `Send ${send.name} ${args.dryRun ? "previewed" : "updated"}.`,
+          [track.id],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_monitor_state",
+      description: "Set track monitoring state using `in`, `auto`, or `off`.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Target track identifier."
+          },
+          trackName: {
+            type: "string",
+            description: "Track name to resolve when trackId is not known."
+          },
+          monitoringState: {
+            oneOf: [
+              { type: "string" },
+              { type: "integer" }
+            ],
+            description: "Monitoring mode: `in`, `auto`, `off`, or the runtime integer value."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["monitoringState"]
+      }),
+      async execute(args) {
+        const track = resolveTrackCandidate(await listMixerTracks(stateAdapter), args);
+        const monitoringState = resolveMonitoringState(args.monitoringState);
+        await policyAdapter.assertAllowed("set_monitor_state", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.setMonitorState(
+          {
+            trackId: track.id,
+            monitoringState,
+            dryRun: Boolean(args.dryRun)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(track.id);
+        return buildMutationResult(
+          `Monitor state ${args.dryRun ? "previewed" : "updated"} for ${track.name}.`,
+          [track.id],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_track_routing",
+      description: "Set one or more track routing fields by display name or identifier.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Target track identifier."
+          },
+          trackName: {
+            type: "string",
+            description: "Track name to resolve when trackId is not known."
+          },
+          inputRoutingType: {
+            type: "string",
+            description: "Input routing type display name or identifier."
+          },
+          inputRoutingChannel: {
+            type: "string",
+            description: "Input routing channel display name or identifier."
+          },
+          outputRoutingType: {
+            type: "string",
+            description: "Output routing type display name or identifier."
+          },
+          outputRoutingChannel: {
+            type: "string",
+            description: "Output routing channel display name or identifier."
+          },
+          dryRun: dryRunProperty
+        }
+      }),
+      async execute(args) {
+        if (
+          args.inputRoutingType === undefined &&
+          args.inputRoutingChannel === undefined &&
+          args.outputRoutingType === undefined &&
+          args.outputRoutingChannel === undefined
+        ) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide at least one routing field to update"
+          );
+        }
+
+        const track = resolveTrackCandidate(await listMixerTracks(stateAdapter), args);
+        await policyAdapter.assertAllowed("set_track_routing", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.setTrackRouting(
+          {
+            trackId: track.id,
+            inputRoutingType: args.inputRoutingType,
+            inputRoutingChannel: args.inputRoutingChannel,
+            outputRoutingType: args.outputRoutingType,
+            outputRoutingChannel: args.outputRoutingChannel,
+            dryRun: Boolean(args.dryRun)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(track.id);
+        return buildMutationResult(
+          `Routing ${args.dryRun ? "previewed" : "updated"} for ${track.name}.`,
+          [track.id],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []

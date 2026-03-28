@@ -59,6 +59,13 @@ class FakeDevice(object):
         self.parameters = parameters
 
 
+class FakeMixerDevice(object):
+    def __init__(self, sends=None, volume=0.85, panning=0.0):
+        self.sends = list(sends or [])
+        self.volume = FakeParameter("Volume", volume, minimum=0.0, maximum=1.0)
+        self.panning = FakeParameter("Panning", panning, minimum=-1.0, maximum=1.0)
+
+
 class FakeBrowserItem(object):
     def __init__(self, name, uri, is_device=False, is_loadable=False, children=None, parameters=None):
         self.name = name
@@ -224,18 +231,37 @@ class FakeClipSlot(object):
 
 
 class FakeTrack(ListenerMixin):
-    def __init__(self, name):
+    def __init__(self, name, section="visible", sends=None):
         super(FakeTrack, self).__init__()
         self.name = name
+        self.section = section
         self.type = "midi"
         self.arm = False
         self.mute = False
         self.solo = False
+        self.can_be_armed = section == "visible"
+        self.has_audio_input = section == "visible" and name.startswith("Audio")
+        self.has_audio_output = True
+        self.has_midi_input = section == "visible"
+        self.has_midi_output = section == "visible"
+        self.current_monitoring_state = 1
+        self.input_routing_type = {"display_name": "All Ins", "identifier": "all_ins"}
+        self.input_routing_channel = {"display_name": "All Channels", "identifier": "all_channels"}
+        self.output_routing_type = {"display_name": "Master", "identifier": "master"}
+        self.output_routing_channel = {"display_name": "Post Mixer", "identifier": "post_mixer"}
+        self.available_input_routing_types = [self.input_routing_type]
+        self.available_input_routing_channels = [self.input_routing_channel]
+        self.available_output_routing_types = [
+            self.output_routing_type,
+            {"display_name": "Sends Only", "identifier": "sends_only"},
+        ]
+        self.available_output_routing_channels = [self.output_routing_channel]
         self.song = None
         self._playing_slot_index = -1
         self._fired_slot_index = -1
         self.clip_slots = [FakeClipSlot(self, index) for index in range(4)]
         self.devices = [FakeDevice("Instrument", [FakeParameter("Macro 1", 0.5)])]
+        self.mixer_device = FakeMixerDevice(sends=sends or [])
 
     @property
     def playing_slot_index(self):
@@ -316,9 +342,29 @@ class FakeSong(ListenerMixin):
         self.is_recording = False
         self.metronome = False
         self.tracks = [FakeTrack("Drums"), FakeTrack("Bass")]
+        self.return_tracks = [FakeTrack("A Reverb", section="return"), FakeTrack("B Delay", section="return")]
+        self.master_track = FakeTrack("Master", section="master", sends=[])
+        for track in self.tracks:
+            track.mixer_device = FakeMixerDevice(
+                sends=[
+                    FakeParameter("Send A", 0.0),
+                    FakeParameter("Send B", 0.0),
+                ]
+            )
+        for track in self.return_tracks:
+            track.clip_slots = []
+            track.devices = [FakeDevice(track.name, [FakeParameter("Dry/Wet", 0.5)])]
+            track.mixer_device = FakeMixerDevice(sends=[])
+            track.output_routing_type = {"display_name": "Master", "identifier": "master"}
+        self.master_track.clip_slots = []
+        self.master_track.devices = [FakeDevice("Mixer", [FakeParameter("Limiter", 0.0)])]
+        self.master_track.mute = False
         self.scenes = [FakeScene("Intro"), FakeScene("Drop")]
         for index, track in enumerate(self.tracks):
             track.bind_song(self)
+        for index, track in enumerate(self.return_tracks):
+            track.bind_song(self)
+        self.master_track.bind_song(self)
         for index, scene in enumerate(self.scenes):
             scene.bind_song(self, index)
         self.view = FakeSongView(self)

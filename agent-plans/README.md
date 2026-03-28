@@ -66,12 +66,16 @@ These are the current planned work units for the next product slices. They are i
 ### Target `v0.6.0`
 
 - mixer and routing surface:
-  - return-track discovery
-  - master-track discovery
-  - send-level read/write
-  - monitor-state read/write
-  - input/output routing read/write
-  - device loading on return/master targets
+  - landed in the first work unit:
+    - return-track discovery
+    - master-track discovery
+    - send-level read/write
+    - monitor-state read/write
+    - input/output routing read/write
+  - remaining before the slice is fully closed:
+    - real-session validation against published `npx laive-mcp`
+    - device loading on return/master targets
+    - routing/monitor edge-case handling across supported Live versions
 
 ### Target `v0.7.0`
 

@@ -8,6 +8,47 @@ def _safe_getattr(target, name, default=None):
         return default
 
 
+def _serialize_routing_option(option):
+    if option is None:
+        return None
+
+    if isinstance(option, dict):
+        identifier = option.get("identifier") or option.get("id") or option.get("name")
+        display_name = option.get("display_name") or option.get("displayName") or option.get("name") or identifier
+        if identifier is None and display_name is None:
+            return None
+        return {
+            "identifier": identifier or display_name,
+            "display_name": display_name or identifier,
+        }
+
+    identifier = (
+        _safe_getattr(option, "identifier", None)
+        or _safe_getattr(option, "id", None)
+        or _safe_getattr(option, "name", None)
+    )
+    display_name = (
+        _safe_getattr(option, "display_name", None)
+        or _safe_getattr(option, "displayName", None)
+        or _safe_getattr(option, "name", None)
+        or identifier
+    )
+    if identifier is None and display_name is None:
+        return None
+    return {
+        "identifier": identifier or display_name,
+        "display_name": display_name or identifier,
+    }
+
+
+def _serialize_routing_options(options):
+    return [
+        item
+        for item in [_serialize_routing_option(option) for option in list(options or [])]
+        if item is not None
+    ]
+
+
 def serialize_song_state(song):
     return {
         "id": "song:current",
@@ -21,16 +62,43 @@ def serialize_song_state(song):
     }
 
 
-def serialize_track_state(track, index, track_id, session_clips, devices):
+def serialize_track_state(track, index, track_id, session_clips, devices, section=None):
     armed = bool(getattr(track, "arm", False))
     muted = bool(getattr(track, "mute", False))
     soloed = bool(getattr(track, "solo", False))
     playing_slot_index = getattr(track, "playing_slot_index", None)
     fired_slot_index = getattr(track, "fired_slot_index", None)
+    section = section or getattr(track, "section", "visible")
+    mixer_device = getattr(track, "mixer_device", None)
+    sends = [
+        serialize_parameter_state(send, "{0}:send:{1}".format(track_id, send_index + 1))
+        for send_index, send in enumerate(getattr(mixer_device, "sends", []) or [])
+    ]
+
+    input_routing_type = _serialize_routing_option(_safe_getattr(track, "input_routing_type", None))
+    input_routing_channel = _serialize_routing_option(_safe_getattr(track, "input_routing_channel", None))
+    output_routing_type = _serialize_routing_option(_safe_getattr(track, "output_routing_type", None))
+    output_routing_channel = _serialize_routing_option(_safe_getattr(track, "output_routing_channel", None))
+    available_input_routing_types = _serialize_routing_options(
+        _safe_getattr(track, "available_input_routing_types", [])
+    )
+    available_input_routing_channels = _serialize_routing_options(
+        _safe_getattr(track, "available_input_routing_channels", [])
+    )
+    available_output_routing_types = _serialize_routing_options(
+        _safe_getattr(track, "available_output_routing_types", [])
+    )
+    available_output_routing_channels = _serialize_routing_options(
+        _safe_getattr(track, "available_output_routing_channels", [])
+    )
+    monitoring_state = _safe_getattr(
+        track, "current_monitoring_state", _safe_getattr(track, "monitoring_state", None)
+    )
 
     return {
         "id": track_id,
         "index": index,
+        "section": section,
         "name": getattr(track, "name", "Track {0}".format(index + 1)),
         "type": getattr(track, "type", "midi"),
         "arm": armed,
@@ -43,6 +111,32 @@ def serialize_track_state(track, index, track_id, session_clips, devices):
         "playingSlotIndex": playing_slot_index,
         "fired_slot_index": fired_slot_index,
         "firedSlotIndex": fired_slot_index,
+        "can_be_armed": bool(getattr(track, "can_be_armed", armed)),
+        "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+        "has_audio_output": bool(getattr(track, "has_audio_output", False)),
+        "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+        "has_midi_output": bool(getattr(track, "has_midi_output", False)),
+        "monitoring_state": monitoring_state,
+        "monitoringState": monitoring_state,
+        "volume": _safe_getattr(_safe_getattr(mixer_device, "volume", None), "value", None),
+        "panning": _safe_getattr(_safe_getattr(mixer_device, "panning", None), "value", None),
+        "input_routing_type": input_routing_type,
+        "inputRoutingType": input_routing_type,
+        "input_routing_channel": input_routing_channel,
+        "inputRoutingChannel": input_routing_channel,
+        "output_routing_type": output_routing_type,
+        "outputRoutingType": output_routing_type,
+        "output_routing_channel": output_routing_channel,
+        "outputRoutingChannel": output_routing_channel,
+        "available_input_routing_types": available_input_routing_types,
+        "availableInputRoutingTypes": available_input_routing_types,
+        "available_input_routing_channels": available_input_routing_channels,
+        "availableInputRoutingChannels": available_input_routing_channels,
+        "available_output_routing_types": available_output_routing_types,
+        "availableOutputRoutingTypes": available_output_routing_types,
+        "available_output_routing_channels": available_output_routing_channels,
+        "availableOutputRoutingChannels": available_output_routing_channels,
+        "sends": sends,
         "session_clips": session_clips,
         "arrangement_clips": [],
         "devices": devices,

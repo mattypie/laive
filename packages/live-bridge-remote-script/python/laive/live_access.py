@@ -17,8 +17,12 @@ from .serializers import (
 )
 
 
-def _track_id(index):
-    return "track:{0}".format(index + 1)
+def _track_id(index, section="visible"):
+    if section == "master":
+        return "track:master"
+    if section == "visible":
+        return "track:{0}".format(index + 1)
+    return "track:{0}:{1}".format(section, index + 1)
 
 
 def _scene_id(index):
@@ -67,6 +71,9 @@ class LiveSetAdapter(object):
             "stop_track_clips": True,
             "stop_all_clips": True,
             "set_parameter": True,
+            "set_send_level": True,
+            "set_monitor_state": True,
+            "set_track_routing": True,
             "browser_access": self._browser_is_available(),
             "load_browser_item": self._browser_is_available(),
             "subscribe": True,
@@ -76,14 +83,40 @@ class LiveSetAdapter(object):
         return serialize_song_state(self.song)
 
     def get_tracks(self):
-        return [self._serialize_track(track, index) for index, track in enumerate(getattr(self.song, "tracks", []))]
+        return [self._serialize_track(track, index, section) for section, index, track in self._iter_tracks()]
+
+    def get_return_tracks(self):
+        return [
+            self._serialize_track(track, index, "return")
+            for section, index, track in self._iter_tracks()
+            if section == "return"
+        ]
+
+    def get_master_track(self):
+        track = getattr(self.song, "master_track", None)
+        if track is None:
+            raise RequestError("not_found", "Master track not found")
+        return self._serialize_track(track, 0, "master")
+
+    def get_return_tracks(self):
+        return [
+            self._serialize_track(track, index, section)
+            for section, index, track in self._iter_tracks()
+            if section == "return"
+        ]
+
+    def get_master_track(self):
+        for section, index, track in self._iter_tracks():
+            if section == "master":
+                return self._serialize_track(track, index, section)
+        raise RequestError("not_found", "Master track is unavailable")
 
     def get_scenes(self):
         return [self._serialize_scene(scene, index) for index, scene in enumerate(getattr(self.song, "scenes", []))]
 
     def get_track(self, track_id):
-        track, index = self._find_track(track_id)
-        return self._serialize_track(track, index)
+        track, index, section = self._find_track(track_id)
+        return self._serialize_track(track, index, section)
 
     def get_clip(self, clip_id):
         clip, track_id, slot_index = self._find_clip(clip_id)
@@ -132,7 +165,7 @@ class LiveSetAdapter(object):
         if not uri and not path:
             raise RequestError("invalid_argument", "uri or path is required")
 
-        track, index = self._find_track(track_id)
+        track, index, section = self._find_track(track_id)
         browser = self._browser()
         item = self._find_browser_item_by_uri(browser, uri) if uri else self._find_browser_item_by_path(browser, path)
         if item is None:
@@ -149,11 +182,11 @@ class LiveSetAdapter(object):
         return {
             "applied": not dry_run,
             "item": self._serialize_browser_item(item, path),
-            "track": self._serialize_track(track, index),
+            "track": self._serialize_track(track, index, section),
         }
 
     def select_track(self, track_id, dry_run=False):
-        track, index = self._find_track(track_id)
+        track, index, section = self._find_track(track_id)
         song_view = getattr(self.song, "view", None)
         if song_view is None or not hasattr(song_view, "selected_track"):
             raise RequestError("unsupported_runtime", "Song track selection is unavailable")
@@ -163,7 +196,7 @@ class LiveSetAdapter(object):
 
         return {
             "applied": not dry_run,
-            "track": self._serialize_track(track, index),
+            "track": self._serialize_track(track, index, section),
         }
 
     def set_tempo(self, value, dry_run=False):
@@ -183,6 +216,73 @@ class LiveSetAdapter(object):
             "target": parameter_id,
             "applied": not dry_run,
             "parameter": self._serialize_parameter(parameter, device_id, parameter_index),
+        }
+
+    def set_send_level(self, track_id, send_index, value, dry_run=False):
+        track, track_index, section = self._find_track(track_id)
+        mixer_device = getattr(track, "mixer_device", None)
+        sends = list(getattr(mixer_device, "sends", []) or [])
+        if send_index is None:
+            raise RequestError("invalid_argument", "send_index is required")
+        if send_index < 0 or send_index >= len(sends):
+            raise RequestError("not_found", "Send not found: {0}".format(send_index))
+        next_value = float(value)
+        if not dry_run:
+            sends[send_index].value = next_value
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, track_index, section),
+            "send": serialize_parameter_state(
+                sends[send_index],
+                "send:{0}:{1}".format(track_id, send_index + 1),
+            ),
+        }
+
+    def set_monitor_state(self, track_id, monitoring_state, dry_run=False):
+        track, track_index, section = self._find_track(track_id)
+        target_value = self._normalize_monitoring_state(monitoring_state)
+        if not dry_run:
+            if hasattr(track, "current_monitoring_state"):
+                track.current_monitoring_state = target_value
+            elif hasattr(track, "monitoring_state"):
+                track.monitoring_state = target_value
+            else:
+                raise RequestError("unsupported_runtime", "Track monitoring state is unavailable")
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, track_index, section),
+        }
+
+    def set_track_routing(
+        self,
+        track_id,
+        input_routing_type=None,
+        input_routing_channel=None,
+        output_routing_type=None,
+        output_routing_channel=None,
+        dry_run=False,
+    ):
+        track, track_index, section = self._find_track(track_id)
+        if (
+            input_routing_type is None
+            and input_routing_channel is None
+            and output_routing_type is None
+            and output_routing_channel is None
+        ):
+            raise RequestError(
+                "invalid_argument",
+                "At least one routing field is required",
+            )
+
+        if not dry_run:
+            self._set_routing_value(track, "input_routing_type", input_routing_type)
+            self._set_routing_value(track, "input_routing_channel", input_routing_channel)
+            self._set_routing_value(track, "output_routing_type", output_routing_type)
+            self._set_routing_value(track, "output_routing_channel", output_routing_channel)
+
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, track_index, section),
         }
 
     def play(self, dry_run=False):
@@ -206,7 +306,7 @@ class LiveSetAdapter(object):
             track = self.song.tracks[index]
             if name:
                 track.name = name
-        return {"applied": not dry_run, "track": self._serialize_track(track, index)}
+        return {"applied": not dry_run, "track": self._serialize_track(track, index, "visible")}
 
     def create_scene(self, name=None, dry_run=False):
         index = len(getattr(self.song, "scenes", []))
@@ -220,7 +320,7 @@ class LiveSetAdapter(object):
         return {"applied": not dry_run, "scene": self._serialize_scene(scene, index)}
 
     def create_clip(self, track_id, slot_index, length_beats=4, name=None, dry_run=False):
-        track, _track_index = self._find_track(track_id)
+        track, _track_index, _track_section = self._find_track(track_id)
         slot = self._find_clip_slot(track, slot_index)
         self._ensure_slot_is_empty(slot, slot_index)
         if dry_run:
@@ -244,7 +344,7 @@ class LiveSetAdapter(object):
         source_clip, source_track_id, source_slot_index = self._find_clip(clip_id)
         source_slot = self._find_clip_slot_by_id(clip_id)
         target_track_id = target_track_id or source_track_id
-        target_track, _target_track_index = self._find_track(target_track_id)
+        target_track, _target_track_index, _target_track_section = self._find_track(target_track_id)
         target_slot = self._find_clip_slot(target_track, target_slot_index)
         self._ensure_target_slot_is_distinct(
             source_track_id, source_slot_index, target_track_id, target_slot_index
@@ -394,14 +494,14 @@ class LiveSetAdapter(object):
         return {"applied": not dry_run, "scene": scene_state}
 
     def stop_track_clips(self, track_id, dry_run=False):
-        track, index = self._find_track(track_id)
+        track, index, section = self._find_track(track_id)
         if not dry_run:
             stop_all_clips = getattr(track, "stop_all_clips", None)
             if callable(stop_all_clips):
                 stop_all_clips()
             else:
                 self._clear_track_clip_state(track)
-        return {"applied": not dry_run, "track": self._serialize_track(track, index)}
+        return {"applied": not dry_run, "track": self._serialize_track(track, index, section)}
 
     def stop_all_clips(self, dry_run=False):
         if not dry_run:
@@ -413,8 +513,8 @@ class LiveSetAdapter(object):
                     self._clear_track_clip_state(track)
         return {"applied": not dry_run, "song": self.get_song_state()}
 
-    def _serialize_track(self, track, index):
-        track_id = getattr(track, "id", None) or _track_id(index)
+    def _serialize_track(self, track, index, section="visible"):
+        track_id = getattr(track, "id", None) or _track_id(index, section)
         clip_slots = getattr(track, "clip_slots", [])
         devices = getattr(track, "devices", [])
         session_clips = [
@@ -426,7 +526,16 @@ class LiveSetAdapter(object):
             self._serialize_device(device, track_id, device_index)
             for device_index, device in enumerate(devices)
         ]
-        return serialize_track_state(track, index, track_id, session_clips, serialized_devices)
+        return serialize_track_state(track, index, track_id, session_clips, serialized_devices, section=section)
+
+    def _iter_tracks(self):
+        for index, track in enumerate(getattr(self.song, "tracks", [])):
+            yield ("visible", index, track)
+        for index, track in enumerate(getattr(self.song, "return_tracks", [])):
+            yield ("return", index, track)
+        master_track = getattr(self.song, "master_track", None)
+        if master_track is not None:
+            yield ("master", 0, master_track)
 
     def _serialize_scene(self, scene, index):
         return serialize_scene_state(scene, index, getattr(scene, "id", None) or _scene_id(index))
@@ -455,11 +564,63 @@ class LiveSetAdapter(object):
         )
 
     def _find_track(self, track_id):
-        for index, track in enumerate(getattr(self.song, "tracks", [])):
-            candidate = getattr(track, "id", None) or _track_id(index)
-            if candidate == track_id:
-                return track, index
+        for section, index, track in self._iter_tracks():
+            candidate = getattr(track, "id", None) or _track_id(index, section)
+            legacy_visible_id = "track:visible:{0}".format(index)
+            if candidate == track_id or (section == "visible" and legacy_visible_id == track_id):
+                return track, index, section
+            if section == "master" and track_id in ("track:master", "track:master:0"):
+                return track, index, section
         raise RequestError("not_found", "Track not found: {0}".format(track_id))
+
+    def _normalize_monitoring_state(self, monitoring_state):
+        if isinstance(monitoring_state, str):
+            normalized = monitoring_state.strip().lower()
+            labels = {
+                "in": 0,
+                "on": 0,
+                "auto": 1,
+                "off": 2,
+            }
+            if normalized in labels:
+                return labels[normalized]
+        try:
+            return int(monitoring_state)
+        except (TypeError, ValueError):
+            raise RequestError("invalid_argument", "Unsupported monitoring_state: {0}".format(monitoring_state))
+
+    def _set_routing_value(self, track, attribute_name, requested_value):
+        if requested_value is None:
+            return
+        if not hasattr(track, attribute_name):
+            raise RequestError("unsupported_runtime", "Track routing field is unavailable: {0}".format(attribute_name))
+
+        selected_value = requested_value
+        available_attribute = "available_{0}s".format(attribute_name)
+        available_values = getattr(track, available_attribute, None)
+        if available_values is not None:
+            selected_value = self._resolve_routing_choice(available_values, requested_value, attribute_name)
+        setattr(track, attribute_name, selected_value)
+
+    def _resolve_routing_choice(self, available_values, requested_value, attribute_name):
+        if isinstance(requested_value, dict):
+            return requested_value
+        normalized_requested = str(requested_value).strip().lower()
+        if isinstance(available_values, dict):
+            candidates = list(available_values.get("available_{0}s".format(attribute_name), []))
+        else:
+            candidates = list(available_values)
+
+        for candidate in candidates:
+            if isinstance(candidate, dict):
+                display_name = str(candidate.get("display_name", "")).strip().lower()
+                identifier = str(candidate.get("identifier", "")).strip().lower()
+            else:
+                display_name = str(getattr(candidate, "display_name", candidate)).strip().lower()
+                identifier = str(getattr(candidate, "identifier", candidate)).strip().lower()
+            if normalized_requested == display_name or normalized_requested == identifier:
+                return candidate
+        raise RequestError("not_found", "Routing choice not found for {0}: {1}".format(attribute_name, requested_value))
 
     def _find_clip_slot(self, track, slot_index):
         if slot_index is None:
@@ -553,8 +714,8 @@ class LiveSetAdapter(object):
         raise RequestError("not_found", "Scene not found: {0}".format(scene_id))
 
     def _find_device(self, device_id):
-        for track_index, track in enumerate(getattr(self.song, "tracks", [])):
-            track_id = getattr(track, "id", None) or _track_id(track_index)
+        for section, track_index, track in self._iter_tracks():
+            track_id = getattr(track, "id", None) or _track_id(track_index, section)
             for device_index, device in enumerate(getattr(track, "devices", [])):
                 candidate = getattr(device, "id", None) or _device_id(track_id, device_index)
                 if candidate == device_id:
@@ -562,8 +723,8 @@ class LiveSetAdapter(object):
         raise RequestError("not_found", "Device not found: {0}".format(device_id))
 
     def _find_parameter(self, parameter_id):
-        for track_index, track in enumerate(getattr(self.song, "tracks", [])):
-            track_id = getattr(track, "id", None) or _track_id(track_index)
+        for section, track_index, track in self._iter_tracks():
+            track_id = getattr(track, "id", None) or _track_id(track_index, section)
             for device_index, device in enumerate(getattr(track, "devices", [])):
                 device_id = getattr(device, "id", None) or _device_id(track_id, device_index)
                 for parameter_index, parameter in enumerate(getattr(device, "parameters", [])):

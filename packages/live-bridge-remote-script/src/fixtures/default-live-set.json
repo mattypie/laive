@@ -18,6 +18,9 @@
     "stop_track_clips": true,
     "stop_all_clips": true,
     "set_parameter": true,
+    "set_send_level": true,
+    "set_monitor_state": true,
+    "set_track_routing": true,
     "browser_access": true,
     "load_browser_item": true,
     "subscribe": true
@@ -52,12 +55,43 @@
     {
       "id": "track:1",
       "index": 0,
+      "section": "visible",
       "name": "Drums",
       "type": "midi",
       "color": 1,
       "arm": false,
       "mute": false,
       "solo": false,
+      "monitoring_state": 1,
+      "input_routing_type": { "display_name": "All Ins", "identifier": "all_ins" },
+      "available_input_routing_types": [
+        { "display_name": "All Ins", "identifier": "all_ins" }
+      ],
+      "input_routing_channel": { "display_name": "All Channels", "identifier": "all_channels" },
+      "available_input_routing_channels": [
+        { "display_name": "All Channels", "identifier": "all_channels" }
+      ],
+      "output_routing_type": { "display_name": "Master", "identifier": "master" },
+      "available_output_routing_types": [
+        { "display_name": "Master", "identifier": "master" },
+        { "display_name": "Sends Only", "identifier": "sends_only" }
+      ],
+      "output_routing_channel": { "display_name": "Post Mixer", "identifier": "post_mixer" },
+      "available_output_routing_channels": [
+        { "display_name": "Post Mixer", "identifier": "post_mixer" }
+      ],
+      "sends": [
+        {
+          "id": "track:1:send:1",
+          "name": "Send A",
+          "value": 0.12,
+          "min": 0,
+          "max": 1,
+          "is_quantized": false,
+          "value_items": [],
+          "display_value": "0.12"
+        }
+      ],
       "playing_slot_index": -1,
       "fired_slot_index": -1,
       "devices": [
@@ -103,12 +137,43 @@
     {
       "id": "track:2",
       "index": 1,
+      "section": "visible",
       "name": "Bass",
       "type": "midi",
       "color": 2,
       "arm": false,
       "mute": false,
       "solo": false,
+      "monitoring_state": 1,
+      "input_routing_type": { "display_name": "All Ins", "identifier": "all_ins" },
+      "available_input_routing_types": [
+        { "display_name": "All Ins", "identifier": "all_ins" }
+      ],
+      "input_routing_channel": { "display_name": "All Channels", "identifier": "all_channels" },
+      "available_input_routing_channels": [
+        { "display_name": "All Channels", "identifier": "all_channels" }
+      ],
+      "output_routing_type": { "display_name": "Master", "identifier": "master" },
+      "available_output_routing_types": [
+        { "display_name": "Master", "identifier": "master" },
+        { "display_name": "Sends Only", "identifier": "sends_only" }
+      ],
+      "output_routing_channel": { "display_name": "Post Mixer", "identifier": "post_mixer" },
+      "available_output_routing_channels": [
+        { "display_name": "Post Mixer", "identifier": "post_mixer" }
+      ],
+      "sends": [
+        {
+          "id": "track:2:send:1",
+          "name": "Send A",
+          "value": 0,
+          "min": 0,
+          "max": 1,
+          "is_quantized": false,
+          "value_items": [],
+          "display_value": "0"
+        }
+      ],
       "playing_slot_index": -1,
       "fired_slot_index": -1,
       "devices": [
@@ -145,6 +210,68 @@
       "session_clips": []
     }
   ],
+  "return_tracks": [
+    {
+      "id": "track:return:1",
+      "index": 0,
+      "section": "return",
+      "name": "A Reverb",
+      "type": "audio",
+      "color": 3,
+      "arm": false,
+      "mute": false,
+      "solo": false,
+      "monitoring_state": null,
+      "output_routing_type": { "display_name": "Master", "identifier": "master" },
+      "available_output_routing_types": [
+        { "display_name": "Master", "identifier": "master" }
+      ],
+      "output_routing_channel": { "display_name": "Post Mixer", "identifier": "post_mixer" },
+      "available_output_routing_channels": [
+        { "display_name": "Post Mixer", "identifier": "post_mixer" }
+      ],
+      "sends": [],
+      "devices": [
+        {
+          "id": "device:track:return:1:1",
+          "name": "Hybrid Reverb",
+          "class_name": "HybridReverbDevice",
+          "parameters": []
+        }
+      ],
+      "session_clips": []
+    }
+  ],
+  "master_track": {
+    "id": "track:master",
+    "index": 0,
+    "section": "master",
+    "name": "Master",
+    "type": "audio",
+    "color": 0,
+    "arm": false,
+    "mute": false,
+    "solo": false,
+    "monitoring_state": null,
+    "output_routing_type": { "display_name": "Master Out", "identifier": "master_out" },
+    "available_output_routing_types": [
+      { "display_name": "Master Out", "identifier": "master_out" }
+    ],
+    "output_routing_channel": { "display_name": "1/2", "identifier": "1_2" },
+    "available_output_routing_channels": [
+      { "display_name": "1/2", "identifier": "1_2" }
+    ],
+    "sends": [],
+    "devices": [
+      {
+        "id": "device:track:master:1",
+        "name": "Mixer",
+        "class_name": "MixerDevice",
+        "parameters": []
+      }
+    ],
+    "session_clips": []
+  },
   "browser": {
     "roots": [
       {

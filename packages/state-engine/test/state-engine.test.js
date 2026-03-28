@@ -114,6 +114,13 @@ function createRuntimeSnapshot() {
         index: 0,
         name: "Reverb",
         devices: []
+      },
+      {
+        id: "track:master",
+        section: "master",
+        index: 0,
+        name: "Master",
+        devices: []
       }
     ]
   };
@@ -129,6 +136,7 @@ test("applySnapshot normalizes runtime data into a stable project graph", () => 
   assert.equal(state.meta.bridgeVersion, "0.1.0");
   assert.deepEqual(state.visibleTrackIds, [makeTrackId("visible", 0)]);
   assert.deepEqual(state.returnTrackIds, [makeTrackId("return", 0)]);
+  assert.equal(state.masterTrackId, "track:master");
   assert.equal(state.sceneOrder.length, 2);
   assert.ok(state.clips[makeSessionClipId(makeTrackId("visible", 0), 1)].isPlaying);
   const parameter = state.parameters[makeParameterId(makeDeviceId(makeTrackId("visible", 0), 0), 0)];
@@ -143,6 +151,8 @@ test("applySnapshot normalizes runtime data into a stable project graph", () => 
 
   const summary = summarizeProject(state);
   assert.equal(summary.counts.playingClips, 1);
+  assert.equal(summary.counts.returnTracks, 1);
+  assert.equal(summary.counts.masterTracks, 1);
   assert.equal(summary.song.tempo, 128);
 });
 

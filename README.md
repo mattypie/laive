@@ -58,7 +58,7 @@ The optional components are intentionally soft-failable:
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
 For debugging, the MCP server, JS bridge client, and Python Remote Script now write structured JSONL logs under `~/.local/share/laive/logs` by default. Set `LAIVE_LOG_DIR` if you want to redirect logs elsewhere.
 
-Another current gap: return tracks, the master track, send levels, and per-track input/output or monitor configuration are not yet first-class bridge-backed MCP targets, so mixer control is still incomplete.
+Mixer control is now partially bridge-backed: `laive` can enumerate return/master tracks, read mixer metadata, set send levels, set monitor state, and update routing. The remaining `v0.6.0` gap is mainly breadth and real-session hardening, especially around return/master device workflows and edge-case routing semantics across supported Live versions.
 Another current gap: Arrangement View and clip-envelope control are not yet first-class MCP workflows, so `laive` remains much stronger in Session View than in arrangement editing today.
 
 The current roadmap is intentionally sliced into concrete follow-up releases:

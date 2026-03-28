@@ -42,7 +42,7 @@ test("bridge client can perform hello and state queries", async () => {
 
     assert.equal(hello.result.bridge, "laive-fixture-runtime");
     assert.equal(song.result.name, "Fixture Set");
-    assert.equal(tracks.result.length, 2);
+    assert.equal(tracks.result.length, 4);
   });
 });
 
@@ -70,7 +70,7 @@ test("bridge supports dry run mutations", async () => {
     const tracks = await client.request("get", "tracks");
 
     assert.equal(response.result.applied, false);
-    assert.equal(tracks.result.length, 2);
+    assert.equal(tracks.result.length, 4);
   });
 });
 
@@ -237,6 +237,48 @@ test("bridge exposes quantized parameter metadata", async () => {
     assert.equal(parameter.result.is_quantized, true);
     assert.equal(parameter.result.value_items[0], "Algorithm 1");
     assert.equal(parameter.result.value_items[2], "Algorithm 3");
+  });
+});
+
+test("bridge exposes mixer targets and can update send or monitor state", async () => {
+  await withBridge(async ({ client }) => {
+    const returnTracks = await client.request("get", "return_tracks");
+    const masterTrack = await client.request("get", "master_track");
+    const setSend = await client.request("set", "track.send", {
+      track_id: "track:1",
+      send_index: 0,
+      value: 0.5
+    });
+    const setMonitor = await client.request("set", "track.monitoring_state", {
+      track_id: "track:1",
+      monitoring_state: 2
+    });
+
+    assert.equal(returnTracks.result[0].section, "return");
+    assert.equal(masterTrack.result.section, "master");
+    assert.equal(setSend.result.track.sends[0].value, 0.5);
+    assert.equal(setMonitor.result.track.monitoring_state, 2);
+  });
+});
+
+test("bridge exposes mixer controls for return and master tracks", async () => {
+  await withBridge(async ({ client }) => {
+    const tracks = await client.request("get", "tracks");
+    const master = await client.request("get", "track:master");
+    const send = await client.request("set", "track.send", {
+      track_id: "track:1",
+      send_index: 0,
+      value: 0.5
+    });
+    const routing = await client.request("set", "track.routing", {
+      track_id: "track:1",
+      output_routing_type: "sends_only"
+    });
+
+    assert.equal(tracks.result.some((track) => track.id === "track:return:1"), true);
+    assert.equal(master.result.section, "master");
+    assert.equal(send.result.track.sends[0].value, 0.5);
+    assert.equal(routing.result.track.output_routing_type.identifier, "sends_only");
   });
 });
 

@@ -30,30 +30,102 @@ function createServer(options = {}) {
     },
     async listTracks() {
       return [
-        { id: "track:1", name: "Drums", stateVersion },
-        { id: "track:2", name: "Bass", stateVersion }
+        { id: "track:1", name: "Drums", section: "visible", stateVersion },
+        { id: "track:2", name: "Bass", section: "visible", stateVersion },
+        { id: "track:return:1", name: "A Reverb", section: "return", stateVersion },
+        { id: "track:master", name: "Master", section: "master", stateVersion }
       ];
     },
+    async listReturnTracks() {
+      return [
+        { id: "track:return:1", name: "A Reverb", section: "return", stateVersion }
+      ];
+    },
+    async getMasterTrack() {
+      return {
+        id: "track:master",
+        name: "Master",
+        track: {
+          id: "track:master",
+          name: "Master",
+          section: "master",
+          sends: []
+        },
+        sessionClips: [],
+        arrangementClips: [],
+        devices: [],
+        stateVersion
+      };
+    },
     async getTrackDetails(target) {
-      const trackId = String(target) === "track:2" || String(target) === "Bass" ? "track:2" : "track:1";
+      const normalized = String(target);
+      const trackId = normalized === "track:2" || normalized === "Bass"
+        ? "track:2"
+        : normalized === "track:return:1" || normalized === "A Reverb"
+          ? "track:return:1"
+          : normalized === "track:master" || normalized === "Master"
+            ? "track:master"
+            : "track:1";
       return {
         id: trackId,
-        name: trackId === "track:2" ? "Bass" : "Drums",
+        name:
+          trackId === "track:2"
+            ? "Bass"
+            : trackId === "track:return:1"
+              ? "A Reverb"
+              : trackId === "track:master"
+                ? "Master"
+                : "Drums",
         track: {
           id: trackId,
-          name: trackId === "track:2" ? "Bass" : "Drums"
+          name:
+            trackId === "track:2"
+              ? "Bass"
+              : trackId === "track:return:1"
+                ? "A Reverb"
+                : trackId === "track:master"
+                  ? "Master"
+                  : "Drums",
+          section:
+            trackId === "track:return:1"
+              ? "return"
+              : trackId === "track:master"
+                ? "master"
+                : "visible",
+          sends:
+            trackId === "track:master"
+              ? []
+              : [
+                  {
+                    id: `send:${trackId}:1`,
+                    name: "Send A",
+                    value: 0.25,
+                    min: 0,
+                    max: 1,
+                    isQuantized: false
+                  }
+                ],
+          monitoringState: trackId.startsWith("track:return") || trackId.startsWith("track:master")
+            ? null
+            : 1,
+          inputRoutingType: { display_name: "All Ins", identifier: "all_ins" },
+          inputRoutingChannel: { display_name: "All Channels", identifier: "all_channels" },
+          outputRoutingType: { display_name: "Master", identifier: "master" },
+          outputRoutingChannel: { display_name: "Post Mixer", identifier: "post_mixer" }
         },
-        sessionClips: [
-          {
-            id: `clip:session:${trackId}:slot:1`,
-            slotIndex: 0,
-            name: trackId === "track:2" ? "Bassline" : "Beat A",
-            lengthBeats: 4,
-            loopStartBeats: 0,
-            loopEndBeats: 4,
-            looping: true
-          }
-        ],
+        sessionClips: trackId.startsWith("track:return") || trackId.startsWith("track:master")
+          ? []
+          : [
+              {
+                id: `clip:session:${trackId}:slot:1`,
+                slotIndex: 0,
+                name: trackId === "track:2" ? "Bassline" : "Beat A",
+                lengthBeats: 4,
+                loopStartBeats: 0,
+                loopEndBeats: 4,
+                looping: true
+              }
+            ],
         arrangementClips: [],
         devices: trackId === "track:2"
           ? [
@@ -82,6 +154,14 @@ function createServer(options = {}) {
                 ]
               }
             ]
+          : trackId === "track:return:1"
+            ? [
+                {
+                  id: "device:track:return:1:1",
+                  name: "Hybrid Reverb",
+                  parameters: []
+                }
+              ]
           : [],
         stateVersion
       };
@@ -221,6 +301,15 @@ function createServer(options = {}) {
     },
     async setParameter(payload) {
       return payload;
+    },
+    async setSendLevel(payload) {
+      return { payload, affectedObjects: [payload.trackId] };
+    },
+    async setMonitorState(payload) {
+      return { payload, affectedObjects: [payload.trackId] };
+    },
+    async setTrackRouting(payload) {
+      return { payload, affectedObjects: [payload.trackId] };
     },
     async getBrowserTree() {
       return {
@@ -501,6 +590,11 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("launch_scene"));
   assert.ok(byName.has("stop_track_clips"));
   assert.ok(byName.has("stop_all_clips"));
+  assert.ok(byName.has("list_return_tracks"));
+  assert.ok(byName.has("get_master_track"));
+  assert.ok(byName.has("set_send_level"));
+  assert.ok(byName.has("set_monitor_state"));
+  assert.ok(byName.has("set_track_routing"));
   assert.ok(byName.has("get_component_status"));
   assert.ok(byName.has("list_sidecar_workflows"));
   assert.ok(byName.has("ensure_sidecar_on_track"));
@@ -553,6 +647,77 @@ test("browser tools expose query and load flows", async () => {
     load.result.structuredContent.affected_objects.includes("track:1:device:new"),
     true
   );
+});
+
+test("mixer and routing tools expose return or master track access and mutations", async () => {
+  const server = createServer();
+
+  const returnTracks = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 31,
+    method: "tools/call",
+    params: {
+      name: "list_return_tracks",
+      arguments: {}
+    }
+  });
+  const masterTrack = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 32,
+    method: "tools/call",
+    params: {
+      name: "get_master_track",
+      arguments: {}
+    }
+  });
+  const setSend = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 33,
+    method: "tools/call",
+    params: {
+      name: "set_send_level",
+      arguments: {
+        trackId: "track:1",
+        sendIndex: 0,
+        value: 0.5
+      }
+    }
+  });
+  const setMonitor = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 34,
+    method: "tools/call",
+    params: {
+      name: "set_monitor_state",
+      arguments: {
+        trackId: "track:1",
+        monitoringState: "Off"
+      }
+    }
+  });
+  const setRouting = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 35,
+    method: "tools/call",
+    params: {
+      name: "set_track_routing",
+      arguments: {
+        trackId: "track:1",
+        outputRoutingType: "Master"
+      }
+    }
+  });
+
+  assert.equal(returnTracks.result.isError, false);
+  assert.equal(returnTracks.result.structuredContent.tracks[0].id, "track:return:1");
+  assert.equal(masterTrack.result.isError, false);
+  assert.equal(masterTrack.result.structuredContent.track.id, "track:master");
+  assert.equal(setSend.result.isError, false);
+  assert.equal(setSend.result.structuredContent.summary, "Send Send A updated.");
+  assert.equal(setMonitor.result.isError, false);
+  assert.equal(setMonitor.result.structuredContent.summary, "Monitor state updated for Drums.");
+  assert.equal(setRouting.result.isError, false);
+  assert.equal(setRouting.result.structuredContent.summary, "Routing updated for Drums.");
 });
 
 test("ensure_sidecar_on_track selects the target track and requests a sidecar load", async () => {
@@ -982,6 +1147,81 @@ test("set_parameter can resolve by names and enum label", async () => {
     response.result.structuredContent.summary,
     "Parameter Algorithm updated to Algorithm 3."
   );
+});
+
+test("mixer tools expose return/master tracks and accept send or routing writes", async () => {
+  const server = createServer();
+
+  const returnTracks = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 28,
+    method: "tools/call",
+    params: {
+      name: "list_return_tracks",
+      arguments: {}
+    }
+  });
+
+  const masterTrack = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 29,
+    method: "tools/call",
+    params: {
+      name: "get_master_track",
+      arguments: {}
+    }
+  });
+
+  const sendLevel = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 30,
+    method: "tools/call",
+    params: {
+      name: "set_send_level",
+      arguments: {
+        trackId: "track:2",
+        sendIndex: 0,
+        value: 0.4
+      }
+    }
+  });
+
+  const monitorState = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 31,
+    method: "tools/call",
+    params: {
+      name: "set_monitor_state",
+      arguments: {
+        trackId: "track:2",
+        monitoringState: "Off"
+      }
+    }
+  });
+
+  const routing = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 32,
+    method: "tools/call",
+    params: {
+      name: "set_track_routing",
+      arguments: {
+        trackId: "track:2",
+        outputRoutingType: "master"
+      }
+    }
+  });
+
+  assert.equal(returnTracks.result.isError, false);
+  assert.equal(returnTracks.result.structuredContent.tracks[0].id, "track:return:1");
+  assert.equal(masterTrack.result.isError, false);
+  assert.equal(masterTrack.result.structuredContent.track.id, "track:master");
+  assert.equal(sendLevel.result.isError, false);
+  assert.equal(sendLevel.result.structuredContent.summary, "Send Send A updated.");
+  assert.equal(monitorState.result.isError, false);
+  assert.equal(monitorState.result.structuredContent.summary, "Monitor state updated for Bass.");
+  assert.equal(routing.result.isError, false);
+  assert.equal(routing.result.structuredContent.summary, "Routing updated for Bass.");
 });
 
 test("run_sidecar_workflow surfaces setup instructions when sidecar is unavailable", async () => {

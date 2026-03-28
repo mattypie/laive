@@ -59,6 +59,7 @@ export function summarizeProject(state) {
       tracks: tracks.length,
       visibleTracks: state.visibleTrackIds.length,
       returnTracks: state.returnTrackIds.length,
+      masterTracks: state.masterTrackId ? 1 : 0,
       scenes: scenes.length,
       clips: clips.length,
       devices: Object.keys(state.devices).length,
@@ -123,6 +124,14 @@ export function findTrack(state, query) {
 
     return track.name.toLowerCase() === searchValue;
   }) ?? null;
+}
+
+export function listReturnTracks(state) {
+  return valuesInOrder(state.returnTrackIds, state.tracks);
+}
+
+export function getMasterTrack(state) {
+  return state.masterTrackId ? state.tracks[state.masterTrackId] ?? null : null;
 }
 
 export function listPlayingClips(state) {

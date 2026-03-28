@@ -33,18 +33,40 @@ export function compareTrackIds(leftId, rightId) {
   const right = parseTrackId(rightId);
 
   if (left.section !== right.section) {
-    return trackSectionOrder[left.section] - trackSectionOrder[right.section];
+    return (trackSectionOrder[left.section] ?? 99) - (trackSectionOrder[right.section] ?? 99);
   }
 
   return left.index - right.index;
 }
 
 export function parseTrackId(trackId) {
-  const [, section, rawIndex] = trackId.split(":");
+  const parts = String(trackId ?? "").split(":");
+  if (parts.length === 2 && parts[0] === "track" && parts[1] === "master") {
+    return {
+      id: trackId,
+      section: "master",
+      index: 0
+    };
+  }
+  if (parts.length === 2 && parts[0] === "track") {
+    return {
+      id: trackId,
+      section: "visible",
+      index: Number(parts[1]) || 0
+    };
+  }
+  if (parts.length === 3 && parts[0] === "track" && parts[1] === "master") {
+    return {
+      id: trackId,
+      section: "master",
+      index: Number(parts[2]) || 0
+    };
+  }
+  const [, section, rawIndex] = parts;
   return {
     id: trackId,
-    section,
-    index: Number(rawIndex)
+    section: section || "visible",
+    index: Number(rawIndex) || 0
   };
 }
 

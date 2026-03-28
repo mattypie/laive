@@ -64,6 +64,13 @@ function normalizeTrack(track) {
   const armed = track.armed ?? track.arm ?? false;
   const muted = track.muted ?? track.mute ?? false;
   const soloed = track.soloed ?? track.solo ?? false;
+  const sends = (track.sends ?? []).map((send) => ({
+    ...send,
+    is_quantized: send.is_quantized ?? send.isQuantized ?? false,
+    isQuantized: send.is_quantized ?? send.isQuantized ?? false,
+    display_value: send.display_value ?? send.displayValue ?? null,
+    displayValue: send.display_value ?? send.displayValue ?? null
+  }));
   return {
     ...track,
     section: track.section ?? "visible",
@@ -73,6 +80,35 @@ function normalizeTrack(track) {
     arm: armed,
     mute: muted,
     solo: soloed,
+    monitoring_state:
+      track.monitoring_state ?? track.monitoringState ?? track.current_monitoring_state ?? track.currentMonitoringState ?? null,
+    monitoringState:
+      track.monitoringState ?? track.monitoring_state ?? track.currentMonitoringState ?? track.current_monitoring_state ?? null,
+    input_routing_type: track.input_routing_type ?? track.inputRoutingType ?? null,
+    inputRoutingType: track.inputRoutingType ?? track.input_routing_type ?? null,
+    input_routing_channel: track.input_routing_channel ?? track.inputRoutingChannel ?? null,
+    inputRoutingChannel: track.inputRoutingChannel ?? track.input_routing_channel ?? null,
+    output_routing_type: track.output_routing_type ?? track.outputRoutingType ?? null,
+    outputRoutingType: track.outputRoutingType ?? track.output_routing_type ?? null,
+    output_routing_channel: track.output_routing_channel ?? track.outputRoutingChannel ?? null,
+    outputRoutingChannel: track.outputRoutingChannel ?? track.output_routing_channel ?? null,
+    available_input_routing_types:
+      track.available_input_routing_types ?? track.availableInputRoutingTypes ?? null,
+    availableInputRoutingTypes:
+      track.availableInputRoutingTypes ?? track.available_input_routing_types ?? null,
+    available_input_routing_channels:
+      track.available_input_routing_channels ?? track.availableInputRoutingChannels ?? null,
+    availableInputRoutingChannels:
+      track.availableInputRoutingChannels ?? track.available_input_routing_channels ?? null,
+    available_output_routing_types:
+      track.available_output_routing_types ?? track.availableOutputRoutingTypes ?? null,
+    availableOutputRoutingTypes:
+      track.availableOutputRoutingTypes ?? track.available_output_routing_types ?? null,
+    available_output_routing_channels:
+      track.available_output_routing_channels ?? track.availableOutputRoutingChannels ?? null,
+    availableOutputRoutingChannels:
+      track.availableOutputRoutingChannels ?? track.available_output_routing_channels ?? null,
+    sends,
     devices: (track.devices ?? []).map(normalizeDevice),
     session_clips: (track.session_clips ?? []).map((clip) => normalizeClip(track.id, clip)),
     arrangement_clips: (track.arrangement_clips ?? []).map((clip) =>
@@ -188,21 +224,51 @@ export function mapBridgeEvent(topic, payload) {
 }
 
 async function buildRuntimeSnapshot(bridgeClient) {
-  const [hello, capabilities, song, scenes, tracks] = await Promise.all([
+  const [hello, capabilities, song, scenes, tracks, returnTracks, masterTrack] = await Promise.all([
     bridgeClient.request("hello"),
     bridgeClient.request("capabilities"),
     bridgeClient.request("get", "song"),
     bridgeClient.request("get", "scenes"),
-    bridgeClient.request("get", "tracks")
+    bridgeClient.request("get", "tracks"),
+    optionalBridgeRequest(bridgeClient, "get", "return_tracks"),
+    optionalBridgeRequest(bridgeClient, "get", "master_track")
   ]);
+
+  const mergedTracks = [];
+  const seenTrackIds = new Set();
+  for (const track of [
+    ...(tracks.result ?? []),
+    ...((returnTracks?.result ?? [])),
+    ...((masterTrack?.result ? [masterTrack.result] : []))
+  ]) {
+    if (!track?.id || seenTrackIds.has(track.id)) {
+      continue;
+    }
+    seenTrackIds.add(track.id);
+    mergedTracks.push(track);
+  }
 
   return toRuntimeSnapshot({
     liveVersion: hello.result.live_version,
     capabilities: capabilities.result,
     song: song.result,
     scenes: scenes.result,
-    tracks: tracks.result
+    tracks: mergedTracks
   });
+}
+
+async function optionalBridgeRequest(bridgeClient, operation, target, args = {}, options = {}) {
+  try {
+    return await bridgeClient.request(operation, target, args, options);
+  } catch (error) {
+    if (
+      /unknown target/i.test(String(error?.message ?? "")) ||
+      /unsupported/i.test(String(error?.message ?? ""))
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export function createAllowAllPolicyAdapter() {
@@ -545,6 +611,67 @@ export function createBridgeAdapter(target) {
         affectedObjects: [payload.trackId, payload.deviceId, payload.parameterId]
       };
     },
+    async setSendLevel(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "set",
+          "track.send",
+          {
+            track_id: payload.trackId,
+            send_index: payload.sendIndex,
+            value: payload.value
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
+      };
+    },
+    async setMonitorState(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "set",
+          "track.monitoring_state",
+          {
+            track_id: payload.trackId,
+            monitoring_state: payload.monitoringState
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
+      };
+    },
+    async setTrackRouting(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "set",
+          "track.routing",
+          {
+            track_id: payload.trackId,
+            input_routing_type: payload.inputRoutingType ?? null,
+            input_routing_channel: payload.inputRoutingChannel ?? null,
+            output_routing_type: payload.outputRoutingType ?? null,
+            output_routing_channel: payload.outputRoutingChannel ?? null
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
+      };
+    },
     async getBrowserTree() {
       const bridgeClient = await resolveBridgeClient(target);
       return (await bridgeClient.request("get", "browser.tree")).result;
@@ -617,6 +744,10 @@ export function createStateAdapter(session) {
     });
   }
 
+  function visibleTrackList() {
+    return trackList().filter((track) => track.section === "visible");
+  }
+
   return {
     async getProjectSummary() {
       if (typeof session.ensureConnected === "function") {
@@ -626,7 +757,7 @@ export function createStateAdapter(session) {
       return {
         ...summary,
         stateVersion: summary.snapshotVersion,
-        tracks: trackList()
+        tracks: visibleTrackList()
       };
     },
     async getSelectedContext() {
@@ -643,7 +774,30 @@ export function createStateAdapter(session) {
       if (typeof session.ensureConnected === "function") {
         await session.ensureConnected();
       }
-      return trackList();
+      return visibleTrackList();
+    },
+    async listReturnTracks() {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
+      return trackList().filter((track) => track.section === "return");
+    },
+    async getMasterTrack() {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
+      const state = session.stateEngine.getState();
+      const trackId = state.masterTrackId;
+      if (!trackId) {
+        throw new Error("Master track not found");
+      }
+      const details = session.stateEngine.query.getTrackDetails(trackId);
+      return {
+        id: details.track.id,
+        name: details.track.name,
+        stateVersion: stateVersion(),
+        ...details
+      };
     },
     async getTrackDetails(target) {
       if (typeof session.ensureConnected === "function") {

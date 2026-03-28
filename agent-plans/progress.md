@@ -4,14 +4,14 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: post-`v0.5.0` release follow-through, with the next planned slice moving to `v0.6.0` mixer and routing coverage
+- Active phase: `v0.6.0` mixer and routing coverage, with the first bridge/state/MCP work unit now landed locally and awaiting real-session validation through the published `npx` path
 
 ## Versioned Roadmap
 
 | Target version | Planned work unit | Scope |
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
-| `v0.6.0` | Mixer and routing | Return/master tracks, send levels, monitor state, track routing, master/return device loading |
+| `v0.6.0` | Mixer and routing | In progress: return/master discovery plus send, monitor, and routing control landed; remaining work is real-session validation, return/master device workflows, and runtime hardening |
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 
@@ -106,3 +106,18 @@
 - Added quantized-parameter metadata propagation through the bridge and state engine so `valueItems`, `allowedValues`, and `enumLabels` survive into MCP-facing device trees.
 - Expanded `set_parameter` so agents can target parameters by track name, track index, device name, and parameter name, and can set quantized controls by enum label instead of guessing from numeric values.
 - Added regression coverage for session clip editing and quantized parameter metadata across the bridge, state engine, MCP server, and delivery test suites.
+
+### 2026-03-28
+
+- Started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge/state/MCP targets while preserving visible-only semantics for `list_tracks`.
+- Added bridge-backed mixer metadata for track sends, monitoring state, and input/output routing choices so those values survive through the state mirror into MCP-facing track details.
+- Added the first `v0.6.0` MCP tools: `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`.
+- Added fixture and regression coverage so mixer/routing reads and writes are exercised through the bridge, MCP server, CLI entrypoint, and state-engine-backed fixture session before real Live validation.
+
+### 2026-03-28
+
+- Started the `v0.6.0` slice by promoting return tracks and the master track into the real bridge/state/MCP surface instead of leaving them as roadmap-only gaps.
+- Added mixer metadata to track snapshots across the Python bridge, fixture runtime, and state engine: sends, monitor state, routing state, and basic track I/O capabilities.
+- Added bridge-backed MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`.
+- Hardened track identity handling so legacy visible-track IDs like `track:1` can coexist cleanly with explicit `track:return:1` and `track:master` targets.
+- Added regression coverage for the new mixer/routing surface across the Python bridge, fixture runtime, state engine, MCP server, and CLI test suites.
