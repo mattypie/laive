@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.5.1 - 2026-03-28
+
 - added structured JSONL logging for the MCP server, JS bridge client, and Python Remote Script under `~/.local/share/laive/logs` by default, with `LAIVE_LOG_DIR` override support for debugging and tests
 - fixed lazy bridge sessions so a closed bridge socket invalidates the active session and the next MCP tool call reconnects cleanly instead of reusing a dead client
 - enabled keepalive and pending-request rejection on bridge sockets so idle disconnects are surfaced explicitly instead of leaving the MCP layer stuck on a stale connection
@@ -138,3 +140,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+
