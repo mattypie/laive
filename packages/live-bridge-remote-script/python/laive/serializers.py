@@ -63,13 +63,13 @@ def serialize_song_state(song):
 
 
 def serialize_track_state(track, index, track_id, session_clips, devices, section=None):
-    armed = bool(getattr(track, "arm", False))
-    muted = bool(getattr(track, "mute", False))
-    soloed = bool(getattr(track, "solo", False))
-    playing_slot_index = getattr(track, "playing_slot_index", None)
-    fired_slot_index = getattr(track, "fired_slot_index", None)
-    section = section or getattr(track, "section", "visible")
-    mixer_device = getattr(track, "mixer_device", None)
+    armed = bool(_safe_getattr(track, "arm", False))
+    muted = bool(_safe_getattr(track, "mute", False))
+    soloed = bool(_safe_getattr(track, "solo", False))
+    playing_slot_index = _safe_getattr(track, "playing_slot_index", None)
+    fired_slot_index = _safe_getattr(track, "fired_slot_index", None)
+    section = section or _safe_getattr(track, "section", "visible")
+    mixer_device = _safe_getattr(track, "mixer_device", None)
     sends = [
         serialize_parameter_state(send, "{0}:send:{1}".format(track_id, send_index + 1))
         for send_index, send in enumerate(getattr(mixer_device, "sends", []) or [])
@@ -99,8 +99,8 @@ def serialize_track_state(track, index, track_id, session_clips, devices, sectio
         "id": track_id,
         "index": index,
         "section": section,
-        "name": getattr(track, "name", "Track {0}".format(index + 1)),
-        "type": getattr(track, "type", "midi"),
+        "name": _safe_getattr(track, "name", "Track {0}".format(index + 1)),
+        "type": _safe_getattr(track, "type", "midi"),
         "arm": armed,
         "mute": muted,
         "solo": soloed,
@@ -111,11 +111,11 @@ def serialize_track_state(track, index, track_id, session_clips, devices, sectio
         "playingSlotIndex": playing_slot_index,
         "fired_slot_index": fired_slot_index,
         "firedSlotIndex": fired_slot_index,
-        "can_be_armed": bool(getattr(track, "can_be_armed", armed)),
-        "has_audio_input": bool(getattr(track, "has_audio_input", False)),
-        "has_audio_output": bool(getattr(track, "has_audio_output", False)),
-        "has_midi_input": bool(getattr(track, "has_midi_input", False)),
-        "has_midi_output": bool(getattr(track, "has_midi_output", False)),
+        "can_be_armed": bool(_safe_getattr(track, "can_be_armed", armed)),
+        "has_audio_input": bool(_safe_getattr(track, "has_audio_input", False)),
+        "has_audio_output": bool(_safe_getattr(track, "has_audio_output", False)),
+        "has_midi_input": bool(_safe_getattr(track, "has_midi_input", False)),
+        "has_midi_output": bool(_safe_getattr(track, "has_midi_output", False)),
         "monitoring_state": monitoring_state,
         "monitoringState": monitoring_state,
         "volume": _safe_getattr(_safe_getattr(mixer_device, "volume", None), "value", None),

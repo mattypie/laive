@@ -6,6 +6,7 @@ from laive.clip_notes import ClipNoteAdapter
 from laive.fake_live import FakeSong
 from laive.live_access import LiveSetAdapter
 from laive.protocol import RequestError
+from laive.serializers import serialize_track_state
 
 
 class LegacyNoteSequenceTests(unittest.TestCase):
@@ -431,6 +432,42 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertTrue(any(track["section"] == "return" for track in tracks))
         self.assertEqual(return_tracks[0]["id"], "track:return:1")
         self.assertEqual(master_track["section"], "master")
+
+    def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
+        class MixerOnlyTrack(object):
+            name = "Master"
+            type = "audio"
+            section = "master"
+            mixer_device = None
+            clip_slots = []
+            devices = []
+
+            @property
+            def arm(self):
+                raise RuntimeError("Master and Return Tracks have no 'Arm' state!")
+
+            @property
+            def mute(self):
+                raise RuntimeError("Master and Return Tracks have no 'Mute' state!")
+
+            @property
+            def solo(self):
+                raise RuntimeError("Master and Return Tracks have no 'Solo' state!")
+
+        track_state = serialize_track_state(
+            MixerOnlyTrack(),
+            0,
+            "track:master",
+            [],
+            [],
+            section="master",
+        )
+
+        self.assertEqual(track_state["id"], "track:master")
+        self.assertEqual(track_state["section"], "master")
+        self.assertEqual(track_state["arm"], False)
+        self.assertEqual(track_state["mute"], False)
+        self.assertEqual(track_state["solo"], False)
 
     def test_set_send_level_updates_track_send(self):
         song = FakeSong()
