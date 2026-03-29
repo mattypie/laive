@@ -327,7 +327,11 @@ class LiveSetAdapter(object):
             raise RequestError("unsupported_argument", "Only midi tracks are supported in the first pass")
         index = len(getattr(self.song, "tracks", []))
         if dry_run:
-            track = self.song.preview_track(index=index, name=name)
+            preview_track = getattr(self.song, "preview_track", None)
+            if callable(preview_track):
+                track = preview_track(index=index, name=name)
+            else:
+                track = self._preview_track(index=index, name=name, section="visible")
         else:
             self.song.create_midi_track(index)
             track = self.song.tracks[index]
@@ -338,7 +342,11 @@ class LiveSetAdapter(object):
     def create_return_track(self, name=None, dry_run=False):
         index = len(getattr(self.song, "return_tracks", []))
         if dry_run:
-            track = self.song.preview_return_track(index=index, name=name)
+            preview_return_track = getattr(self.song, "preview_return_track", None)
+            if callable(preview_return_track):
+                track = preview_return_track(index=index, name=name)
+            else:
+                track = self._preview_track(index=index, name=name, section="return")
         else:
             if not hasattr(self.song, "create_return_track"):
                 raise RequestError("unsupported_runtime", "Return track creation is unavailable")
@@ -351,7 +359,11 @@ class LiveSetAdapter(object):
     def create_scene(self, name=None, dry_run=False):
         index = len(getattr(self.song, "scenes", []))
         if dry_run:
-            scene = self.song.preview_scene(index=index, name=name)
+            preview_scene = getattr(self.song, "preview_scene", None)
+            if callable(preview_scene):
+                scene = preview_scene(index=index, name=name)
+            else:
+                scene = self._preview_scene(index=index, name=name)
         else:
             self.song.create_scene(index)
             scene = self.song.scenes[index]
@@ -364,7 +376,11 @@ class LiveSetAdapter(object):
         slot = self._find_clip_slot(track, slot_index)
         self._ensure_slot_is_empty(slot, slot_index)
         if dry_run:
-            clip = slot.preview_clip(length_beats=length_beats, name=name)
+            preview_clip = getattr(slot, "preview_clip", None)
+            if callable(preview_clip):
+                clip = preview_clip(length_beats=length_beats, name=name)
+            else:
+                clip = self._preview_clip(length_beats=length_beats, name=name)
         else:
             slot.create_clip(length_beats)
             clip = slot.clip
@@ -744,6 +760,46 @@ class LiveSetAdapter(object):
             [self._clip_notes.normalize_input(note) for note in self._clip_notes.serialize_notes(source_clip)],
         )
         return duplicated_clip
+
+    def _preview_track(self, index, name=None, section="visible"):
+        preview = type("PreviewTrack", (), {})()
+        preview.name = name or "Track {0}".format(index + 1)
+        preview.section = section
+        preview.type = "audio" if section == "return" else "midi"
+        preview.arm = False
+        preview.mute = False
+        preview.solo = False
+        preview.can_be_armed = section == "visible"
+        preview.has_audio_input = section != "visible"
+        preview.has_audio_output = True
+        preview.has_midi_input = section == "visible"
+        preview.has_midi_output = section == "visible"
+        preview.current_monitoring_state = 1 if section == "visible" else None
+        preview.playing_slot_index = None
+        preview.fired_slot_index = None
+        preview.mixer_device = type("PreviewMixerDevice", (), {})()
+        preview.mixer_device.volume = type("PreviewParameter", (), {"value": 0.85, "min": 0.0, "max": 1.0, "is_quantized": False, "display_value": "0.85", "name": "Volume"})()
+        preview.mixer_device.panning = type("PreviewParameter", (), {"value": 0.0, "min": -1.0, "max": 1.0, "is_quantized": False, "display_value": "0.0", "name": "Panning"})()
+        preview.mixer_device.sends = []
+        preview.clip_slots = []
+        preview.devices = []
+        return preview
+
+    def _preview_scene(self, index, name=None):
+        preview = type("PreviewScene", (), {})()
+        preview.name = name or "Scene {0}".format(index + 1)
+        return preview
+
+    def _preview_clip(self, length_beats=4, name=None):
+        preview = type("PreviewClip", (), {})()
+        preview.name = name or "Preview Clip"
+        preview.length = length_beats
+        preview.looping = True
+        preview.loop_start = 0.0
+        preview.loop_end = length_beats
+        preview.is_playing = False
+        preview.notes = []
+        return preview
 
     def _set_clip_attribute(self, clip, attribute_name, value):
         if not hasattr(clip, attribute_name):

@@ -1033,3 +1033,25 @@ class MixerAndRoutingTests(unittest.TestCase):
         self.assertEqual(result["track"]["id"], "track:return:3")
         self.assertEqual(result["track"]["name"], "Preview Return")
         self.assertEqual(len(song.return_tracks), 2)
+
+    def test_dry_run_create_actions_fall_back_without_preview_helpers(self):
+        song = FakeSong()
+        song.preview_track = None
+        song.preview_return_track = None
+        song.preview_scene = None
+        song.tracks[0].clip_slots[0].preview_clip = None
+        adapter = LiveSetAdapter(song)
+
+        track_result = adapter.create_track(name="Preview Track", dry_run=True)
+        return_result = adapter.create_return_track(name="Preview Return", dry_run=True)
+        scene_result = adapter.create_scene(name="Preview Scene", dry_run=True)
+        clip_result = adapter.create_clip("track:1", 0, length_beats=8, name="Preview Clip", dry_run=True)
+
+        self.assertEqual(track_result["track"]["name"], "Preview Track")
+        self.assertEqual(return_result["track"]["name"], "Preview Return")
+        self.assertEqual(scene_result["scene"]["name"], "Preview Scene")
+        self.assertEqual(clip_result["clip"]["name"], "Preview Clip")
+        self.assertEqual(clip_result["clip"]["loop_end_beats"], 8)
+        self.assertEqual(len(song.tracks), 2)
+        self.assertEqual(len(song.return_tracks), 2)
+        self.assertEqual(len(song.scenes), 2)

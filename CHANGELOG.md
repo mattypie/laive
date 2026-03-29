@@ -13,6 +13,7 @@
 - fixed real-runtime return/master serialization so mixer-only tracks that do not expose visible-track state like `arm` do not crash snapshot refresh
 - validated the new mixer controls against a real Live session locally: return-track creation, return/master volume and panning, send writes to the new return, and master-target name-based parameter writes all succeeded
 - documented two remaining `v0.6.0` hardening gaps from real validation: Live prefixes named returns with the send-letter label, and the dry-run create paths still assume fake-runtime `preview_*` helpers that do not exist in the real Live Python runtime
+- fixed the dry-run create hardening gap by replacing the fake-runtime `preview_*` dependency with bridge-local preview objects for track, return-track, scene, and clip creation
 
 ## v0.5.1 - 2026-03-28
 
