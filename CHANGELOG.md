@@ -11,6 +11,8 @@
 - hardened track identity handling so legacy visible IDs like `track:1` coexist cleanly with `track:return:1` and `track:master`
 - added regression coverage for the new mixer/routing surface, including return/master browser loading, across the Python bridge, fixture runtime, state engine, MCP server, and CLI tests
 - fixed real-runtime return/master serialization so mixer-only tracks that do not expose visible-track state like `arm` do not crash snapshot refresh
+- validated the new mixer controls against a real Live session locally: return-track creation, return/master volume and panning, send writes to the new return, and master-target name-based parameter writes all succeeded
+- documented two remaining `v0.6.0` hardening gaps from real validation: Live prefixes named returns with the send-letter label, and the dry-run create paths still assume fake-runtime `preview_*` helpers that do not exist in the real Live Python runtime
 
 ## v0.5.1 - 2026-03-28
 
