@@ -72,6 +72,9 @@ These are the current planned work units for the next product slices. They are i
     - send-level read/write
     - monitor-state read/write
     - input/output routing read/write
+  - landed in the second work unit:
+    - combined mixer-target listing via `list_mixer_tracks`
+    - explicit return/master browser-load coverage in bridge + MCP tests
   - remaining before the slice is fully closed:
     - real-session validation against published `npx laive-mcp`
     - device loading on return/master targets
@@ -93,3 +96,11 @@ These are the current planned work units for the next product slices. They are i
   - selected-clip transforms
   - parameter snapshot/restore
   - lightweight analysis workflows
+
+### Target `v0.9.0`
+
+- score/sheet-music ingest:
+  - evaluate a text-first score-to-MIDI path instead of relying on direct image transcription alone
+  - investigate existing open-source candidates such as [SheetVision](https://github.com/cal-pratt/SheetVision) and [Werckmeister](https://github.com/werckme/werckmeister)
+  - prototype a workflow that turns reliable score input into MIDI clips the bridge can place in Live
+  - define validation cases focused on melodic correctness, since direct agent transcription from sheet music has been unreliable so far

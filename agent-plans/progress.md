@@ -11,9 +11,10 @@
 | Target version | Planned work unit | Scope |
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
-| `v0.6.0` | Mixer and routing | In progress: return/master discovery plus send, monitor, and routing control landed; remaining work is real-session validation, return/master device workflows, and runtime hardening |
+| `v0.6.0` | Mixer and routing | In progress: return/master discovery plus send, monitor, routing, and mixer-target listing landed; remaining work is real-session validation, return/master device workflows, and runtime hardening |
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
+| `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 
 ## Phase Status
 
@@ -121,3 +122,6 @@
 - Added bridge-backed MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`.
 - Hardened track identity handling so legacy visible-track IDs like `track:1` can coexist cleanly with explicit `track:return:1` and `track:master` targets.
 - Added regression coverage for the new mixer/routing surface across the Python bridge, fixture runtime, state engine, MCP server, and CLI test suites.
+- Added a combined `list_mixer_tracks` MCP surface so agents can enumerate visible, return, and master mixer targets in one call instead of stitching together separate tool results.
+- Added bridge and MCP regression coverage for loading browser items onto return and master tracks, keeping the `v0.6.0` mixer/device-loading slice explicit before the next real-session validation pass.
+- Added an explicit future roadmap slice for score/sheet-music ingest, with a text-first research direction informed by existing projects such as SheetVision and Werckmeister and by the current melodic-accuracy gap in direct agent transcription.
