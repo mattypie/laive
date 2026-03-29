@@ -4,14 +4,14 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.6.0` mixer and routing coverage, with the first bridge/state/MCP work unit now landed locally and awaiting real-session validation through the published `npx` path
+- Active phase: `v0.6.0` mixer and routing coverage, now validated locally against a real Live session and mainly awaiting release/published-path validation plus any final hardening
 
 ## Versioned Roadmap
 
 | Target version | Planned work unit | Scope |
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
-| `v0.6.0` | Mixer and routing | In progress: return/master discovery plus send, monitor, routing, and mixer-target listing landed; remaining work is real-session validation, return/master device workflows, and runtime hardening |
+| `v0.6.0` | Mixer and routing | In progress: return/master discovery, mixer-target listing, return/master device loading, send control, monitor control, and routing writes have all been validated against a real Live session locally; remaining work is release/published-path validation plus any final runtime hardening |
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
@@ -125,3 +125,5 @@
 - Added a combined `list_mixer_tracks` MCP surface so agents can enumerate visible, return, and master mixer targets in one call instead of stitching together separate tool results.
 - Added bridge and MCP regression coverage for loading browser items onto return and master tracks, keeping the `v0.6.0` mixer/device-loading slice explicit before the next real-session validation pass.
 - Added an explicit future roadmap slice for score/sheet-music ingest, with a text-first research direction informed by existing projects such as SheetVision and Werckmeister and by the current melodic-accuracy gap in direct agent transcription.
+- Fixed real Live return/master serialization so mixer-only tracks that do not expose `arm` or similar visible-track properties no longer crash the bridge snapshot path.
+- Validated the local `v0.6.0` mixer surface against a real Live session through MCP: `list_mixer_tracks`, `list_return_tracks`, `get_master_track`, return/master browser loads, `set_send_level`, `set_monitor_state`, and `set_track_routing` all succeeded.
