@@ -590,6 +590,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("launch_scene"));
   assert.ok(byName.has("stop_track_clips"));
   assert.ok(byName.has("stop_all_clips"));
+  assert.ok(byName.has("list_mixer_tracks"));
   assert.ok(byName.has("list_return_tracks"));
   assert.ok(byName.has("get_master_track"));
   assert.ok(byName.has("set_send_level"));
@@ -652,6 +653,15 @@ test("browser tools expose query and load flows", async () => {
 test("mixer and routing tools expose return or master track access and mutations", async () => {
   const server = createServer();
 
+  const mixerTracks = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 30,
+    method: "tools/call",
+    params: {
+      name: "list_mixer_tracks",
+      arguments: {}
+    }
+  });
   const returnTracks = await server.safeHandleRpcMessage({
     jsonrpc: "2.0",
     id: 31,
@@ -708,6 +718,15 @@ test("mixer and routing tools expose return or master track access and mutations
     }
   });
 
+  assert.equal(mixerTracks.result.isError, false);
+  assert.equal(
+    mixerTracks.result.structuredContent.tracks.some((track) => track.id === "track:return:1"),
+    true
+  );
+  assert.equal(
+    mixerTracks.result.structuredContent.tracks.some((track) => track.id === "track:master"),
+    true
+  );
   assert.equal(returnTracks.result.isError, false);
   assert.equal(returnTracks.result.structuredContent.tracks[0].id, "track:return:1");
   assert.equal(masterTrack.result.isError, false);
@@ -718,6 +737,46 @@ test("mixer and routing tools expose return or master track access and mutations
   assert.equal(setMonitor.result.structuredContent.summary, "Monitor state updated for Drums.");
   assert.equal(setRouting.result.isError, false);
   assert.equal(setRouting.result.structuredContent.summary, "Routing updated for Drums.");
+});
+
+test("browser load tool can target return and master tracks", async () => {
+  const server = createServer();
+
+  const loadReturn = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 36,
+    method: "tools/call",
+    params: {
+      name: "load_browser_item",
+      arguments: {
+        trackId: "track:return:1",
+        path: "audio_effects/EQ Eight"
+      }
+    }
+  });
+  const loadMaster = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 37,
+    method: "tools/call",
+    params: {
+      name: "load_browser_item",
+      arguments: {
+        trackId: "track:master",
+        path: "audio_effects/EQ Eight"
+      }
+    }
+  });
+
+  assert.equal(loadReturn.result.isError, false);
+  assert.equal(
+    loadReturn.result.structuredContent.affected_objects.includes("track:return:1:device:new"),
+    true
+  );
+  assert.equal(loadMaster.result.isError, false);
+  assert.equal(
+    loadMaster.result.structuredContent.affected_objects.includes("track:master:device:new"),
+    true
+  );
 });
 
 test("ensure_sidecar_on_track selects the target track and requests a sidecar load", async () => {

@@ -282,6 +282,24 @@ test("bridge exposes mixer controls for return and master tracks", async () => {
   });
 });
 
+test("bridge can load browser items onto return and master tracks", async () => {
+  await withBridge(async ({ client }) => {
+    const loadReturn = await client.request("call", "load_browser_item", {
+      track_id: "track:return:1",
+      path: "audio_effects/EQ Eight"
+    });
+    const loadMaster = await client.request("call", "load_browser_item", {
+      track_id: "track:master",
+      path: "audio_effects/EQ Eight"
+    });
+
+    assert.equal(loadReturn.result.track.id, "track:return:1");
+    assert.equal(loadReturn.result.track.devices.at(-1).name, "EQ Eight");
+    assert.equal(loadMaster.result.track.id, "track:master");
+    assert.equal(loadMaster.result.track.devices.at(-1).name, "EQ Eight");
+  });
+});
+
 function createLoopbackSocketPair() {
   const serverSocket = new FakeSocket();
   const clientSocket = new FakeSocket();

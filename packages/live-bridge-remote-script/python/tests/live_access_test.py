@@ -272,6 +272,19 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["item"]["name"], "Operator")
         self.assertEqual(result["track"]["devices"][-1]["name"], "Operator")
 
+    def test_browser_load_can_target_return_and_master_tracks(self):
+        song = FakeSong()
+        application = BrowserApplication(song)
+        adapter = LiveSetAdapter(song, application=application)
+
+        return_result = adapter.load_browser_item("track:return:1", path="audio_effects/EQ Eight")
+        master_result = adapter.load_browser_item("track:master", path="audio_effects/EQ Eight")
+
+        self.assertEqual(return_result["track"]["id"], "track:return:1")
+        self.assertEqual(return_result["track"]["devices"][-1]["name"], "EQ Eight")
+        self.assertEqual(master_result["track"]["id"], "track:master")
+        self.assertEqual(master_result["track"]["devices"][-1]["name"], "EQ Eight")
+
     def test_browser_tree_exposes_optional_user_library_root_when_available(self):
         song = SongWithSingleClip(DirectSetNotesClip())
         application = BrowserApplication(song)
@@ -798,7 +811,11 @@ class BrowserRoot(object):
         )
         self.sounds = BrowserItem("Sounds", "browser:sounds", children=[])
         self.drums = BrowserItem("Drums", "browser:drums", children=[])
-        self.audio_effects = BrowserItem("Audio Effects", "browser:audio_effects", children=[])
+        self.audio_effects = BrowserItem(
+            "Audio Effects",
+            "browser:audio_effects",
+            children=[BrowserItem("EQ Eight", "browser:audio_effects:eq-eight", is_device=True, is_loadable=True)],
+        )
         self.midi_effects = BrowserItem("MIDI Effects", "browser:midi_effects", children=[])
         self.user_library = BrowserItem(
             "User Library",

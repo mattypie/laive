@@ -5,8 +5,9 @@
 - started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge-backed MCP targets instead of roadmap-only gaps
 - added mixer metadata to bridged track snapshots, including sends, monitor state, and input/output routing state
 - added MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`
+- added a combined `list_mixer_tracks` MCP tool so agents can enumerate visible, return, and master mixer targets in one call
 - hardened track identity handling so legacy visible IDs like `track:1` coexist cleanly with `track:return:1` and `track:master`
-- added regression coverage for the new mixer/routing surface across the Python bridge, fixture runtime, state engine, MCP server, and CLI tests
+- added regression coverage for the new mixer/routing surface, including return/master browser loading, across the Python bridge, fixture runtime, state engine, MCP server, and CLI tests
 
 ## v0.5.1 - 2026-03-28
 

@@ -397,6 +397,22 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "list_mixer_tracks",
+      description: "List visible, return, and master mixer targets in compact form.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const tracks = await listMixerTracks(stateAdapter);
+        return buildInformationalResult(
+          `Found ${tracks.length} mixer target(s).`,
+          {
+            affected_objects: tracks.map((track) => track.id),
+            tracks
+          },
+          ["get_track_details", "set_send_level", "set_monitor_state", "set_track_routing", "load_browser_item"]
+        );
+      }
+    },
+    {
       name: "list_return_tracks",
       description: "List return tracks in compact form.",
       inputSchema: EMPTY_OBJECT_SCHEMA,
