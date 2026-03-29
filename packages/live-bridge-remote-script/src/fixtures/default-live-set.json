@@ -18,9 +18,12 @@
     "stop_track_clips": true,
     "stop_all_clips": true,
     "set_parameter": true,
+    "set_track_volume": true,
+    "set_track_panning": true,
     "set_send_level": true,
     "set_monitor_state": true,
     "set_track_routing": true,
+    "create_return_track": true,
     "browser_access": true,
     "load_browser_item": true,
     "subscribe": true

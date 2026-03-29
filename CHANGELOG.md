@@ -6,8 +6,11 @@
 - added mixer metadata to bridged track snapshots, including sends, monitor state, and input/output routing state
 - added MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`
 - added a combined `list_mixer_tracks` MCP tool so agents can enumerate visible, return, and master mixer targets in one call
+- added bridge and MCP support for `create_return_track`, `set_track_volume`, and `set_track_panning`
+- expanded parameter resolution so name-based `set_parameter` calls can target devices on return and master tracks too
 - hardened track identity handling so legacy visible IDs like `track:1` coexist cleanly with `track:return:1` and `track:master`
 - added regression coverage for the new mixer/routing surface, including return/master browser loading, across the Python bridge, fixture runtime, state engine, MCP server, and CLI tests
+- fixed real-runtime return/master serialization so mixer-only tracks that do not expose visible-track state like `arm` do not crash snapshot refresh
 
 ## v0.5.1 - 2026-03-28
 

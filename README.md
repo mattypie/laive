@@ -23,10 +23,12 @@ With Ableton Live running and the `laive` Control Surface enabled, the published
 - list visible, return, and master mixer targets in one call
 - list return tracks
 - inspect the master track
+- create return tracks
 - read detailed track state, including session clips
 - read a track's device tree and parameter state
 - refresh the mirrored project state
 - set song tempo
+- set track volume and panning on visible, return, and master tracks
 - set send levels
 - set monitor state
 - set track routing fields
@@ -64,12 +66,12 @@ The optional components are intentionally soft-failable:
 The bridge also reports lower-level support for subscriptions / event streaming, but that is not yet surfaced as a first-class MCP notification channel in the current release.
 For debugging, the MCP server, JS bridge client, and Python Remote Script now write structured JSONL logs under `~/.local/share/laive/logs` by default. Set `LAIVE_LOG_DIR` if you want to redirect logs elsewhere.
 
-Mixer control is now partially bridge-backed: `laive` can enumerate return/master tracks, read mixer metadata, set send levels, set monitor state, and update routing. The remaining `v0.6.0` gap is mainly breadth and real-session hardening, especially around return/master device workflows and edge-case routing semantics across supported Live versions.
+Mixer control is now substantially bridge-backed: `laive` can enumerate return/master tracks, create return tracks, read mixer metadata, set track volume/panning, set send levels, set monitor state, update routing, and load devices onto return/master targets. The remaining `v0.6.0` gap is mainly published-path validation plus any edge-case hardening across supported Live versions.
 Another current gap: Arrangement View and clip-envelope control are not yet first-class MCP workflows, so `laive` remains much stronger in Session View than in arrangement editing today.
 
 The current roadmap is intentionally sliced into concrete follow-up releases:
 
-- `v0.6.0`: mixer/routing coverage including return/master tracks and sends
+- `v0.6.0`: mixer/routing coverage including return/master tracks, sends, levels, and routing
 - `v0.7.0`: Arrangement View support
 - `v0.8.0`: clip envelopes and deeper sidecar workflows
 - `v0.9.0`: score/sheet-music ingest research, with a likely text-first path that evaluates existing projects such as [SheetVision](https://github.com/cal-pratt/SheetVision) and [Werckmeister](https://github.com/werckme/werckmeister) instead of relying on fragile direct image-to-melody transcription

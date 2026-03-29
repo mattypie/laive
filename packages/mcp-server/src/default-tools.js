@@ -105,7 +105,7 @@ function requireConfirmation(args, toolName) {
 }
 
 async function resolveParameterReference(stateAdapter, args) {
-  const trackCandidates = await stateAdapter.listTracks();
+  const trackCandidates = await listMixerTracks(stateAdapter);
   let matchingTracks = trackCandidates;
 
   if (args.trackId) {
@@ -408,7 +408,7 @@ export function buildDefaultTools({
             affected_objects: tracks.map((track) => track.id),
             tracks
           },
-          ["get_track_details", "set_send_level", "set_monitor_state", "set_track_routing", "load_browser_item"]
+          ["get_track_details", "set_track_volume", "set_track_panning", "set_send_level", "set_monitor_state", "set_track_routing", "load_browser_item"]
         );
       }
     },
@@ -692,6 +692,37 @@ export function buildDefaultTools({
         const after = await stateAdapter.refreshState("tracks");
         return buildMutationResult(
           `${kind} track ${args.dryRun ? "previewed" : "created"}.`,
+          created.affectedObjects ?? ["tracks"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "create_return_track",
+      description: "Create a new return track (send destination).",
+      inputSchema: createObjectSchema({
+        properties: {
+          name: {
+            type: "string",
+            description: "Optional return track name."
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, preview the action without mutating Live."
+          }
+        }
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("create_return_track", args);
+        const before = await stateAdapter.getProjectSummary();
+        const created = await bridgeAdapter.createReturnTrack(args.name ?? null, {
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Return track ${args.dryRun ? "previewed" : "created"}.`,
           created.affectedObjects ?? ["tracks"],
           before.stateVersion,
           after.stateVersion,
@@ -1232,6 +1263,100 @@ export function buildDefaultTools({
         return buildMutationResult(
           `All clips ${args.dryRun ? "stop previewed" : "stopped"}.`,
           stopped.affectedObjects ?? ["song"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_track_volume",
+      description: "Set a track, return-track, or master-track volume level.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Target mixer track identifier."
+          },
+          trackName: {
+            type: "string",
+            description: "Track name to resolve when trackId is not known."
+          },
+          value: {
+            type: "number",
+            description: "Target mixer volume value."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["value"]
+      }),
+      async execute(args) {
+        const track = resolveTrackCandidate(await listMixerTracks(stateAdapter), args);
+        const value = Number(args.value);
+        if (!Number.isFinite(value)) {
+          throw new McpServerError("invalid_request", "value must be numeric");
+        }
+        await policyAdapter.assertAllowed("set_track_volume", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.setTrackVolume(
+          {
+            trackId: track.id,
+            value,
+            dryRun: Boolean(args.dryRun)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(track.id);
+        return buildMutationResult(
+          `Volume ${args.dryRun ? "previewed" : "updated"} for ${track.name}.`,
+          [track.id],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_track_panning",
+      description: "Set a track, return-track, or master-track panning value.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Target mixer track identifier."
+          },
+          trackName: {
+            type: "string",
+            description: "Track name to resolve when trackId is not known."
+          },
+          value: {
+            type: "number",
+            description: "Target panning value."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["value"]
+      }),
+      async execute(args) {
+        const track = resolveTrackCandidate(await listMixerTracks(stateAdapter), args);
+        const value = Number(args.value);
+        if (!Number.isFinite(value)) {
+          throw new McpServerError("invalid_request", "value must be numeric");
+        }
+        await policyAdapter.assertAllowed("set_track_panning", args);
+        const before = await stateAdapter.getProjectSummary();
+        await bridgeAdapter.setTrackPanning(
+          {
+            trackId: track.id,
+            value,
+            dryRun: Boolean(args.dryRun)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(track.id);
+        return buildMutationResult(
+          `Panning ${args.dryRun ? "previewed" : "updated"} for ${track.name}.`,
+          [track.id],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []

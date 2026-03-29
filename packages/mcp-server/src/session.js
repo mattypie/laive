@@ -321,6 +321,24 @@ export function createBridgeAdapter(target) {
         affectedObjects: result.track ? [result.track.id] : []
       };
     },
+    async createReturnTrack(name = null, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "create_return_track",
+          {
+            name
+          },
+          { dryRun: Boolean(options.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: result.track ? [result.track.id] : ["return_tracks"]
+      };
+    },
     async playTransport(options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       return (
@@ -609,6 +627,44 @@ export function createBridgeAdapter(target) {
       return {
         ...result,
         affectedObjects: [payload.trackId, payload.deviceId, payload.parameterId]
+      };
+    },
+    async setTrackVolume(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "set",
+          "track.volume",
+          {
+            track_id: payload.trackId,
+            value: payload.value
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
+      };
+    },
+    async setTrackPanning(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "set",
+          "track.panning",
+          {
+            track_id: payload.trackId,
+            value: payload.value
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.trackId]
       };
     },
     async setSendLevel(payload, options = {}) {

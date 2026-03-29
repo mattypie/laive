@@ -75,9 +75,12 @@ These are the current planned work units for the next product slices. They are i
   - landed in the second work unit:
     - combined mixer-target listing via `list_mixer_tracks`
     - explicit return/master browser-load coverage in bridge + MCP tests
+  - landed in the current work unit:
+    - return-track creation
+    - track volume and panning writes across visible, return, and master targets
+    - name-based `set_parameter` resolution across return/master devices
   - remaining before the slice is fully closed:
     - real-session validation against published `npx laive-mcp`
-    - device loading on return/master targets
     - routing/monitor edge-case handling across supported Live versions
 
 ### Target `v0.7.0`

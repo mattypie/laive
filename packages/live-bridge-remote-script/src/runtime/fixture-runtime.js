@@ -184,6 +184,14 @@ export class FixtureLiveRuntime extends EventEmitter {
       return this.setSendLevel(args, dryRun);
     }
 
+    if (target === "track.volume") {
+      return this.setTrackLevel(args, dryRun, "volume", 0, 1);
+    }
+
+    if (target === "track.panning") {
+      return this.setTrackLevel(args, dryRun, "panning", -1, 1);
+    }
+
     if (target === "track.monitoring_state") {
       return this.setMonitorState(args, dryRun);
     }
@@ -217,6 +225,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return { target, applied: !dryRun, is_playing: false };
       case "create_track":
         return this.createTrack(args, dryRun);
+      case "create_return_track":
+        return this.createReturnTrack(args, dryRun);
       case "create_scene":
         return this.createScene(args, dryRun);
       case "create_clip":
@@ -410,6 +420,36 @@ export class FixtureLiveRuntime extends EventEmitter {
     };
   }
 
+  setTrackLevel(args, dryRun, field, minimum, maximum) {
+    const track = this.findTrack(args.track_id);
+    const value = Number(args.value);
+    if (!Number.isFinite(value)) {
+      throw new Error(`${field} must be numeric`);
+    }
+    const nextValue = Math.min(maximum, Math.max(minimum, value));
+    if (!dryRun) {
+      track[field] = nextValue;
+      this.emit("event", {
+        topic: "tracks.changed",
+        payload: { action: "updated", track: clone(track) }
+      });
+    }
+    return {
+      applied: !dryRun,
+      track: clone(track),
+      parameter: {
+        id: `mixer:${track.id}:${field}`,
+        name: field === "volume" ? "Volume" : "Panning",
+        value: nextValue,
+        min: minimum,
+        max: maximum,
+        is_quantized: false,
+        value_items: [],
+        display_value: String(nextValue)
+      }
+    };
+  }
+
   setMonitorState(args, dryRun) {
     const track = this.findTrack(args.track_id);
     const monitoringState = Number(args.monitoring_state);
@@ -533,6 +573,65 @@ export class FixtureLiveRuntime extends EventEmitter {
       this.emit("event", {
         topic: "tracks.changed",
         payload: { action: "created", track }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      track
+    };
+  }
+
+  createReturnTrack(args, dryRun) {
+    const nextIndex = (this.state.return_tracks ?? []).length;
+    const track = {
+      id: `track:return:${nextIndex + 1}`,
+      index: nextIndex,
+      section: "return",
+      name: args.name ?? `${String.fromCharCode(65 + nextIndex)} Return`,
+      type: "audio",
+      color: args.color ?? 0,
+      arm: false,
+      mute: false,
+      solo: false,
+      monitoring_state: null,
+      monitoringState: null,
+      volume: 0.85,
+      panning: 0,
+      output_routing_type: { display_name: "Master", identifier: "master" },
+      outputRoutingType: { display_name: "Master", identifier: "master" },
+      output_routing_channel: { display_name: "Post Mixer", identifier: "post_mixer" },
+      outputRoutingChannel: { display_name: "Post Mixer", identifier: "post_mixer" },
+      available_output_routing_types: [{ display_name: "Master", identifier: "master" }],
+      availableOutputRoutingTypes: [{ display_name: "Master", identifier: "master" }],
+      available_output_routing_channels: [{ display_name: "Post Mixer", identifier: "post_mixer" }],
+      availableOutputRoutingChannels: [{ display_name: "Post Mixer", identifier: "post_mixer" }],
+      sends: [],
+      devices: [],
+      session_clips: []
+    };
+
+    if (!dryRun) {
+      this.state.return_tracks = [...(this.state.return_tracks ?? []), track];
+      for (const visibleTrack of this.state.tracks ?? []) {
+        const sendIndex = (visibleTrack.sends ?? []).length;
+        visibleTrack.sends = [
+          ...(visibleTrack.sends ?? []),
+          {
+            id: `${visibleTrack.id}:send:${sendIndex + 1}`,
+            name: `Send ${String.fromCharCode(65 + nextIndex)}`,
+            value: 0,
+            min: 0,
+            max: 1,
+            is_quantized: false,
+            value_items: [],
+            display_value: "0"
+          }
+        ];
+      }
+      this.emit("event", {
+        topic: "tracks.changed",
+        payload: { action: "created", track: clone(track) }
       });
     }
 

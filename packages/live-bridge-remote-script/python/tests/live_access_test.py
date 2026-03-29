@@ -487,6 +487,24 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["track"]["monitoring_state"], 2)
         self.assertEqual(song.tracks[0].current_monitoring_state, 2)
 
+    def test_set_track_volume_updates_mixer_parameter(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_track_volume("track:return:1", 0.65)
+
+        self.assertEqual(result["parameter"]["value"], 0.65)
+        self.assertEqual(song.return_tracks[0].mixer_device.volume.value, 0.65)
+
+    def test_set_track_panning_updates_mixer_parameter(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_track_panning("track:master", -0.25)
+
+        self.assertEqual(result["parameter"]["value"], -0.25)
+        self.assertEqual(song.master_track.mixer_device.panning.value, -0.25)
+
     def test_set_track_routing_matches_display_name(self):
         song = FakeSong()
         adapter = LiveSetAdapter(song)
@@ -993,3 +1011,25 @@ class MixerAndRoutingTests(unittest.TestCase):
             routing_result["track"]["output_routing_type"]["identifier"],
             "sends_only",
         )
+
+    def test_create_return_track_updates_song_state(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.create_return_track(name="C-Texture")
+
+        self.assertEqual(result["track"]["id"], "track:return:3")
+        self.assertEqual(result["track"]["name"], "C-Texture")
+        self.assertEqual(len(song.return_tracks), 3)
+        self.assertEqual(song.return_tracks[2].name, "C-Texture")
+        self.assertEqual(len(song.tracks[0].mixer_device.sends), 3)
+
+    def test_create_return_track_preview_preserves_existing_song(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.create_return_track(name="Preview Return", dry_run=True)
+
+        self.assertEqual(result["track"]["id"], "track:return:3")
+        self.assertEqual(result["track"]["name"], "Preview Return")
+        self.assertEqual(len(song.return_tracks), 2)

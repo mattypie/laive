@@ -57,6 +57,7 @@ class LiveSetAdapter(object):
             "set_transport": True,
             "select_track": True,
             "create_track": hasattr(self.song, "create_midi_track"),
+            "create_return_track": hasattr(self.song, "create_return_track"),
             "create_scene": hasattr(self.song, "create_scene"),
             "create_clip": True,
             "rename_clip": True,
@@ -71,6 +72,8 @@ class LiveSetAdapter(object):
             "stop_track_clips": True,
             "stop_all_clips": True,
             "set_parameter": True,
+            "set_track_volume": True,
+            "set_track_panning": True,
             "set_send_level": True,
             "set_monitor_state": True,
             "set_track_routing": True,
@@ -218,6 +221,30 @@ class LiveSetAdapter(object):
             "parameter": self._serialize_parameter(parameter, device_id, parameter_index),
         }
 
+    def set_track_volume(self, track_id, value, dry_run=False):
+        track, track_index, section = self._find_track(track_id)
+        parameter = self._track_mixer_parameter(track, "volume")
+        next_value = float(value)
+        if not dry_run:
+            parameter.value = next_value
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, track_index, section),
+            "parameter": serialize_parameter_state(parameter, "mixer:{0}:volume".format(track_id)),
+        }
+
+    def set_track_panning(self, track_id, value, dry_run=False):
+        track, track_index, section = self._find_track(track_id)
+        parameter = self._track_mixer_parameter(track, "panning")
+        next_value = float(value)
+        if not dry_run:
+            parameter.value = next_value
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, track_index, section),
+            "parameter": serialize_parameter_state(parameter, "mixer:{0}:panning".format(track_id)),
+        }
+
     def set_send_level(self, track_id, send_index, value, dry_run=False):
         track, track_index, section = self._find_track(track_id)
         mixer_device = getattr(track, "mixer_device", None)
@@ -307,6 +334,19 @@ class LiveSetAdapter(object):
             if name:
                 track.name = name
         return {"applied": not dry_run, "track": self._serialize_track(track, index, "visible")}
+
+    def create_return_track(self, name=None, dry_run=False):
+        index = len(getattr(self.song, "return_tracks", []))
+        if dry_run:
+            track = self.song.preview_return_track(index=index, name=name)
+        else:
+            if not hasattr(self.song, "create_return_track"):
+                raise RequestError("unsupported_runtime", "Return track creation is unavailable")
+            self.song.create_return_track()
+            track = self.song.return_tracks[index]
+            if name:
+                track.name = name
+        return {"applied": not dry_run, "track": self._serialize_track(track, index, "return")}
 
     def create_scene(self, name=None, dry_run=False):
         index = len(getattr(self.song, "scenes", []))
@@ -562,6 +602,16 @@ class LiveSetAdapter(object):
             parameter,
             getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index),
         )
+
+    def _track_mixer_parameter(self, track, parameter_name):
+        mixer_device = getattr(track, "mixer_device", None)
+        parameter = getattr(mixer_device, parameter_name, None)
+        if parameter is None:
+            raise RequestError(
+                "unsupported_runtime",
+                "Track mixer parameter is unavailable: {0}".format(parameter_name),
+            )
+        return parameter
 
     def _find_track(self, track_id):
         for section, index, track in self._iter_tracks():

@@ -233,10 +233,34 @@ class LaiveControlSurface(AbletonControlSurface):
             return self._live.set_tempo(arguments.get("value"), dry_run=dry_run)
         if isinstance(target, str) and target.startswith("parameter:"):
             return self._live.set_parameter(target, arguments.get("value"), dry_run=dry_run)
+        if target == "track.volume":
+            return self._live.set_track_volume(
+                arguments.get("track_id"),
+                arguments.get("value"),
+                dry_run=dry_run,
+            )
+        if target == "track.panning":
+            return self._live.set_track_panning(
+                arguments.get("track_id"),
+                arguments.get("value"),
+                dry_run=dry_run,
+            )
         if target == "track.send":
             return self._live.set_send_level(
                 arguments.get("track_id"),
                 arguments.get("send_index"),
+                arguments.get("value"),
+                dry_run=dry_run,
+            )
+        if target == "track.volume":
+            return self._live.set_track_volume(
+                arguments.get("track_id"),
+                arguments.get("value"),
+                dry_run=dry_run,
+            )
+        if target == "track.panning":
+            return self._live.set_track_panning(
+                arguments.get("track_id"),
                 arguments.get("value"),
                 dry_run=dry_run,
             )
@@ -268,8 +292,18 @@ class LaiveControlSurface(AbletonControlSurface):
                 name=arguments.get("name"),
                 dry_run=dry_run,
             )
+        if target == "create_return_track":
+            return self._live.create_return_track(
+                name=arguments.get("name"),
+                dry_run=dry_run,
+            )
         if target == "create_scene":
             return self._live.create_scene(arguments.get("name"), dry_run=dry_run)
+        if target == "create_return_track":
+            return self._live.create_return_track(
+                name=arguments.get("name"),
+                dry_run=dry_run,
+            )
         if target == "create_clip":
             return self._live.create_clip(
                 track_id=arguments.get("track_id"),

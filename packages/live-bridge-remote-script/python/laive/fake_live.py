@@ -399,6 +399,23 @@ class FakeSong(ListenerMixin):
         self.tracks.insert(index, track)
         self._notify("tracks")
 
+    def create_return_track(self):
+        index = len(self.return_tracks)
+        name = "{0} Return".format(chr(ord("A") + index))
+        track = FakeTrack(name, section="return", sends=[])
+        track.clip_slots = []
+        track.devices = [FakeDevice(track.name, [FakeParameter("Dry/Wet", 0.5)])]
+        track.mixer_device = FakeMixerDevice(sends=[])
+        track.output_routing_type = {"display_name": "Master", "identifier": "master"}
+        track.bind_song(self)
+        self.return_tracks.append(track)
+
+        send_name = "Send {0}".format(chr(ord("A") + index))
+        for visible_track in self.tracks:
+            visible_track.mixer_device.sends.append(FakeParameter(send_name, 0.0))
+
+        self._notify("tracks")
+
     def create_scene(self, index):
         scene = FakeScene("Scene {0}".format(index + 1))
         self.scenes.insert(index, scene)
@@ -409,6 +426,14 @@ class FakeSong(ListenerMixin):
 
     def preview_track(self, index, name=None):
         track = FakeTrack(name or "Track {0}".format(index + 1))
+        return track
+
+    def preview_return_track(self, index, name=None):
+        track = FakeTrack(name or "{0} Return".format(chr(ord("A") + index)), section="return", sends=[])
+        track.clip_slots = []
+        track.devices = [FakeDevice(track.name, [FakeParameter("Dry/Wet", 0.5)])]
+        track.mixer_device = FakeMixerDevice(sends=[])
+        track.output_routing_type = {"display_name": "Master", "identifier": "master"}
         return track
 
     def preview_scene(self, index, name=None):
