@@ -49,6 +49,60 @@ function normalizeDevice(device) {
   };
 }
 
+function normalizeAlias(value) {
+  return String(value ?? "").trim();
+}
+
+function buildLookupAliases(...values) {
+  const aliases = new Set();
+  for (const value of values) {
+    let current = normalizeAlias(value);
+    while (current) {
+      aliases.add(current);
+      const trimmed = current.replace(/^[A-Za-z][-\s]/, "").trim();
+      if (trimmed === current) {
+        break;
+      }
+      current = trimmed;
+    }
+  }
+  return [...aliases];
+}
+
+function normalizeRoutingChoice(choice) {
+  if (!choice) {
+    return choice;
+  }
+  const displayName = choice.display_name ?? choice.displayName ?? null;
+  const identifier = choice.identifier ?? null;
+  return {
+    ...choice,
+    display_name: displayName,
+    displayName,
+    identifier,
+    aliases: buildLookupAliases(displayName, identifier)
+  };
+}
+
+function normalizeSend(send, index) {
+  const name = send.name ?? `Send ${String.fromCharCode(65 + index)}`;
+  const match = String(name).match(/^([A-Za-z])[-\s](.+)$/);
+  const sendLetter = match?.[1] ?? null;
+  const shortName = match?.[2]?.trim() ?? null;
+  return {
+    ...send,
+    index: Number.isInteger(send.index) ? send.index : index,
+    name,
+    sendLetter,
+    shortName,
+    aliases: buildLookupAliases(name, shortName, sendLetter, `Send ${sendLetter ?? ""}`.trim()),
+    is_quantized: send.is_quantized ?? send.isQuantized ?? false,
+    isQuantized: send.is_quantized ?? send.isQuantized ?? false,
+    display_value: send.display_value ?? send.displayValue ?? null,
+    displayValue: send.display_value ?? send.displayValue ?? null
+  };
+}
+
 function normalizeClip(trackId, clip) {
   const noteCount = clip.note_count ?? clip.noteCount ?? clip.notes?.length ?? null;
   return {
@@ -64,13 +118,15 @@ function normalizeTrack(track) {
   const armed = track.armed ?? track.arm ?? false;
   const muted = track.muted ?? track.mute ?? false;
   const soloed = track.soloed ?? track.solo ?? false;
-  const sends = (track.sends ?? []).map((send) => ({
-    ...send,
-    is_quantized: send.is_quantized ?? send.isQuantized ?? false,
-    isQuantized: send.is_quantized ?? send.isQuantized ?? false,
-    display_value: send.display_value ?? send.displayValue ?? null,
-    displayValue: send.display_value ?? send.displayValue ?? null
-  }));
+  const sends = (track.sends ?? []).map((send, index) => normalizeSend(send, index));
+  const availableInputRoutingTypes =
+    track.availableInputRoutingTypes ?? track.available_input_routing_types ?? null;
+  const availableInputRoutingChannels =
+    track.availableInputRoutingChannels ?? track.available_input_routing_channels ?? null;
+  const availableOutputRoutingTypes =
+    track.availableOutputRoutingTypes ?? track.available_output_routing_types ?? null;
+  const availableOutputRoutingChannels =
+    track.availableOutputRoutingChannels ?? track.available_output_routing_channels ?? null;
   return {
     ...track,
     section: track.section ?? "visible",
@@ -92,22 +148,20 @@ function normalizeTrack(track) {
     outputRoutingType: track.outputRoutingType ?? track.output_routing_type ?? null,
     output_routing_channel: track.output_routing_channel ?? track.outputRoutingChannel ?? null,
     outputRoutingChannel: track.outputRoutingChannel ?? track.output_routing_channel ?? null,
-    available_input_routing_types:
-      track.available_input_routing_types ?? track.availableInputRoutingTypes ?? null,
-    availableInputRoutingTypes:
-      track.availableInputRoutingTypes ?? track.available_input_routing_types ?? null,
-    available_input_routing_channels:
-      track.available_input_routing_channels ?? track.availableInputRoutingChannels ?? null,
-    availableInputRoutingChannels:
-      track.availableInputRoutingChannels ?? track.available_input_routing_channels ?? null,
-    available_output_routing_types:
-      track.available_output_routing_types ?? track.availableOutputRoutingTypes ?? null,
-    availableOutputRoutingTypes:
-      track.availableOutputRoutingTypes ?? track.available_output_routing_types ?? null,
-    available_output_routing_channels:
-      track.available_output_routing_channels ?? track.availableOutputRoutingChannels ?? null,
-    availableOutputRoutingChannels:
-      track.availableOutputRoutingChannels ?? track.available_output_routing_channels ?? null,
+    available_input_routing_types: availableInputRoutingTypes,
+    availableInputRoutingTypes: (availableInputRoutingTypes ?? []).map(normalizeRoutingChoice),
+    available_input_routing_channels: availableInputRoutingChannels,
+    availableInputRoutingChannels: (availableInputRoutingChannels ?? []).map(normalizeRoutingChoice),
+    available_output_routing_types: availableOutputRoutingTypes,
+    availableOutputRoutingTypes: (availableOutputRoutingTypes ?? []).map(normalizeRoutingChoice),
+    available_output_routing_channels: availableOutputRoutingChannels,
+    availableOutputRoutingChannels: (availableOutputRoutingChannels ?? []).map(normalizeRoutingChoice),
+    availableRouting: {
+      inputTypes: (availableInputRoutingTypes ?? []).map(normalizeRoutingChoice),
+      inputChannels: (availableInputRoutingChannels ?? []).map(normalizeRoutingChoice),
+      outputTypes: (availableOutputRoutingTypes ?? []).map(normalizeRoutingChoice),
+      outputChannels: (availableOutputRoutingChannels ?? []).map(normalizeRoutingChoice)
+    },
     sends,
     devices: (track.devices ?? []).map(normalizeDevice),
     session_clips: (track.session_clips ?? []).map((clip) => normalizeClip(track.id, clip)),

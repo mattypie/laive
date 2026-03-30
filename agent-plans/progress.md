@@ -4,7 +4,7 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.6.0` mixer and routing coverage, now validated locally against a real Live session for both the original and newly added mixer controls; remaining work is primarily the published-path validation and any final release hardening
+- Active phase: `v0.6.0` mixer and routing coverage, now validated locally against a real Live session for the original mixer surface, the newer creation/level controls, and the alias/discovery hardening pass; remaining work is primarily the published-path validation and any final release hardening
 
 ## Versioned Roadmap
 
@@ -15,6 +15,7 @@
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
+| `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |
 
 ## Phase Status
 
@@ -131,3 +132,5 @@
 - Recorded two runtime hardening follow-ups from that validation: Live prefixes named return tracks with the send-letter prefix (for example `C-Texture` becomes `C-C-Texture`), and real Live does not provide the fake-runtime `preview_*` helpers currently used by several dry-run create actions.
 - Landed the first hardening fix from that validation by replacing `preview_*` assumptions in create-style dry-run bridge actions with bridge-local preview objects, so dry-run create calls now behave consistently on the real Live runtime instead of only in fixtures.
 - Landed the second hardening fix from that validation by normalizing return-track names against Live's automatic send-letter prefix and by making MCP name matching tolerant of prefixed return/send labels such as `A-Reverb`, `C-C-Texture`, and their de-prefixed aliases.
+- Landed a follow-up `v0.6.0` hardening pass in the MCP layer so send names and routing labels resolve through alias-aware lookup against the current Live-advertised choices, while track readback now carries clearer send/routing discovery metadata for agents.
+- Split broader UX cleanup into a dedicated future ergonomics slice so `v0.6.0` can stay focused on mixer/routing reliability instead of expanding into unrelated workflow polish.

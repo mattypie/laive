@@ -73,6 +73,28 @@ function expandLookupAliases(name) {
   return [...aliases];
 }
 
+function candidateLookupAliases(candidate) {
+  const aliases = new Set();
+  for (const value of [
+    candidate?.name,
+    candidate?.displayName,
+    candidate?.display_name,
+    candidate?.identifier,
+    candidate?.shortName,
+    candidate?.sendLetter
+  ]) {
+    for (const alias of expandLookupAliases(value)) {
+      aliases.add(alias);
+    }
+  }
+  for (const value of candidate?.aliases ?? []) {
+    for (const alias of expandLookupAliases(value)) {
+      aliases.add(alias);
+    }
+  }
+  return [...aliases];
+}
+
 function pickUniqueMatch(candidates, requested, label) {
   const normalizedRequested = normalizeLookup(requested);
   if (!normalizedRequested) {
@@ -80,7 +102,7 @@ function pickUniqueMatch(candidates, requested, label) {
   }
 
   const exactMatches = candidates.filter((candidate) =>
-    expandLookupAliases(candidate.name).includes(normalizedRequested)
+    candidateLookupAliases(candidate).includes(normalizedRequested)
   );
   if (exactMatches.length === 1) {
     return exactMatches[0];
@@ -93,7 +115,7 @@ function pickUniqueMatch(candidates, requested, label) {
   }
 
   const partialMatches = candidates.filter((candidate) =>
-    expandLookupAliases(candidate.name).some((alias) => alias.includes(normalizedRequested))
+    candidateLookupAliases(candidate).some((alias) => alias.includes(normalizedRequested))
   );
   if (partialMatches.length === 1) {
     return partialMatches[0];
@@ -106,6 +128,25 @@ function pickUniqueMatch(candidates, requested, label) {
   }
 
   throw new McpServerError("not_found", `${label} not found for name: ${requested}`);
+}
+
+function resolveRoutingChoice(trackDetails, collectionKey, requestedValue, label) {
+  if (requestedValue === undefined || requestedValue === null) {
+    return requestedValue;
+  }
+  const choices = trackDetails?.track?.[collectionKey] ?? [];
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return requestedValue;
+  }
+  const match = pickUniqueMatch(
+    choices.map((choice) => ({
+      ...choice,
+      name: choice.displayName ?? choice.display_name ?? choice.identifier ?? label
+    })),
+    requestedValue,
+    label
+  );
+  return match.identifier ?? match.displayName ?? match.display_name ?? requestedValue;
 }
 
 function requireConfirmation(args, toolName) {
@@ -1529,15 +1570,36 @@ export function buildDefaultTools({
         }
 
         const track = resolveTrackCandidate(await listMixerTracks(stateAdapter), args);
+        const details = await stateAdapter.getTrackDetails(track.id);
         await policyAdapter.assertAllowed("set_track_routing", args);
         const before = await stateAdapter.getProjectSummary();
         await bridgeAdapter.setTrackRouting(
           {
             trackId: track.id,
-            inputRoutingType: args.inputRoutingType,
-            inputRoutingChannel: args.inputRoutingChannel,
-            outputRoutingType: args.outputRoutingType,
-            outputRoutingChannel: args.outputRoutingChannel,
+            inputRoutingType: resolveRoutingChoice(
+              details,
+              "availableInputRoutingTypes",
+              args.inputRoutingType,
+              "Input routing type"
+            ),
+            inputRoutingChannel: resolveRoutingChoice(
+              details,
+              "availableInputRoutingChannels",
+              args.inputRoutingChannel,
+              "Input routing channel"
+            ),
+            outputRoutingType: resolveRoutingChoice(
+              details,
+              "availableOutputRoutingTypes",
+              args.outputRoutingType,
+              "Output routing type"
+            ),
+            outputRoutingChannel: resolveRoutingChoice(
+              details,
+              "availableOutputRoutingChannels",
+              args.outputRoutingChannel,
+              "Output routing channel"
+            ),
             dryRun: Boolean(args.dryRun)
           },
           { dryRun: Boolean(args.dryRun) }

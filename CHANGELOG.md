@@ -15,6 +15,9 @@
 - documented two remaining `v0.6.0` hardening gaps from real validation: Live prefixes named returns with the send-letter label, and the dry-run create paths still assume fake-runtime `preview_*` helpers that do not exist in the real Live Python runtime
 - fixed the dry-run create hardening gap by replacing the fake-runtime `preview_*` dependency with bridge-local preview objects for track, return-track, scene, and clip creation
 - fixed the return-track naming hardening gap by stripping redundant send-letter prefixes before naming new returns and by making MCP track-name matching tolerant of prefixed return/send labels and their de-prefixed aliases
+- hardened mixer writes further by resolving send names and routing labels through alias-aware lookup against the currently advertised Live choices instead of requiring exact machine-specific labels
+- enriched track readback with clearer send and routing discovery metadata so agents can inspect available mixer targets before writing
+- added an explicit future ergonomics slice to the roadmap so broader UX cleanup does not expand the focused `v0.6.0` mixer/routing release
 
 ## v0.5.1 - 2026-03-28
 

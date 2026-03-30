@@ -79,9 +79,13 @@ These are the current planned work units for the next product slices. They are i
     - return-track creation
     - track volume and panning writes across visible, return, and master targets
     - name-based `set_parameter` resolution across return/master devices
+  - landed in the hardening pass:
+    - alias-aware send targeting and routing-choice resolution in the MCP surface
+    - clearer track readback for available send and routing targets
+    - resilience improvements for machine-specific Live/audio-I/O labels by resolving writes against the currently advertised choices
   - remaining before the slice is fully closed:
     - real-session validation against published `npx laive-mcp`
-    - routing/monitor edge-case handling across supported Live versions
+    - any final routing/monitor edge-case handling across supported Live versions
 
 ### Target `v0.7.0`
 
@@ -107,3 +111,10 @@ These are the current planned work units for the next product slices. They are i
   - investigate existing open-source candidates such as [SheetVision](https://github.com/cal-pratt/SheetVision) and [Werckmeister](https://github.com/werckme/werckmeister)
   - prototype a workflow that turns reliable score input into MIDI clips the bridge can place in Live
   - define validation cases focused on melodic correctness, since direct agent transcription from sheet music has been unreliable so far
+
+### Target `v1.0.0`
+
+- overall ergonomics pass:
+  - generic agent ergonomics
+  - unrelated editing workflows that should not expand `v0.6.0`
+  - bigger abstractions that belong after the Arrangement / envelopes slices land

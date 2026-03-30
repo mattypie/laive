@@ -6,6 +6,8 @@ function createServer(options = {}) {
   let stateVersion = 3;
   let selectedTrackId = "track:1";
   let activeSidecarTrackId = options.activeSidecarTrackId ?? null;
+  let lastSendLevelPayload = null;
+  let lastTrackRoutingPayload = null;
   const browserSidecarItem = options.browserSidecarItem ?? null;
 
   const stateAdapter = {
@@ -109,7 +111,23 @@ function createServer(options = {}) {
           inputRoutingType: { display_name: "All Ins", identifier: "all_ins" },
           inputRoutingChannel: { display_name: "All Channels", identifier: "all_channels" },
           outputRoutingType: { display_name: "Master", identifier: "master" },
-          outputRoutingChannel: { display_name: "Post Mixer", identifier: "post_mixer" }
+          outputRoutingChannel: { display_name: "Post Mixer", identifier: "post_mixer" },
+          availableInputRoutingTypes: [
+            { display_name: "All Ins", identifier: "all_ins" },
+            { display_name: "No Input", identifier: "no_input" }
+          ],
+          availableInputRoutingChannels: [
+            { display_name: "All Channels", identifier: "all_channels" },
+            { display_name: "Ch. 1", identifier: "ch_1" }
+          ],
+          availableOutputRoutingTypes: [
+            { display_name: "Master", identifier: "master" },
+            { display_name: "Sends Only", identifier: "sends_only" }
+          ],
+          availableOutputRoutingChannels: [
+            { display_name: "Post Mixer", identifier: "post_mixer" },
+            { display_name: "1/2", identifier: "1_2" }
+          ]
         },
         sessionClips: trackId.startsWith("track:return") || trackId.startsWith("track:master")
           ? []
@@ -318,12 +336,14 @@ function createServer(options = {}) {
       return payload;
     },
     async setSendLevel(payload) {
+      lastSendLevelPayload = payload;
       return { payload, affectedObjects: [payload.trackId] };
     },
     async setMonitorState(payload) {
       return { payload, affectedObjects: [payload.trackId] };
     },
     async setTrackRouting(payload) {
+      lastTrackRoutingPayload = payload;
       return { payload, affectedObjects: [payload.trackId] };
     },
     async getBrowserTree() {
@@ -544,13 +564,18 @@ function createServer(options = {}) {
     }
   };
 
-  return new LaiveMcpServer({
+  const server = new LaiveMcpServer({
     stateAdapter,
     bridgeAdapter,
     policyAdapter,
     sidecarAdapter,
     uiAutomationAdapter
   });
+  server.__test = {
+    getLastSendLevelPayload: () => lastSendLevelPayload,
+    getLastTrackRoutingPayload: () => lastTrackRoutingPayload
+  };
+  return server;
 }
 
 test("tools/list returns registered tools", async () => {
@@ -752,6 +777,44 @@ test("mixer and routing tools expose return or master track access and mutations
   assert.equal(setMonitor.result.structuredContent.summary, "Monitor state updated for Drums.");
   assert.equal(setRouting.result.isError, false);
   assert.equal(setRouting.result.structuredContent.summary, "Routing updated for Drums.");
+});
+
+test("mixer tools resolve send and routing aliases before writing", async () => {
+  const server = createServer();
+
+  const sendLevel = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 36,
+    method: "tools/call",
+    params: {
+      name: "set_send_level",
+      arguments: {
+        trackId: "track:1",
+        sendName: "A",
+        value: 0.6
+      }
+    }
+  });
+
+  const routing = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 37,
+    method: "tools/call",
+    params: {
+      name: "set_track_routing",
+      arguments: {
+        trackId: "track:1",
+        outputRoutingType: "sends only",
+        outputRoutingChannel: "1/2"
+      }
+    }
+  });
+
+  assert.equal(sendLevel.result.isError, false);
+  assert.equal(server.__test.getLastSendLevelPayload().sendIndex, 0);
+  assert.equal(routing.result.isError, false);
+  assert.equal(server.__test.getLastTrackRoutingPayload().outputRoutingType, "sends_only");
+  assert.equal(server.__test.getLastTrackRoutingPayload().outputRoutingChannel, "1_2");
 });
 
 test("browser load tool can target return and master tracks", async () => {
