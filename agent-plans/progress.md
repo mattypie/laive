@@ -4,14 +4,14 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.6.0` mixer and routing coverage, now validated locally against a real Live session for both the original and newly added mixer controls; remaining work is published-path validation plus runtime hardening around return-track naming and non-portable create-tool dry-run previews
+- Active phase: `v0.6.0` mixer and routing coverage, now validated locally against a real Live session for both the original and newly added mixer controls; remaining work is primarily the published-path validation and any final release hardening
 
 ## Versioned Roadmap
 
 | Target version | Planned work unit | Scope |
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
-| `v0.6.0` | Mixer and routing | In progress: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, and return/master-aware parameter targeting have all been validated locally; remaining work is published-path validation plus hardening around return-track naming and dry-run behavior on the real Live runtime |
+| `v0.6.0` | Mixer and routing | In progress: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, and return/master-aware parameter targeting have all been validated locally; remaining work is published-path validation plus any final release hardening |
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
@@ -130,3 +130,4 @@
 - Validated the newly added `v0.6.0` mixer controls against a real Live session through MCP: `create_return_track`, `set_track_volume`, `set_track_panning`, send writes against the newly created return, and master-target name-based `set_parameter` all succeeded.
 - Recorded two runtime hardening follow-ups from that validation: Live prefixes named return tracks with the send-letter prefix (for example `C-Texture` becomes `C-C-Texture`), and real Live does not provide the fake-runtime `preview_*` helpers currently used by several dry-run create actions.
 - Landed the first hardening fix from that validation by replacing `preview_*` assumptions in create-style dry-run bridge actions with bridge-local preview objects, so dry-run create calls now behave consistently on the real Live runtime instead of only in fixtures.
+- Landed the second hardening fix from that validation by normalizing return-track names against Live's automatic send-letter prefix and by making MCP name matching tolerant of prefixed return/send labels such as `A-Reverb`, `C-C-Texture`, and their de-prefixed aliases.

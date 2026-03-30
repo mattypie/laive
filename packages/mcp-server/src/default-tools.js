@@ -59,13 +59,29 @@ function normalizeLookup(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function expandLookupAliases(name) {
+  const aliases = new Set();
+  let current = String(name ?? "").trim();
+  while (current) {
+    aliases.add(normalizeLookup(current));
+    const trimmed = current.replace(/^[A-Za-z][-\s]/, "");
+    if (trimmed === current) {
+      break;
+    }
+    current = trimmed.trim();
+  }
+  return [...aliases];
+}
+
 function pickUniqueMatch(candidates, requested, label) {
   const normalizedRequested = normalizeLookup(requested);
   if (!normalizedRequested) {
     return null;
   }
 
-  const exactMatches = candidates.filter((candidate) => normalizeLookup(candidate.name) === normalizedRequested);
+  const exactMatches = candidates.filter((candidate) =>
+    expandLookupAliases(candidate.name).includes(normalizedRequested)
+  );
   if (exactMatches.length === 1) {
     return exactMatches[0];
   }
@@ -77,7 +93,7 @@ function pickUniqueMatch(candidates, requested, label) {
   }
 
   const partialMatches = candidates.filter((candidate) =>
-    normalizeLookup(candidate.name).includes(normalizedRequested)
+    expandLookupAliases(candidate.name).some((alias) => alias.includes(normalizedRequested))
   );
   if (partialMatches.length === 1) {
     return partialMatches[0];

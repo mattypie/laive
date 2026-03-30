@@ -353,7 +353,7 @@ class LiveSetAdapter(object):
             self.song.create_return_track()
             track = self.song.return_tracks[index]
             if name:
-                track.name = name
+                track.name = self._normalize_return_track_name(name, index)
         return {"applied": not dry_run, "track": self._serialize_track(track, index, "return")}
 
     def create_scene(self, name=None, dry_run=False):
@@ -784,6 +784,17 @@ class LiveSetAdapter(object):
         preview.clip_slots = []
         preview.devices = []
         return preview
+
+    def _normalize_return_track_name(self, name, index):
+        if name is None:
+            return None
+        normalized_name = str(name).strip()
+        if not normalized_name:
+            return normalized_name
+        prefix = "{0}-".format(chr(ord("A") + index))
+        while normalized_name.startswith(prefix):
+            normalized_name = normalized_name[len(prefix) :]
+        return normalized_name or str(name).strip()
 
     def _preview_scene(self, index, name=None):
         preview = type("PreviewScene", (), {})()

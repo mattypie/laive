@@ -1019,10 +1019,19 @@ class MixerAndRoutingTests(unittest.TestCase):
         result = adapter.create_return_track(name="C-Texture")
 
         self.assertEqual(result["track"]["id"], "track:return:3")
-        self.assertEqual(result["track"]["name"], "C-Texture")
+        self.assertEqual(result["track"]["name"], "Texture")
         self.assertEqual(len(song.return_tracks), 3)
-        self.assertEqual(song.return_tracks[2].name, "C-Texture")
+        self.assertEqual(song.return_tracks[2].name, "Texture")
         self.assertEqual(len(song.tracks[0].mixer_device.sends), 3)
+
+    def test_create_return_track_strips_redundant_send_letter_prefix(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.create_return_track(name="C-C-Texture")
+
+        self.assertEqual(result["track"]["name"], "Texture")
+        self.assertEqual(song.return_tracks[2].name, "Texture")
 
     def test_create_return_track_preview_preserves_existing_song(self):
         song = FakeSong()

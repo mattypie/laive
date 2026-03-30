@@ -31,9 +31,7 @@ function createServer(options = {}) {
     async listTracks() {
       return [
         { id: "track:1", name: "Drums", section: "visible", stateVersion },
-        { id: "track:2", name: "Bass", section: "visible", stateVersion },
-        { id: "track:return:1", name: "A Reverb", section: "return", stateVersion },
-        { id: "track:master", name: "Master", section: "master", stateVersion }
+        { id: "track:2", name: "Bass", section: "visible", stateVersion }
       ];
     },
     async listReturnTracks() {
@@ -159,7 +157,24 @@ function createServer(options = {}) {
                 {
                   id: "device:track:return:1:1",
                   name: "Hybrid Reverb",
-                  parameters: []
+                  parameters: [
+                    {
+                      id: "parameter:device:track:return:1:1:1",
+                      name: "Device On",
+                      value: 1,
+                      min: 0,
+                      max: 1,
+                      isQuantized: true,
+                      allowedValues: [
+                        { value: 0, label: "Off" },
+                        { value: 1, label: "On" }
+                      ],
+                      enumLabels: {
+                        "0": "Off",
+                        "1": "On"
+                      }
+                    }
+                  ]
                 }
               ]
           : [],
@@ -1205,6 +1220,31 @@ test("set_parameter can resolve by names and enum label", async () => {
   assert.equal(
     response.result.structuredContent.summary,
     "Parameter Algorithm updated to Algorithm 3."
+  );
+});
+
+test("set_parameter can resolve return tracks by de-prefixed name aliases", async () => {
+  const server = createServer();
+
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 271,
+    method: "tools/call",
+    params: {
+      name: "set_parameter",
+      arguments: {
+        trackName: "Reverb",
+        deviceName: "Hybrid Reverb",
+        parameterName: "Device On",
+        valueLabel: "On"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Parameter Device On updated to On."
   );
 });
 
