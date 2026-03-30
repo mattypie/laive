@@ -20,6 +20,7 @@ import {
   normalizeTrackBundle
 } from "./normalize.js";
 import {
+  getArrangementTrackDetails,
   findTrack,
   getArrangementSummary,
   getSelectedContext,
@@ -558,6 +559,7 @@ export function createStateEngine(initialState = createInitialState()) {
     query: {
       summarizeProject: () => summarizeProject(currentState),
       getArrangementSummary: () => getArrangementSummary(currentState),
+      getArrangementTrackDetails: (trackId) => getArrangementTrackDetails(currentState, trackId),
       getSelectedContext: () => getSelectedContext(currentState),
       findTrack: (query) => findTrack(currentState, query),
       getTrackDetails: (trackId) => getTrackDetails(currentState, trackId),
