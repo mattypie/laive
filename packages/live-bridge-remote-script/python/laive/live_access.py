@@ -33,6 +33,10 @@ def _clip_id(track_id, slot_index):
     return "clip:session:{0}:slot:{1}".format(track_id, slot_index + 1)
 
 
+def _arrangement_clip_id(track_id, arrangement_index):
+    return "clip:arrangement:{0}:index:{1}".format(track_id, arrangement_index + 1)
+
+
 def _device_id(track_id, device_index):
     return "device:{0}:{1}".format(track_id, device_index + 1)
 
@@ -54,7 +58,10 @@ class LiveSetAdapter(object):
     def capabilities(self):
         return {
             "read_state": True,
+            "read_arrangement": True,
             "set_transport": True,
+            "set_arrangement_state": True,
+            "set_arrangement_transport": True,
             "select_track": True,
             "create_track": hasattr(self.song, "create_midi_track"),
             "create_return_track": hasattr(self.song, "create_return_track"),
@@ -85,21 +92,11 @@ class LiveSetAdapter(object):
     def get_song_state(self):
         return serialize_song_state(self.song)
 
+    def get_arrangement_state(self):
+        return serialize_song_state(self.song)
+
     def get_tracks(self):
         return [self._serialize_track(track, index, section) for section, index, track in self._iter_tracks()]
-
-    def get_return_tracks(self):
-        return [
-            self._serialize_track(track, index, "return")
-            for section, index, track in self._iter_tracks()
-            if section == "return"
-        ]
-
-    def get_master_track(self):
-        track = getattr(self.song, "master_track", None)
-        if track is None:
-            raise RequestError("not_found", "Master track not found")
-        return self._serialize_track(track, 0, "master")
 
     def get_return_tracks(self):
         return [
@@ -122,6 +119,9 @@ class LiveSetAdapter(object):
         return self._serialize_track(track, index, section)
 
     def get_clip(self, clip_id):
+        if isinstance(clip_id, str) and clip_id.startswith("clip:arrangement:"):
+            clip, track_id, arrangement_index = self._find_arrangement_clip(clip_id)
+            return self._serialize_arrangement_clip(clip, track_id, arrangement_index)
         clip, track_id, slot_index = self._find_clip(clip_id)
         return self._serialize_clip(clip, track_id, slot_index)
 
@@ -209,6 +209,66 @@ class LiveSetAdapter(object):
         if not dry_run:
             self.song.tempo = tempo
         return {"target": "song.tempo", "applied": not dry_run, "value": tempo}
+
+    def set_arrangement_state(
+        self,
+        current_song_time=None,
+        arrangement_position_beats=None,
+        loop_enabled=None,
+        loop_start_beats=None,
+        loop_length_beats=None,
+        dry_run=False,
+    ):
+        if (
+            current_song_time is None
+            and arrangement_position_beats is None
+            and loop_enabled is None
+            and loop_start_beats is None
+            and loop_length_beats is None
+        ):
+            raise RequestError(
+                "invalid_argument",
+                "At least one arrangement transport or loop field is required",
+            )
+
+        if loop_length_beats is not None and float(loop_length_beats) <= 0:
+            raise RequestError("invalid_argument", "loop_length_beats must be positive")
+
+        if not dry_run:
+            position_beats = current_song_time if current_song_time is not None else arrangement_position_beats
+            if position_beats is not None:
+                self._set_song_arrangement_position(float(position_beats))
+            if loop_enabled is not None:
+                self._set_song_attribute("loop", bool(loop_enabled))
+            if loop_start_beats is not None:
+                self._set_song_attribute("loop_start", float(loop_start_beats))
+            if loop_length_beats is not None:
+                self._set_song_attribute("loop_length", float(loop_length_beats))
+
+        song_state = self.get_song_state()
+        if dry_run:
+            position_beats = current_song_time if current_song_time is not None else arrangement_position_beats
+            if position_beats is not None:
+                song_state["current_song_time"] = float(position_beats)
+                song_state["currentSongTime"] = float(position_beats)
+                song_state["arrangement_position_beats"] = float(position_beats)
+                song_state["arrangementPositionBeats"] = float(position_beats)
+            if loop_enabled is not None:
+                song_state["loop_enabled"] = bool(loop_enabled)
+                song_state["loopEnabled"] = bool(loop_enabled)
+            if loop_start_beats is not None:
+                song_state["loop_start_beats"] = float(loop_start_beats)
+                song_state["loopStartBeats"] = float(loop_start_beats)
+            if loop_length_beats is not None:
+                song_state["loop_length_beats"] = float(loop_length_beats)
+                song_state["loopLengthBeats"] = float(loop_length_beats)
+            song_state["loop"] = {
+                "enabled": song_state.get("loop_enabled", song_state.get("loopEnabled", False)),
+                "start_beats": song_state.get("loop_start_beats", song_state.get("loopStartBeats")),
+                "length_beats": song_state.get("loop_length_beats", song_state.get("loopLengthBeats")),
+            }
+
+        return {"target": "song.arrangement", "applied": not dry_run, "song": song_state}
 
     def set_parameter(self, parameter_id, value, dry_run=False):
         parameter, device_id, parameter_index = self._find_parameter(parameter_id)
@@ -572,17 +632,31 @@ class LiveSetAdapter(object):
     def _serialize_track(self, track, index, section="visible"):
         track_id = getattr(track, "id", None) or _track_id(index, section)
         clip_slots = getattr(track, "clip_slots", [])
+        arrangement_clips = list(getattr(track, "arrangement_clips", []) or [])
         devices = getattr(track, "devices", [])
         session_clips = [
             self._serialize_clip(slot.clip, track_id, slot_index)
             for slot_index, slot in enumerate(clip_slots)
             if getattr(slot, "has_clip", False)
         ]
+        serialized_arrangement_clips = [
+            self._serialize_arrangement_clip(clip, track_id, arrangement_index)
+            for arrangement_index, clip in enumerate(arrangement_clips)
+            if clip is not None
+        ]
         serialized_devices = [
             self._serialize_device(device, track_id, device_index)
             for device_index, device in enumerate(devices)
         ]
-        return serialize_track_state(track, index, track_id, session_clips, serialized_devices, section=section)
+        return serialize_track_state(
+            track,
+            index,
+            track_id,
+            session_clips,
+            serialized_arrangement_clips,
+            serialized_devices,
+            section=section,
+        )
 
     def _iter_tracks(self):
         for index, track in enumerate(getattr(self.song, "tracks", [])):
@@ -605,6 +679,17 @@ class LiveSetAdapter(object):
             self._clip_notes.serialize_notes(clip),
         )
 
+    def _serialize_arrangement_clip(self, clip, track_id, arrangement_index):
+        return serialize_clip_state(
+            clip,
+            getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index),
+            track_id,
+            None,
+            self._clip_notes.serialize_notes(clip),
+            location="arrangement",
+            arrangement_index=arrangement_index,
+        )
+
     def _serialize_device(self, device, track_id, device_index):
         device_id = getattr(device, "id", None) or _device_id(track_id, device_index)
         parameters = [
@@ -618,6 +703,20 @@ class LiveSetAdapter(object):
             parameter,
             getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index),
         )
+
+    def _set_song_arrangement_position(self, value):
+        if hasattr(self.song, "current_song_time"):
+            self.song.current_song_time = value
+            return
+        if hasattr(self.song, "arrangement_position_beats"):
+            self.song.arrangement_position_beats = value
+            return
+        raise RequestError("unsupported_runtime", "Song arrangement position is unavailable")
+
+    def _set_song_attribute(self, name, value):
+        if not hasattr(self.song, name):
+            raise RequestError("unsupported_runtime", "Song {0} is unavailable".format(name))
+        setattr(self.song, name, value)
 
     def _track_mixer_parameter(self, track, parameter_name):
         mixer_device = getattr(track, "mixer_device", None)
@@ -707,6 +806,15 @@ class LiveSetAdapter(object):
                 if candidate == clip_id:
                     return current_clip, track_id, slot_index
         raise RequestError("not_found", "Clip not found: {0}".format(clip_id))
+
+    def _find_arrangement_clip(self, clip_id):
+        for track_index, track in enumerate(getattr(self.song, "tracks", [])):
+            track_id = getattr(track, "id", None) or _track_id(track_index)
+            for arrangement_index, clip in enumerate(getattr(track, "arrangement_clips", []) or []):
+                candidate = getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index)
+                if candidate == clip_id:
+                    return clip, track_id, arrangement_index
+        raise RequestError("not_found", "Arrangement clip not found: {0}".format(clip_id))
 
     def _find_clip_slot_by_id(self, clip_id):
         for track_index, track in enumerate(getattr(self.song, "tracks", [])):

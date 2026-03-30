@@ -131,6 +131,8 @@ class FakeClip(object):
         self.looping = True
         self.loop_start = 0.0
         self.loop_end = length
+        self.start_time = 0.0
+        self.end_time = float(length)
         self.is_playing = False
         self.notes = []
         self.last_add_new_notes_payload = None
@@ -260,6 +262,7 @@ class FakeTrack(ListenerMixin):
         self._playing_slot_index = -1
         self._fired_slot_index = -1
         self.clip_slots = [FakeClipSlot(self, index) for index in range(4)]
+        self.arrangement_clips = []
         self.devices = [FakeDevice("Instrument", [FakeParameter("Macro 1", 0.5)])]
         self.mixer_device = FakeMixerDevice(sends=sends or [])
 
@@ -341,6 +344,10 @@ class FakeSong(ListenerMixin):
         self._is_playing = False
         self.is_recording = False
         self.metronome = False
+        self._current_song_time = 0.0
+        self.loop = False
+        self.loop_start = 0.0
+        self.loop_length = 16.0
         self.tracks = [FakeTrack("Drums"), FakeTrack("Bass")]
         self.return_tracks = [FakeTrack("A Reverb", section="return"), FakeTrack("B Delay", section="return")]
         self.master_track = FakeTrack("Master", section="master", sends=[])
@@ -362,6 +369,13 @@ class FakeSong(ListenerMixin):
         self.scenes = [FakeScene("Intro"), FakeScene("Drop")]
         for index, track in enumerate(self.tracks):
             track.bind_song(self)
+        arrangement_clip = FakeClip(name="Bass Arrangement", length=8)
+        arrangement_clip.start_time = 8.0
+        arrangement_clip.end_time = 16.0
+        arrangement_clip.notes = [
+            {"pitch": 36, "start_time": 8.0, "duration": 1.0, "velocity": 100, "mute": False}
+        ]
+        self.tracks[1].arrangement_clips = [arrangement_clip]
         for index, track in enumerate(self.return_tracks):
             track.bind_song(self)
         self.master_track.bind_song(self)
@@ -392,6 +406,15 @@ class FakeSong(ListenerMixin):
 
     def stop_playing(self):
         self.is_playing = False
+
+    @property
+    def current_song_time(self):
+        return self._current_song_time
+
+    @current_song_time.setter
+    def current_song_time(self, next_value):
+        self._current_song_time = float(next_value)
+        self._notify("current_song_time")
 
     def create_midi_track(self, index):
         track = FakeTrack("Track {0}".format(index + 1))

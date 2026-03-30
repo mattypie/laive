@@ -418,6 +418,66 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "get_arrangement_summary",
+      description: "Return a compact Arrangement View summary, including arrangement clips and loop state.",
+      inputSchema: EMPTY_OBJECT_SCHEMA,
+      async execute() {
+        const arrangement = await stateAdapter.getArrangementSummary();
+        return buildInformationalResult(
+          "Arrangement summary loaded.",
+          {
+            affected_objects: arrangement.tracks.map((track) => track.id),
+            state_version_before: arrangement.stateVersion,
+            state_version_after: arrangement.stateVersion,
+            arrangement
+          },
+          ["get_arrangement_track_details", "set_arrangement_transport"]
+        );
+      }
+    },
+    {
+      name: "get_arrangement_track_details",
+      description: "Return arrangement clips for a track identified by ID, name, or index.",
+      inputSchema: createObjectSchema({
+        properties: {
+          id: {
+            type: "string",
+            description: "Track identifier, for example `track:7`."
+          },
+          name: {
+            type: "string",
+            description: "Exact track name."
+          },
+          index: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based visible-track index."
+          }
+        }
+      }),
+      async execute(args) {
+        const target = args.id ?? args.name ?? args.index;
+        if (target === undefined) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide id, name, or index for get_arrangement_track_details"
+          );
+        }
+
+        const track = await stateAdapter.getArrangementTrackDetails(target);
+        return buildInformationalResult(
+          `Loaded arrangement details for ${track.name}.`,
+          {
+            affected_objects: [track.id, ...track.arrangementClips.map((clip) => clip.id)],
+            state_version_before: track.stateVersion,
+            state_version_after: track.stateVersion,
+            track
+          },
+          ["set_arrangement_transport", "get_arrangement_summary"]
+        );
+      }
+    },
+    {
       name: "get_selected_context",
       description: "Return the selected track, scene, clip, and device context.",
       inputSchema: EMPTY_OBJECT_SCHEMA,
@@ -668,6 +728,72 @@ export function buildDefaultTools({
         const after = await stateAdapter.refreshState("song");
         return buildMutationResult(
           `Tempo ${args.dryRun ? "previewed" : "set"} to ${nextTempo}.`,
+          ["song"],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "set_arrangement_transport",
+      description: "Adjust Arrangement View transport position and loop region.",
+      inputSchema: createObjectSchema({
+        properties: {
+          currentSongTime: {
+            type: "number",
+            minimum: 0,
+            description: "Optional new Arrangement playback position in beats."
+          },
+          arrangementPositionBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Alias for currentSongTime."
+          },
+          loopEnabled: {
+            type: "boolean",
+            description: "Optional new Arrangement loop-enabled state."
+          },
+          loopStartBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Optional new Arrangement loop start in beats."
+          },
+          loopLengthBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Optional new Arrangement loop length in beats."
+          },
+          dryRun: dryRunProperty
+        }
+      }),
+      async execute(args) {
+        if (
+          args.currentSongTime === undefined &&
+          args.arrangementPositionBeats === undefined &&
+          args.loopEnabled === undefined &&
+          args.loopStartBeats === undefined &&
+          args.loopLengthBeats === undefined
+        ) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide at least one arrangement transport or loop field"
+          );
+        }
+
+        await policyAdapter.assertAllowed("set_arrangement_transport", args);
+        const before = await stateAdapter.getArrangementSummary();
+        await bridgeAdapter.setArrangementTransport({
+          currentSongTime: args.currentSongTime,
+          arrangementPositionBeats: args.arrangementPositionBeats,
+          loopEnabled: args.loopEnabled,
+          loopStartBeats: args.loopStartBeats,
+          loopLengthBeats: args.loopLengthBeats,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState("song");
+        return buildMutationResult(
+          `Arrangement transport ${args.dryRun ? "previewed" : "updated"}.`,
           ["song"],
           before.stateVersion,
           after.stateVersion,

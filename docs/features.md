@@ -39,6 +39,20 @@ These let an agent inspect the current set, mixer topology, clips, devices, para
 
 This is the current core music-making surface.
 
+## Arrangement View
+
+- `get_arrangement_summary`
+- `set_arrangement_transport`
+
+The first `v0.7.0` slice is read-focused:
+- arrangement clip enumeration now flows through track details and arrangement summaries
+- song readback now includes Arrangement transport position plus loop start, length, and enabled state
+- arrangement loop and transport-region control is exposed without requiring the Session View surface
+
+Still pending in this slice:
+- arrangement clip creation/move workflows where they are reliably supported in Live
+- Arrangement-specific editing ergonomics beyond transport and summary control
+
 ## Mixer And Routing
 
 - `create_return_track`
@@ -99,7 +113,7 @@ If Accessibility is not granted or the helper is not installed, `laive` returns 
 
 ## Current Limits
 
-- Arrangement View is not yet a first-class workflow surface.
+- Arrangement View is only partially exposed today; clip editing and creation primitives are still incomplete.
 - Clip-envelope control is not yet exposed as first-class MCP tools.
 - The sidecar is complementary, not required for the main control path.
 - The UI helper is a fallback, not the preferred path.

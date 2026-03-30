@@ -15,10 +15,60 @@ function createServer(options = {}) {
       return {
         stateVersion,
         tempo: 124,
+        song: {
+          currentSongTime: 0,
+          arrangementPositionBeats: 0,
+          loopEnabled: false,
+          loopStartBeats: 0,
+          loopLengthBeats: 16
+        },
         tracks: [
           { id: "track:1", name: "Drums" },
           { id: "track:2", name: "Bass" }
         ]
+      };
+    },
+    async getArrangementSummary() {
+      return {
+        stateVersion,
+        song: {
+          name: "Test Set",
+          isPlaying: false,
+          currentSongTime: 4,
+          arrangementPositionBeats: 4,
+          loopEnabled: true,
+          loopStartBeats: 0,
+          loopLengthBeats: 16
+        },
+        counts: {
+          arrangementTracks: 1,
+          arrangementClips: 1
+        },
+        tracks: [{ id: "track:1", name: "Drums", section: "visible", arrangementClipCount: 1 }],
+        arrangementClips: [
+          {
+            id: "clip:arrangement:track:1:index:1",
+            name: "Verse",
+            trackId: "track:1",
+            trackName: "Drums",
+            index: 0,
+            startBeats: 0,
+            endBeats: 16,
+            loopStartBeats: 0,
+            loopEndBeats: 16,
+            isPlaying: false
+          }
+        ]
+      };
+    },
+    async getArrangementTrackDetails(target) {
+      const details = await this.getTrackDetails(target);
+      return {
+        id: details.id,
+        name: details.name,
+        track: details.track,
+        arrangementClips: details.arrangementClips,
+        stateVersion
       };
     },
     async getSelectedContext() {
@@ -247,6 +297,9 @@ function createServer(options = {}) {
   const bridgeAdapter = {
     async setTempo(tempo, options) {
       return { tempo, options };
+    },
+    async setArrangementTransport(payload, options) {
+      return { payload, options, affectedObjects: ["song"] };
     },
     async playTransport(options) {
       return { options, target: "transport.play" };
@@ -597,6 +650,10 @@ test("tools/list returns registered tools", async () => {
     additionalProperties: false
   });
   assert.deepEqual(byName.get("set_tempo").inputSchema.required, ["tempo"]);
+  assert.equal(
+    byName.get("set_arrangement_transport").inputSchema.properties.currentSongTime.type,
+    "number"
+  );
   assert.equal(byName.get("set_tempo").inputSchema.properties.tempo.type, "number");
   assert.deepEqual(byName.get("create_clip").inputSchema.required, [
     "trackId",
@@ -618,6 +675,8 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("set_clip_loop_or_length"));
   assert.ok(byName.has("delete_clip"));
   assert.ok(byName.has("get_browser_tree"));
+  assert.ok(byName.has("get_arrangement_summary"));
+  assert.ok(byName.has("get_arrangement_track_details"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
   assert.ok(byName.has("ensure_sidecar_on_track"));
@@ -992,6 +1051,79 @@ test("set_tempo returns structured mutation response", async () => {
 
   assert.equal(response.result.isError, false);
   assert.equal(response.result.structuredContent.summary, "Tempo set to 128.");
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("get_arrangement_summary returns structured arrangement readback", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.1,
+    method: "tools/call",
+    params: {
+      name: "get_arrangement_summary",
+      arguments: {}
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.summary, "Arrangement summary loaded.");
+  assert.equal(response.result.structuredContent.arrangement.counts.arrangementClips, 1);
+  assert.equal(
+    response.result.structuredContent.arrangement.arrangementClips[0].id,
+    "clip:arrangement:track:1:index:1"
+  );
+});
+
+test("get_arrangement_track_details returns arrangement clips for a track", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.15,
+    method: "tools/call",
+    params: {
+      name: "get_arrangement_track_details",
+      arguments: {
+        id: "track:1"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Loaded arrangement details for Drums."
+  );
+  assert.equal(response.result.structuredContent.track.arrangementClips.length, 1);
+  assert.equal(
+    response.result.structuredContent.track.arrangementClips[0].id,
+    "clip:arrangement:track:1:index:1"
+  );
+});
+
+test("set_arrangement_transport returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.2,
+    method: "tools/call",
+    params: {
+      name: "set_arrangement_transport",
+      arguments: {
+        currentSongTime: 8,
+        loopEnabled: true,
+        loopStartBeats: 0,
+        loopLengthBeats: 16
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement transport updated."
+  );
   assert.equal(response.result.structuredContent.state_version_before, 3);
   assert.equal(response.result.structuredContent.state_version_after, 4);
 });

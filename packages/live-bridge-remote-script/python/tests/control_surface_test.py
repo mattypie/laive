@@ -57,11 +57,16 @@ class LaiveControlSurfaceTests(unittest.TestCase):
 
     def test_get_song_and_tracks(self):
         song_response = self.surface.process_request(create_request("get", target="song", request_id="song-1"))
+        arrangement_response = self.surface.process_request(
+            create_request("get", target="arrangement", request_id="arrangement-1")
+        )
         tracks_response = self.surface.process_request(create_request("get", target="tracks", request_id="tracks-1"))
 
         self.assertEqual(song_response["result"]["tempo"], 124.0)
+        self.assertEqual(arrangement_response["result"]["arrangement_position_beats"], 0.0)
         self.assertEqual(len(tracks_response["result"]), 5)
         self.assertEqual(tracks_response["result"][0]["name"], "Drums")
+        self.assertEqual(tracks_response["result"][1]["arrangement_clips"][0]["location"], "arrangement")
 
     def test_mutations_change_fake_live_state(self):
         set_tempo = self.surface.process_request(
@@ -209,6 +214,28 @@ class LaiveControlSurfaceTests(unittest.TestCase):
             routing_response["result"]["track"]["output_routing_type"]["identifier"],
             "sends_only",
         )
+
+    def test_arrangement_mutations(self):
+        arrangement_response = self.surface.process_request(
+            create_request(
+                "set",
+                target="song.arrangement",
+                arguments={
+                    "arrangement_position_beats": 16,
+                    "loop_enabled": True,
+                    "loop_start_beats": 8,
+                    "loop_length_beats": 32,
+                },
+                request_id="arrangement-set-1",
+            )
+        )
+
+        self.assertTrue(arrangement_response["ok"])
+        self.assertEqual(arrangement_response["result"]["song"]["arrangement_position_beats"], 16.0)
+        self.assertTrue(self.song.loop)
+        self.assertEqual(self.song.current_song_time, 16.0)
+        self.assertEqual(self.song.loop_start, 8.0)
+        self.assertEqual(self.song.loop_length, 32.0)
 
     def test_session_launch_controls(self):
         create_clip = self.surface.process_request(

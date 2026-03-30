@@ -114,6 +114,7 @@ export function normalizeApplication(snapshot, existingEntity, options = {}) {
 
 export function normalizeSong(snapshot, existingEntity, options = {}) {
   const observedAt = isoNow(options.observedAt ?? snapshot.observed_at);
+  const loopSnapshot = snapshot.loop ?? {};
   return {
     ...createBaseEntity({
       existingEntity,
@@ -132,7 +133,27 @@ export function normalizeSong(snapshot, existingEntity, options = {}) {
     isRecording: Boolean(pickFirst(snapshot.is_recording, snapshot.isRecording)),
     overdub: Boolean(snapshot.overdub),
     metronome: Boolean(snapshot.metronome),
-    loopEnabled: Boolean(pickFirst(snapshot.loop_enabled, snapshot.loopEnabled)),
+    loopEnabled: Boolean(
+      pickFirst(snapshot.loop_enabled, snapshot.loopEnabled, loopSnapshot.enabled)
+    ),
+    loopStartBeats:
+      pickFirst(
+        snapshot.loop_start_beats,
+        snapshot.loopStartBeats,
+        loopSnapshot.start_beats,
+        loopSnapshot.startBeats
+      ) ?? null,
+    loopLengthBeats:
+      pickFirst(
+        snapshot.loop_length_beats,
+        snapshot.loopLengthBeats,
+        loopSnapshot.length_beats,
+        loopSnapshot.lengthBeats
+      ) ?? null,
+    currentSongTime:
+      pickFirst(snapshot.current_song_time, snapshot.currentSongTime) ??
+      pickFirst(snapshot.arrangement_position_beats, snapshot.arrangementPositionBeats) ??
+      null,
     arrangementPositionBeats:
       pickFirst(snapshot.arrangement_position_beats, snapshot.arrangementPositionBeats) ?? null,
     clipTriggerQuantization:

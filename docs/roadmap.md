@@ -6,7 +6,7 @@ This is the user-facing roadmap summary. The deeper execution tracker lives in:
 ## Current Status
 
 - `v0.6.0` delivered the mixer and routing slice
-- next planned slice: `v0.7.0`
+- `v0.7.0` is in progress with the first arrangement read/control slice landed locally
 
 ## Delivered
 
@@ -33,6 +33,11 @@ This is the user-facing roadmap summary. The deeper execution tracker lives in:
 - arrangement summaries
 - arrangement loop and transport-region control
 - arrangement editing primitives where reliably supported
+
+Landed in the first work unit:
+- arrangement clip enumeration in track details and arrangement summaries
+- Arrangement transport position and loop-state readback
+- arrangement loop and transport-region writes
 
 ### `v0.8.0`
 

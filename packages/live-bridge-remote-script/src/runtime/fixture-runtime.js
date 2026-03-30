@@ -176,6 +176,10 @@ export class FixtureLiveRuntime extends EventEmitter {
       };
     }
 
+    if (target === "song.arrangement") {
+      return this.setArrangementTransport(args, dryRun);
+    }
+
     if (target?.startsWith("parameter:")) {
       return this.setParameter(target, args, dryRun);
     }
@@ -332,8 +336,91 @@ export class FixtureLiveRuntime extends EventEmitter {
       if (clip) {
         return clip;
       }
+      const arrangementClip = (track.arrangement_clips ?? []).find((item) => item.id === clipId);
+      if (arrangementClip) {
+        return arrangementClip;
+      }
     }
     throw new Error(`Clip not found: ${clipId}`);
+  }
+
+  setArrangementTransport(args, dryRun) {
+    const updates = {};
+
+    if (
+      args.current_song_time === undefined &&
+      args.arrangement_position_beats === undefined &&
+      args.loop_enabled === undefined &&
+      args.loop_start_beats === undefined &&
+      args.loop_length_beats === undefined
+    ) {
+      throw new Error(
+        "At least one arrangement field is required"
+      );
+    }
+
+    if (args.current_song_time !== undefined || args.arrangement_position_beats !== undefined) {
+      const currentSongTime = Number(
+        args.current_song_time ?? args.arrangement_position_beats
+      );
+      if (!Number.isFinite(currentSongTime) || currentSongTime < 0) {
+        throw new Error("current_song_time must be a non-negative number");
+      }
+      updates.current_song_time = currentSongTime;
+      updates.arrangement_position_beats = currentSongTime;
+    }
+
+    if (args.loop_enabled !== undefined) {
+      updates.loop_enabled = Boolean(args.loop_enabled);
+    }
+
+    if (args.loop_start_beats !== undefined) {
+      const loopStartBeats = Number(args.loop_start_beats);
+      if (!Number.isFinite(loopStartBeats) || loopStartBeats < 0) {
+        throw new Error("loop_start_beats must be a non-negative number");
+      }
+      updates.loop_start_beats = loopStartBeats;
+    }
+
+    if (args.loop_length_beats !== undefined) {
+      const loopLengthBeats = Number(args.loop_length_beats);
+      if (!Number.isFinite(loopLengthBeats) || loopLengthBeats <= 0) {
+        throw new Error("loop_length_beats must be a positive number");
+      }
+      updates.loop_length_beats = loopLengthBeats;
+    }
+
+    const nextSong = clone(this.state.song);
+    nextSong.current_song_time =
+      updates.current_song_time ?? nextSong.current_song_time ?? nextSong.arrangement_position_beats ?? 0;
+    nextSong.arrangement_position_beats =
+      updates.arrangement_position_beats ?? nextSong.arrangement_position_beats ?? nextSong.current_song_time ?? 0;
+    const currentLoop = {
+      enabled: nextSong.loop?.enabled ?? nextSong.loop_enabled ?? false,
+      start_beats: nextSong.loop?.start_beats ?? nextSong.loop_start_beats ?? 0,
+      length_beats: nextSong.loop?.length_beats ?? nextSong.loop_length_beats ?? 16
+    };
+    nextSong.loop_enabled = updates.loop_enabled ?? currentLoop.enabled;
+    nextSong.loop_start_beats = updates.loop_start_beats ?? currentLoop.start_beats;
+    nextSong.loop_length_beats = updates.loop_length_beats ?? currentLoop.length_beats;
+    nextSong.loop = {
+      enabled: nextSong.loop_enabled,
+      start_beats: nextSong.loop_start_beats,
+      length_beats: nextSong.loop_length_beats
+    };
+
+    if (!dryRun) {
+      this.state.song = nextSong;
+      this.emit("event", {
+        topic: "transport.changed",
+        payload: clone(this.state.song)
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      song: nextSong
+    };
   }
 
   findBrowserItemByUri(uri, node = null) {

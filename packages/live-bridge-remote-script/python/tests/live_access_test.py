@@ -433,6 +433,65 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(return_tracks[0]["id"], "track:return:1")
         self.assertEqual(master_track["section"], "master")
 
+    def test_song_state_includes_arrangement_transport_and_loop_fields(self):
+        song = FakeSong()
+        song.current_song_time = 12.5
+        song.loop = True
+        song.loop_start = 4.0
+        song.loop_length = 32.0
+        adapter = LiveSetAdapter(song)
+
+        state = adapter.get_song_state()
+
+        self.assertEqual(state["arrangement_position_beats"], 12.5)
+        self.assertTrue(state["loop_enabled"])
+        self.assertEqual(state["loop_start_beats"], 4.0)
+        self.assertEqual(state["loop_length_beats"], 32.0)
+        self.assertEqual(state["loop"]["length_beats"], 32.0)
+
+    def test_tracks_include_arrangement_clips(self):
+        adapter = LiveSetAdapter(FakeSong())
+
+        tracks = adapter.get_tracks()
+        bass_track = [track for track in tracks if track["id"] == "track:2"][0]
+        arrangement_clip = bass_track["arrangement_clips"][0]
+
+        self.assertEqual(arrangement_clip["location"], "arrangement")
+        self.assertEqual(arrangement_clip["id"], "clip:arrangement:track:2:index:1")
+        self.assertEqual(arrangement_clip["arrangement_index"], 0)
+        self.assertEqual(arrangement_clip["start_beats"], 8.0)
+        self.assertEqual(arrangement_clip["end_beats"], 16.0)
+
+    def test_get_clip_supports_arrangement_clip_ids(self):
+        adapter = LiveSetAdapter(FakeSong())
+
+        clip = adapter.get_clip("clip:arrangement:track:2:index:1")
+
+        self.assertEqual(clip["location"], "arrangement")
+        self.assertEqual(clip["track_id"], "track:2")
+        self.assertEqual(clip["arrangement_index"], 0)
+        self.assertEqual(clip["start_beats"], 8.0)
+        self.assertEqual(clip["end_beats"], 16.0)
+
+    def test_set_arrangement_state_updates_song(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_arrangement_state(
+            arrangement_position_beats=24.0,
+            loop_enabled=True,
+            loop_start_beats=8.0,
+            loop_length_beats=16.0,
+        )
+
+        self.assertEqual(result["target"], "song.arrangement")
+        self.assertEqual(result["song"]["arrangement_position_beats"], 24.0)
+        self.assertTrue(result["song"]["loop_enabled"])
+        self.assertEqual(song.current_song_time, 24.0)
+        self.assertTrue(song.loop)
+        self.assertEqual(song.loop_start, 8.0)
+        self.assertEqual(song.loop_length, 16.0)
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"
@@ -458,6 +517,7 @@ class LegacyNoteSequenceTests(unittest.TestCase):
             MixerOnlyTrack(),
             0,
             "track:master",
+            [],
             [],
             [],
             section="master",

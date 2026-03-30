@@ -88,8 +88,9 @@ These are the current planned work units for the next product slices. They are i
 ### Target `v0.7.0`
 
 - arrangement-view surface:
-  - arrangement-clip enumeration
-  - arrangement loop / transport-region control
+  - landed in the first work unit:
+    - arrangement-clip enumeration in track details and arrangement summaries
+    - arrangement transport position and loop-region control
   - arrangement clip creation or movement where reliably supported
   - arrangement-focused summaries instead of Session-only mirrors
 

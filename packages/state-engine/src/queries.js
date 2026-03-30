@@ -36,6 +36,7 @@ export function summarizeProject(state) {
   const scenes = valuesInOrder(state.sceneOrder, state.scenes);
   const clips = Object.values(state.clips);
   const playingClips = resolvePlayingClips(state);
+  const arrangementClips = clips.filter((clip) => clip.location === "arrangement");
 
   return {
     snapshotVersion: state.meta.snapshotVersion,
@@ -52,7 +53,12 @@ export function summarizeProject(state) {
           name: state.song.name,
           tempo: state.song.tempo,
           isPlaying: state.song.isPlaying,
-          isRecording: state.song.isRecording
+          isRecording: state.song.isRecording,
+          currentSongTime: state.song.currentSongTime,
+          arrangementPositionBeats: state.song.arrangementPositionBeats,
+          loopEnabled: state.song.loopEnabled,
+          loopStartBeats: state.song.loopStartBeats,
+          loopLengthBeats: state.song.loopLengthBeats
         }
       : null,
     counts: {
@@ -62,6 +68,7 @@ export function summarizeProject(state) {
       masterTracks: state.masterTrackId ? 1 : 0,
       scenes: scenes.length,
       clips: clips.length,
+      arrangementClips: arrangementClips.length,
       devices: Object.keys(state.devices).length,
       parameters: Object.keys(state.parameters).length,
       playingClips: playingClips.length
@@ -74,6 +81,82 @@ export function summarizeProject(state) {
       slotIndex: clip.slotIndex,
       index: clip.index
     }))
+  };
+}
+
+export function getArrangementSummary(state) {
+  const tracks = valuesInOrder(state.trackOrder, state.tracks);
+  const arrangementTracks = tracks
+    .map((track) => ({
+      id: track.id,
+      name: track.name,
+      section: track.section,
+      arrangementClips: valuesInOrder(track.arrangementClipIds, state.clips)
+    }))
+    .filter((track) => track.arrangementClips.length > 0);
+  const arrangementClips = arrangementTracks.flatMap((track) =>
+    track.arrangementClips.map((clip) => ({
+      ...clip,
+      trackName: track.name
+    }))
+  );
+
+  return {
+    snapshotVersion: state.meta.snapshotVersion,
+    lastUpdatedAt: state.meta.lastUpdatedAt,
+    song: state.song
+      ? {
+          name: state.song.name,
+          isPlaying: state.song.isPlaying,
+          currentSongTime: state.song.currentSongTime,
+          arrangementPositionBeats: state.song.arrangementPositionBeats,
+          loopEnabled: state.song.loopEnabled,
+          loopStartBeats: state.song.loopStartBeats,
+          loopLengthBeats: state.song.loopLengthBeats
+        }
+      : null,
+    counts: {
+      arrangementTracks: arrangementTracks.length,
+      arrangementClips: arrangementClips.length
+    },
+    tracks: arrangementTracks.map((track) => ({
+      id: track.id,
+      name: track.name,
+      section: track.section,
+      arrangementClipCount: track.arrangementClips.length
+    })),
+    arrangementClips: arrangementClips.map((clip) => ({
+      id: clip.id,
+      name: clip.name,
+      trackId: clip.trackId,
+      trackName: clip.trackName,
+      index: clip.index,
+      startBeats: clip.startBeats,
+      endBeats: clip.endBeats,
+      loopStartBeats: clip.loopStartBeats,
+      loopEndBeats: clip.loopEndBeats,
+      isPlaying: clip.isPlaying
+    }))
+  };
+}
+
+export function getArrangementTrackDetails(state, trackId) {
+  const details = getTrackDetails(state, trackId);
+
+  if (!details) {
+    return null;
+  }
+
+  return {
+    track: details.track,
+    arrangementClips: [...details.arrangementClips].sort((left, right) => {
+      const leftStart = Number.isFinite(left.startBeats) ? left.startBeats : Number.POSITIVE_INFINITY;
+      const rightStart = Number.isFinite(right.startBeats) ? right.startBeats : Number.POSITIVE_INFINITY;
+      if (leftStart !== rightStart) {
+        return leftStart - rightStart;
+      }
+      return (left.index ?? 0) - (right.index ?? 0);
+    })
   };
 }
 

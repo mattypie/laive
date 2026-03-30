@@ -3,6 +3,7 @@
   "capabilities": {
     "read_state": true,
     "set_transport": true,
+    "set_arrangement_transport": true,
     "create_track": true,
     "create_scene": true,
     "create_clip": true,
@@ -35,6 +36,7 @@
     "time_signature_numerator": 4,
     "time_signature_denominator": 4,
     "is_playing": false,
+    "current_song_time": 0,
     "arrangement_position_beats": 0,
     "loop": {
       "enabled": false,
@@ -135,6 +137,21 @@
             }
           ]
         }
+      ],
+      "arrangement_clips": [
+        {
+          "id": "clip:arrangement:track:1:index:1",
+          "location": "arrangement",
+          "arrangement_index": 0,
+          "name": "Fixture Verse",
+          "start_beats": 0,
+          "end_beats": 16,
+          "loop_start_beats": 0,
+          "loop_end_beats": 16,
+          "looping": false,
+          "is_playing": false,
+          "note_count": 8
+        }
       ]
     },
     {
@@ -210,7 +227,22 @@
           ]
         }
       ],
-      "session_clips": []
+      "session_clips": [],
+      "arrangement_clips": [
+        {
+          "id": "clip:arrangement:track:2:index:1",
+          "location": "arrangement",
+          "arrangement_index": 0,
+          "name": "Fixture Bassline",
+          "start_beats": 16,
+          "end_beats": 32,
+          "loop_start_beats": 0,
+          "loop_end_beats": 16,
+          "looping": false,
+          "is_playing": false,
+          "note_count": 12
+        }
+      ]
     }
   ],
   "return_tracks": [

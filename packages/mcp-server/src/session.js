@@ -359,6 +359,28 @@ export function createBridgeAdapter(target) {
         )
       ).result;
     },
+    async setArrangementTransport(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "set",
+          "song.arrangement",
+          {
+            current_song_time: payload.currentSongTime,
+            arrangement_position_beats: payload.arrangementPositionBeats,
+            loop_enabled: payload.loopEnabled,
+            loop_start_beats: payload.loopStartBeats,
+            loop_length_beats: payload.loopLengthBeats
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: ["song"]
+      };
+    },
     async createTrack(kind, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (
@@ -885,6 +907,35 @@ export function createStateAdapter(session) {
         await session.ensureConnected();
       }
       return visibleTrackList();
+    },
+    async getArrangementSummary() {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
+      const arrangement = session.stateEngine.query.getArrangementSummary();
+      return {
+        ...arrangement,
+        stateVersion: arrangement.snapshotVersion
+      };
+    },
+    async getArrangementTrackDetails(target) {
+      if (typeof session.ensureConnected === "function") {
+        await session.ensureConnected();
+      }
+      const track =
+        session.stateEngine.getState().tracks[target] ?? session.stateEngine.query.findTrack(target);
+
+      if (!track) {
+        throw new Error(`Track not found: ${target}`);
+      }
+
+      const details = session.stateEngine.query.getArrangementTrackDetails(track.id);
+      return {
+        id: track.id,
+        name: track.name,
+        stateVersion: stateVersion(),
+        ...details
+      };
     },
     async listReturnTracks() {
       if (typeof session.ensureConnected === "function") {

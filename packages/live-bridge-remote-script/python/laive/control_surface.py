@@ -206,6 +206,8 @@ class LaiveControlSurface(AbletonControlSurface):
     def _handle_get(self, target):
         if target in (None, "song"):
             return self._live.get_song_state()
+        if target == "arrangement":
+            return self._live.get_arrangement_state()
         if target == "tracks":
             return self._live.get_tracks()
         if target == "return_tracks":
@@ -231,6 +233,15 @@ class LaiveControlSurface(AbletonControlSurface):
     def _handle_set(self, target, arguments, dry_run):
         if target == "song.tempo":
             return self._live.set_tempo(arguments.get("value"), dry_run=dry_run)
+        if target == "song.arrangement":
+            return self._live.set_arrangement_state(
+                current_song_time=arguments.get("current_song_time"),
+                arrangement_position_beats=arguments.get("arrangement_position_beats"),
+                loop_enabled=arguments.get("loop_enabled"),
+                loop_start_beats=arguments.get("loop_start_beats"),
+                loop_length_beats=arguments.get("loop_length_beats"),
+                dry_run=dry_run,
+            )
         if isinstance(target, str) and target.startswith("parameter:"):
             return self._live.set_parameter(target, arguments.get("value"), dry_run=dry_run)
         if target == "track.volume":

@@ -50,6 +50,12 @@ def _serialize_routing_options(options):
 
 
 def serialize_song_state(song):
+    arrangement_position = _safe_getattr(
+        song, "current_song_time", _safe_getattr(song, "arrangement_position_beats", None)
+    )
+    loop_enabled = bool(_safe_getattr(song, "loop", False))
+    loop_start = _safe_getattr(song, "loop_start", None)
+    loop_length = _safe_getattr(song, "loop_length", None)
     return {
         "id": "song:current",
         "name": getattr(song, "name", "Untitled Set"),
@@ -59,10 +65,27 @@ def serialize_song_state(song):
         "is_playing": bool(getattr(song, "is_playing", False)),
         "is_recording": bool(getattr(song, "is_recording", False)),
         "metronome": bool(getattr(song, "metronome", False)),
+        "current_song_time": arrangement_position,
+        "currentSongTime": arrangement_position,
+        "arrangement_position_beats": arrangement_position,
+        "arrangementPositionBeats": arrangement_position,
+        "loop_enabled": loop_enabled,
+        "loopEnabled": loop_enabled,
+        "loop_start_beats": loop_start,
+        "loopStartBeats": loop_start,
+        "loop_length_beats": loop_length,
+        "loopLengthBeats": loop_length,
+        "loop": {
+            "enabled": loop_enabled,
+            "start_beats": loop_start,
+            "startBeats": loop_start,
+            "length_beats": loop_length,
+            "lengthBeats": loop_length,
+        },
     }
 
 
-def serialize_track_state(track, index, track_id, session_clips, devices, section=None):
+def serialize_track_state(track, index, track_id, session_clips, arrangement_clips, devices, section=None):
     armed = bool(_safe_getattr(track, "arm", False))
     muted = bool(_safe_getattr(track, "mute", False))
     soloed = bool(_safe_getattr(track, "solo", False))
@@ -138,7 +161,7 @@ def serialize_track_state(track, index, track_id, session_clips, devices, sectio
         "availableOutputRoutingChannels": available_output_routing_channels,
         "sends": sends,
         "session_clips": session_clips,
-        "arrangement_clips": [],
+        "arrangement_clips": arrangement_clips,
         "devices": devices,
     }
 
@@ -151,23 +174,31 @@ def serialize_scene_state(scene, index, scene_id):
     }
 
 
-def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
+def serialize_clip_state(clip, clip_id, track_id, slot_index, notes, location="session", arrangement_index=None):
     loop_start = getattr(clip, "loop_start", 0.0)
     loop_end = getattr(clip, "loop_end", getattr(clip, "length", None))
     looping = bool(getattr(clip, "looping", True))
     length_beats = getattr(clip, "length", None)
+    start_beats = _safe_getattr(clip, "start_time", None)
+    end_beats = _safe_getattr(clip, "end_time", None)
     if loop_end is not None and loop_start is not None:
         try:
             length_beats = float(loop_end) - float(loop_start)
         except Exception:
             length_beats = getattr(clip, "length", None)
+    default_name_index = arrangement_index if arrangement_index is not None else slot_index
+    if default_name_index is None:
+        default_name_index = 0
     return {
         "id": clip_id,
         "track_id": track_id,
-        "location": "session",
+        "location": location,
         "slot_index": slot_index,
         "slotIndex": slot_index,
-        "name": getattr(clip, "name", "Clip {0}".format(slot_index + 1)),
+        "arrangement_index": arrangement_index,
+        "arrangementIndex": arrangement_index,
+        "index": arrangement_index,
+        "name": getattr(clip, "name", "Clip {0}".format(default_name_index + 1)),
         "length_beats": length_beats,
         "loop_start_beats": loop_start,
         "loopStartBeats": loop_start,
@@ -175,6 +206,14 @@ def serialize_clip_state(clip, clip_id, track_id, slot_index, notes):
         "loopEndBeats": loop_end,
         "looping": looping,
         "is_playing": bool(getattr(clip, "is_playing", False)),
+        "is_midi": bool(_safe_getattr(clip, "is_midi_clip", False)),
+        "isMidi": bool(_safe_getattr(clip, "is_midi_clip", False)),
+        "is_audio": bool(_safe_getattr(clip, "is_audio_clip", False)),
+        "isAudio": bool(_safe_getattr(clip, "is_audio_clip", False)),
+        "start_beats": start_beats,
+        "startBeats": start_beats,
+        "end_beats": end_beats,
+        "endBeats": end_beats,
         "notes": notes,
         "note_count": len(notes),
         "noteCount": len(notes),

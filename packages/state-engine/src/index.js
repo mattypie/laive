@@ -31,6 +31,8 @@ export {
 } from "./normalize.js";
 export {
   findTrack,
+  getArrangementTrackDetails,
+  getArrangementSummary,
   getMasterTrack,
   getSelectedContext,
   getTrackDetails,
