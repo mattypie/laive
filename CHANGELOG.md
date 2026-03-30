@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- restructured the top-level docs around end-user MCP adoption, with the root README now acting as a concise install-and-try entrypoint instead of a long mixed operator/developer document
+- added dedicated `docs/features.md`, `docs/roadmap.md`, and `docs/contributing.md` documents so feature coverage, roadmap status, and local development guidance are easier to navigate
+- added `docs/` and `logo.png` to the published package contents so README links and branding survive on the npm package page too
+
 ## v0.6.0 - 2026-03-30
 
 - started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge-backed MCP targets instead of roadmap-only gaps
@@ -159,4 +163,3 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
-

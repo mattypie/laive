@@ -21,6 +21,8 @@
     "README.md",
     "CHANGELOG.md",
     "AGENTS.md",
+    "logo.png",
+    "docs/",
     "scripts/install-remote-script.py",
     "scripts/install-ui-helper.mjs",
     "scripts/package-remote-script.py",
