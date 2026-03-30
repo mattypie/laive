@@ -288,6 +288,44 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
   }
 });
 
+test("fixture session preserves send and routing aliases in track details", async () => {
+  const session = await LaiveFixtureSession.create();
+
+  try {
+    const server = new LaiveMcpServer({
+      stateAdapter: createStateAdapter(session),
+      bridgeAdapter: createBridgeAdapter(session.bridgeClient),
+      policyAdapter: createAllowAllPolicyAdapter()
+    });
+
+    const trackDetails = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 56,
+      method: "tools/call",
+      params: {
+        name: "get_track_details",
+        arguments: {
+          id: "track:1"
+        }
+      }
+    });
+
+    assert.equal(trackDetails.result.isError, false);
+    assert.ok(Array.isArray(trackDetails.result.structuredContent.track.track.sends));
+    assert.ok(Array.isArray(trackDetails.result.structuredContent.track.track.availableRouting.outputTypes));
+    assert.ok(
+      Array.isArray(trackDetails.result.structuredContent.track.track.sends[0].aliases)
+    );
+    assert.ok(
+      Array.isArray(
+        trackDetails.result.structuredContent.track.track.availableRouting.outputTypes[0].aliases
+      )
+    );
+  } finally {
+    await session.close();
+  }
+});
+
 test("track playback events update mirrored session state", () => {
   const stateEngine = createStateEngine();
   stateEngine.applySnapshot(

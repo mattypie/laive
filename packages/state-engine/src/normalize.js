@@ -72,7 +72,8 @@ function normalizeRoutingChoice(choice) {
 
   return {
     identifier: identifier ?? displayName,
-    displayName: displayName ?? String(identifier)
+    displayName: displayName ?? String(identifier),
+    aliases: asArray(choice.aliases).filter((alias) => typeof alias === "string" && alias.length > 0)
   };
 }
 
@@ -204,12 +205,27 @@ export function normalizeTrack(track, existingEntity, options = {}) {
   const sends = asArray(track.sends).map((send, sendIndex) => ({
     index: pickFirst(send.send_index, send.sendIndex, send.index) ?? sendIndex,
     name: send.name ?? `Send ${sendIndex + 1}`,
+    shortName: pickFirst(send.short_name, send.shortName) ?? null,
+    sendLetter: pickFirst(send.send_letter, send.sendLetter) ?? null,
+    aliases: asArray(send.aliases).filter((alias) => typeof alias === "string" && alias.length > 0),
     value: pickFirst(send.value, send.amount) ?? null,
     min: send.min ?? null,
     max: send.max ?? null,
     isQuantized: Boolean(pickFirst(send.is_quantized, send.isQuantized)),
     displayValue: pickFirst(send.display_value, send.displayValue) ?? null
   }));
+  const availableInputRoutingTypes = normalizeRoutingChoices(
+    pickFirst(track.available_input_routing_types, track.availableInputRoutingTypes)
+  );
+  const availableInputRoutingChannels = normalizeRoutingChoices(
+    pickFirst(track.available_input_routing_channels, track.availableInputRoutingChannels)
+  );
+  const availableOutputRoutingTypes = normalizeRoutingChoices(
+    pickFirst(track.available_output_routing_types, track.availableOutputRoutingTypes)
+  );
+  const availableOutputRoutingChannels = normalizeRoutingChoices(
+    pickFirst(track.available_output_routing_channels, track.availableOutputRoutingChannels)
+  );
 
   return {
     ...createBaseEntity({
@@ -253,18 +269,16 @@ export function normalizeTrack(track, existingEntity, options = {}) {
     outputRoutingChannel: normalizeRoutingChoice(
       pickFirst(track.output_routing_channel, track.outputRoutingChannel)
     ),
-    availableInputRoutingTypes: normalizeRoutingChoices(
-      pickFirst(track.available_input_routing_types, track.availableInputRoutingTypes)
-    ),
-    availableInputRoutingChannels: normalizeRoutingChoices(
-      pickFirst(track.available_input_routing_channels, track.availableInputRoutingChannels)
-    ),
-    availableOutputRoutingTypes: normalizeRoutingChoices(
-      pickFirst(track.available_output_routing_types, track.availableOutputRoutingTypes)
-    ),
-    availableOutputRoutingChannels: normalizeRoutingChoices(
-      pickFirst(track.available_output_routing_channels, track.availableOutputRoutingChannels)
-    ),
+    availableInputRoutingTypes,
+    availableInputRoutingChannels,
+    availableOutputRoutingTypes,
+    availableOutputRoutingChannels,
+    availableRouting: {
+      inputTypes: availableInputRoutingTypes,
+      inputChannels: availableInputRoutingChannels,
+      outputTypes: availableOutputRoutingTypes,
+      outputChannels: availableOutputRoutingChannels
+    },
     playingSlotIndex: pickFirst(track.playing_slot_index, track.playingSlotIndex) ?? null,
     clipSlotCount:
       pickFirst(track.clip_slot_count, track.clipSlotCount) ?? asArray(track.session_clips).length,
