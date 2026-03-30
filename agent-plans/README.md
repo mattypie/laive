@@ -63,7 +63,7 @@ These are the current planned work units for the next product slices. They are i
   - enum labels or allowed values for quantized parameters carried through the bridge and state mirror
   - `set_parameter` lookup by track, device, and parameter name plus enum-label targeting
 
-### Target `v0.6.0`
+### Delivered in `v0.6.0`
 
 - mixer and routing surface:
   - landed in the first work unit:
@@ -83,9 +83,7 @@ These are the current planned work units for the next product slices. They are i
     - alias-aware send targeting and routing-choice resolution in the MCP surface
     - clearer track readback for available send and routing targets
     - resilience improvements for machine-specific Live/audio-I/O labels by resolving writes against the currently advertised choices
-  - remaining before the slice is fully closed:
-    - real-session validation against published `npx laive-mcp`
-    - any final routing/monitor edge-case handling across supported Live versions
+  - released with local real-Live validation complete, followed by published-path validation after npm publish
 
 ### Target `v0.7.0`
 

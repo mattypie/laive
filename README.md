@@ -71,7 +71,6 @@ Another current gap: Arrangement View and clip-envelope control are not yet firs
 
 The current roadmap is intentionally sliced into concrete follow-up releases:
 
-- `v0.6.0`: mixer/routing coverage including return/master tracks, sends, levels, and routing
 - `v0.7.0`: Arrangement View support
 - `v0.8.0`: clip envelopes and deeper sidecar workflows
 - `v0.9.0`: score/sheet-music ingest research, with a likely text-first path that evaluates existing projects such as [SheetVision](https://github.com/cal-pratt/SheetVision) and [Werckmeister](https://github.com/werckme/werckmeister) instead of relying on fragile direct image-to-melody transcription

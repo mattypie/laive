@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.6.0 - 2026-03-30
+
 - started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge-backed MCP targets instead of roadmap-only gaps
 - added mixer metadata to bridged track snapshots, including sends, monitor state, and input/output routing state
 - added MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`
@@ -157,3 +159,4 @@
 - Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
 - Added `laive mcp-config` for local and published MCP client configuration output.
 - Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+

@@ -4,14 +4,14 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.6.0` mixer and routing coverage, now validated locally against a real Live session for the original mixer surface, the newer creation/level controls, and the alias/discovery hardening pass; remaining work is primarily the published-path validation and any final release hardening
+- Active phase: `v0.7.0` arrangement-view planning and implementation, with `v0.6.0` mixer/routing now cut as a release candidate after local real-Live validation and hardening
 
 ## Versioned Roadmap
 
 | Target version | Planned work unit | Scope |
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
-| `v0.6.0` | Mixer and routing | In progress: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, and return/master-aware parameter targeting have all been validated locally; remaining work is published-path validation plus any final release hardening |
+| `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
 | `v0.7.0` | Arrangement view | Arrangement clips, arrangement loop control, arrangement summaries and editing primitives |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
