@@ -67,8 +67,10 @@ class LiveSetAdapter(object):
             "create_return_track": hasattr(self.song, "create_return_track"),
             "create_scene": hasattr(self.song, "create_scene"),
             "create_clip": True,
+            "create_arrangement_clip": True,
             "rename_clip": True,
             "duplicate_clip": True,
+            "duplicate_clip_to_arrangement": True,
             "move_session_clip": True,
             "delete_clip": True,
             "set_clip_loop_or_length": True,
@@ -448,13 +450,46 @@ class LiveSetAdapter(object):
                 clip.name = name
         return {"applied": not dry_run, "clip": self._serialize_clip(clip, track_id, slot_index)}
 
+    def create_arrangement_clip(self, track_id, start_beats, length_beats=4, name=None, dry_run=False):
+        track, track_index, track_section = self._find_track(track_id)
+        self._ensure_arrangement_track(track_section)
+        next_start_beats = float(start_beats)
+        next_length_beats = float(length_beats)
+        if next_start_beats < 0:
+            raise RequestError("invalid_argument", "start_beats must be non-negative")
+        if next_length_beats <= 0:
+            raise RequestError("invalid_argument", "length_beats must be positive")
+
+        if dry_run:
+            clip = self._preview_arrangement_clip(
+                start_beats=next_start_beats,
+                length_beats=next_length_beats,
+                name=name,
+            )
+            arrangement_index = len(self._get_arrangement_clips(track))
+        else:
+            create_midi_clip = getattr(track, "create_midi_clip", None)
+            if not callable(create_midi_clip):
+                raise RequestError("unsupported_runtime", "Arrangement clip creation is unavailable")
+            create_midi_clip(next_start_beats, next_length_beats)
+            clip, arrangement_index = self._latest_arrangement_clip(track)
+            if name:
+                clip.name = name
+
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, track_index, track_section),
+            "clip": self._serialize_arrangement_clip(clip, track_id, arrangement_index),
+        }
+
     def rename_clip(self, clip_id, name, dry_run=False):
         if not name:
             raise RequestError("invalid_argument", "name is required")
-        clip, track_id, slot_index = self._find_clip(clip_id)
+        clip_ref = self._find_clip_reference(clip_id)
+        clip = clip_ref["clip"]
         if not dry_run:
             clip.name = name
-        return {"applied": not dry_run, "clip": self._serialize_clip(clip, track_id, slot_index)}
+        return {"applied": not dry_run, "clip": self._serialize_clip_reference(clip_ref)}
 
     def duplicate_clip(self, clip_id, target_slot_index, target_track_id=None, dry_run=False):
         source_clip, source_track_id, source_slot_index = self._find_clip(clip_id)
@@ -495,21 +530,68 @@ class LiveSetAdapter(object):
             "clip": duplication["clip"],
         }
 
-    def delete_clip(self, clip_id, dry_run=False):
-        _clip, track_id, slot_index = self._find_clip(clip_id)
-        slot = self._find_clip_slot_by_id(clip_id)
-        if not dry_run:
-            delete_clip = getattr(slot, "delete_clip", None)
-            if callable(delete_clip):
-                delete_clip()
+    def duplicate_clip_to_arrangement(
+        self,
+        clip_id,
+        destination_beats,
+        target_track_id=None,
+        dry_run=False,
+    ):
+        clip_ref = self._find_clip_reference(clip_id)
+        destination_beats = float(destination_beats)
+        if destination_beats < 0:
+            raise RequestError("invalid_argument", "destination_beats must be non-negative")
+        target_track_id = target_track_id or clip_ref["track_id"]
+        target_track, track_index, track_section = self._find_track(target_track_id)
+        self._ensure_arrangement_track(track_section)
+
+        if dry_run:
+            duplicated_clip = self._preview_duplicate_arrangement_clip(
+                clip_ref["clip"],
+                destination_beats,
+            )
+            arrangement_index = len(self._get_arrangement_clips(target_track))
+        else:
+            duplicate_clip_to_arrangement = getattr(target_track, "duplicate_clip_to_arrangement", None)
+            if callable(duplicate_clip_to_arrangement):
+                duplicate_clip_to_arrangement(clip_ref["clip"], destination_beats)
+                duplicated_clip, arrangement_index = self._latest_arrangement_clip(target_track)
             else:
-                slot.clip = None
+                duplicated_clip, arrangement_index = self._duplicate_clip_to_arrangement_fallback(
+                    target_track,
+                    clip_ref["clip"],
+                    destination_beats,
+                )
+
         return {
             "applied": not dry_run,
-            "clip_id": clip_id,
-            "track_id": track_id,
-            "slot_index": slot_index,
+            "source_clip_id": clip_id,
+            "track": self._serialize_track(target_track, track_index, track_section),
+            "clip": self._serialize_arrangement_clip(duplicated_clip, target_track_id, arrangement_index),
         }
+
+    def delete_clip(self, clip_id, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        if not dry_run:
+            if clip_ref["location"] == "arrangement":
+                track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+                delete_clip = getattr(track, "delete_clip", None)
+                if callable(delete_clip):
+                    delete_clip(clip_ref["clip"])
+                else:
+                    track.arrangement_clips = [
+                        candidate
+                        for candidate in self._get_arrangement_clips(track)
+                        if candidate is not clip_ref["clip"]
+                    ]
+            else:
+                slot = self._find_clip_slot_by_id(clip_id)
+                delete_clip = getattr(slot, "delete_clip", None)
+                if callable(delete_clip):
+                    delete_clip()
+                else:
+                    slot.clip = None
+        return self._clip_delete_result(clip_ref, applied=not dry_run)
 
     def set_clip_loop_or_length(
         self,
@@ -520,7 +602,8 @@ class LiveSetAdapter(object):
         looping=None,
         dry_run=False,
     ):
-        clip, track_id, slot_index = self._find_clip(clip_id)
+        clip_ref = self._find_clip_reference(clip_id)
+        clip = clip_ref["clip"]
 
         if length_beats is None and loop_start_beats is None and loop_end_beats is None and looping is None:
             raise RequestError(
@@ -545,7 +628,7 @@ class LiveSetAdapter(object):
             if looping is not None:
                 self._set_clip_attribute(clip, "looping", bool(looping))
 
-        clip_state = self._serialize_clip(clip, track_id, slot_index)
+        clip_state = self._serialize_clip_reference(clip_ref)
         if dry_run:
             if length_beats is not None:
                 clip_state["length_beats"] = float(length_beats)
@@ -561,24 +644,26 @@ class LiveSetAdapter(object):
         return {"applied": not dry_run, "clip": clip_state}
 
     def insert_notes(self, clip_id, notes, dry_run=False):
-        clip, track_id, slot_index = self._find_clip(clip_id)
+        clip_ref = self._find_clip_reference(clip_id)
+        clip = clip_ref["clip"]
         normalized_notes = [self._clip_notes.normalize_input(note) for note in notes]
         if not dry_run:
             self._clip_notes.write_notes(clip, normalized_notes)
         note_count = len(notes)
-        clip_state = self._serialize_clip(clip, track_id, slot_index)
+        clip_state = self._serialize_clip_reference(clip_ref)
         if dry_run:
             clip_state["note_count"] = note_count
             clip_state["noteCount"] = note_count
         return {"applied": not dry_run, "clip": clip_state, "note_count": note_count}
 
     def replace_notes(self, clip_id, notes, dry_run=False):
-        clip, track_id, slot_index = self._find_clip(clip_id)
+        clip_ref = self._find_clip_reference(clip_id)
+        clip = clip_ref["clip"]
         normalized_notes = [self._clip_notes.normalize_input(note) for note in notes]
         if not dry_run:
             self._clip_notes.replace_notes(clip, normalized_notes)
         note_count = len(normalized_notes)
-        clip_state = self._serialize_clip(clip, track_id, slot_index)
+        clip_state = self._serialize_clip_reference(clip_ref)
         if dry_run:
             clip_state["note_count"] = note_count
             clip_state["noteCount"] = note_count
@@ -632,7 +717,7 @@ class LiveSetAdapter(object):
     def _serialize_track(self, track, index, section="visible"):
         track_id = getattr(track, "id", None) or _track_id(index, section)
         clip_slots = getattr(track, "clip_slots", [])
-        arrangement_clips = list(getattr(track, "arrangement_clips", []) or [])
+        arrangement_clips = self._get_arrangement_clips(track)
         devices = getattr(track, "devices", [])
         session_clips = [
             self._serialize_clip(slot.clip, track_id, slot_index)
@@ -810,11 +895,17 @@ class LiveSetAdapter(object):
     def _find_arrangement_clip(self, clip_id):
         for track_index, track in enumerate(getattr(self.song, "tracks", [])):
             track_id = getattr(track, "id", None) or _track_id(track_index)
-            for arrangement_index, clip in enumerate(getattr(track, "arrangement_clips", []) or []):
+            for arrangement_index, clip in enumerate(self._get_arrangement_clips(track)):
                 candidate = getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index)
                 if candidate == clip_id:
                     return clip, track_id, arrangement_index
         raise RequestError("not_found", "Arrangement clip not found: {0}".format(clip_id))
+
+    def _get_arrangement_clips(self, track):
+        try:
+            return list(getattr(track, "arrangement_clips", []) or [])
+        except Exception:
+            return []
 
     def _find_clip_slot_by_id(self, clip_id):
         for track_index, track in enumerate(getattr(self.song, "tracks", [])):
@@ -836,6 +927,65 @@ class LiveSetAdapter(object):
         if source_track_id == target_track_id and int(source_slot_index) == int(target_slot_index):
             raise RequestError("invalid_argument", "Target slot must differ from the source clip slot")
 
+    def _ensure_arrangement_track(self, track_section):
+        if track_section != "visible":
+            raise RequestError(
+                "invalid_argument",
+                "Arrangement clips are only supported on visible tracks",
+            )
+
+    def _find_clip_reference(self, clip_id):
+        if isinstance(clip_id, str) and clip_id.startswith("clip:arrangement:"):
+            clip, track_id, arrangement_index = self._find_arrangement_clip(clip_id)
+            return {
+                "clip": clip,
+                "clip_id": clip_id,
+                "track_id": track_id,
+                "location": "arrangement",
+                "arrangement_index": arrangement_index,
+                "slot_index": None,
+            }
+
+        clip, track_id, slot_index = self._find_clip(clip_id)
+        return {
+            "clip": clip,
+            "clip_id": clip_id,
+            "track_id": track_id,
+            "location": "session",
+            "arrangement_index": None,
+            "slot_index": slot_index,
+        }
+
+    def _serialize_clip_reference(self, clip_ref):
+        if clip_ref["location"] == "arrangement":
+            return self._serialize_arrangement_clip(
+                clip_ref["clip"],
+                clip_ref["track_id"],
+                clip_ref["arrangement_index"],
+            )
+        return self._serialize_clip(
+            clip_ref["clip"],
+            clip_ref["track_id"],
+            clip_ref["slot_index"],
+        )
+
+    def _clip_delete_result(self, clip_ref, applied):
+        return {
+            "applied": applied,
+            "clip_id": clip_ref["clip_id"],
+            "track_id": clip_ref["track_id"],
+            "location": clip_ref["location"],
+            "slot_index": clip_ref["slot_index"],
+            "arrangement_index": clip_ref["arrangement_index"],
+        }
+
+    def _latest_arrangement_clip(self, track):
+        arrangement_clips = self._get_arrangement_clips(track)
+        if not arrangement_clips:
+            raise RequestError("runtime_error", "Arrangement clip was not created")
+        arrangement_index = len(arrangement_clips) - 1
+        return arrangement_clips[arrangement_index], arrangement_index
+
     def _preview_duplicate_clip(self, source_clip, target_slot_index):
         preview = type("PreviewClip", (), {})()
         preview.name = getattr(source_clip, "name", "Clip {0}".format(target_slot_index + 1))
@@ -845,6 +995,25 @@ class LiveSetAdapter(object):
         preview.loop_end = getattr(source_clip, "loop_end", getattr(source_clip, "length", None))
         preview.is_playing = False
         preview.notes = list(self._clip_notes.serialize_notes(source_clip))
+        return preview
+
+    def _preview_arrangement_clip(self, start_beats, length_beats=4, name=None):
+        preview = self._preview_clip(length_beats=length_beats, name=name)
+        preview.start_time = float(start_beats)
+        preview.end_time = float(start_beats) + float(length_beats)
+        return preview
+
+    def _preview_duplicate_arrangement_clip(self, source_clip, destination_beats):
+        preview = self._preview_clip(
+            length_beats=getattr(source_clip, "length", 4),
+            name=getattr(source_clip, "name", "Preview Clip"),
+        )
+        preview.looping = bool(getattr(source_clip, "looping", True))
+        preview.loop_start = getattr(source_clip, "loop_start", 0.0)
+        preview.loop_end = getattr(source_clip, "loop_end", getattr(source_clip, "length", None))
+        preview.notes = list(self._clip_notes.serialize_notes(source_clip))
+        preview.start_time = float(destination_beats)
+        preview.end_time = float(destination_beats) + float(getattr(source_clip, "length", 4) or 4)
         return preview
 
     def _duplicate_clip_to_slot(self, source_slot, source_clip, target_slot):
@@ -868,6 +1037,14 @@ class LiveSetAdapter(object):
             [self._clip_notes.normalize_input(note) for note in self._clip_notes.serialize_notes(source_clip)],
         )
         return duplicated_clip
+
+    def _duplicate_clip_to_arrangement_fallback(self, target_track, source_clip, destination_beats):
+        arrangement_clips = self._get_arrangement_clips(target_track)
+        duplicated_clip = self._preview_duplicate_arrangement_clip(source_clip, destination_beats)
+        arrangement_clips.append(duplicated_clip)
+        setattr(target_track, "arrangement_clips", arrangement_clips)
+        arrangement_index = len(arrangement_clips) - 1
+        return duplicated_clip, arrangement_index
 
     def _preview_track(self, index, name=None, section="visible"):
         preview = type("PreviewTrack", (), {})()

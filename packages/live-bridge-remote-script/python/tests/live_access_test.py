@@ -529,6 +529,29 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(track_state["mute"], False)
         self.assertEqual(track_state["solo"], False)
 
+    def test_tracks_tolerate_runtime_error_when_arrangement_clips_are_unavailable(self):
+        class MixerOnlyTrack(object):
+            name = "Master"
+            type = "audio"
+            section = "master"
+            mixer_device = None
+            clip_slots = []
+            devices = []
+
+            @property
+            def arrangement_clips(self):
+                raise RuntimeError("Master, Group and Return Tracks have no arrangement clips")
+
+        song = FakeSong()
+        song.master_track = MixerOnlyTrack()
+        adapter = LiveSetAdapter(song)
+
+        master_track = adapter.get_master_track()
+        all_tracks = adapter.get_tracks()
+
+        self.assertEqual(master_track["arrangement_clips"], [])
+        self.assertTrue(any(track["id"] == "track:master" for track in all_tracks))
+
     def test_set_send_level_updates_track_send(self):
         song = FakeSong()
         adapter = LiveSetAdapter(song)
