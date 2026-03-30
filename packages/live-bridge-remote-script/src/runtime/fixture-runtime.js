@@ -133,6 +133,8 @@ export class FixtureLiveRuntime extends EventEmitter {
     switch (target) {
       case "song":
         return clone(this.state.song);
+      case "arrangement":
+        return clone(this.state.song);
       case "tracks":
         return clone(this.allTracks());
       case "return_tracks":

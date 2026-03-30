@@ -66,6 +66,22 @@ test("fixture session wires bridge, state engine, and MCP tools together", async
 
     assert.equal(refreshedProject.result.structuredContent.project.song.tempo, 130);
 
+    const arrangementResponse = await server.safeHandleRpcMessage({
+      jsonrpc: "2.0",
+      id: 3.1,
+      method: "tools/call",
+      params: {
+        name: "get_arrangement_summary",
+        arguments: {}
+      }
+    });
+
+    assert.equal(arrangementResponse.result.isError, false);
+    assert.equal(
+      arrangementResponse.result.structuredContent.arrangement.counts.arrangementClips,
+      2
+    );
+
     const createClipResponse = await server.safeHandleRpcMessage({
       jsonrpc: "2.0",
       id: 4,
@@ -513,6 +529,8 @@ test("real bridge session can connect to a live bridge socket and refresh state"
   try {
     const summary = await createStateAdapter(session).getProjectSummary();
     assert.equal(summary.song.tempo, 124);
+    const arrangementSummary = await createStateAdapter(session).getArrangementSummary();
+    assert.equal(arrangementSummary.counts.arrangementClips, 2);
     assert.equal(summary.counts.returnTracks, 1);
     assert.equal(summary.counts.masterTracks, 1);
     const returnTracks = await createStateAdapter(session).listReturnTracks();
@@ -521,6 +539,12 @@ test("real bridge session can connect to a live bridge socket and refresh state"
     assert.equal(masterTrack.id, "track:master");
 
     await createBridgeAdapter(session.bridgeClient).setTempo(140);
+    await createBridgeAdapter(session.bridgeClient).setArrangementTransport({
+      arrangementPositionBeats: 8,
+      loopEnabled: true,
+      loopStartBeats: 0,
+      loopLengthBeats: 16
+    });
     await createBridgeAdapter(session.bridgeClient).playTransport();
     await createBridgeAdapter(session.bridgeClient).stopTransport();
     await createBridgeAdapter(session.bridgeClient).createScene("Bridge Scene");
@@ -574,6 +598,7 @@ test("real bridge session can connect to a live bridge socket and refresh state"
     assert.equal(refresh.stateVersion > refresh.previousStateVersion, true);
     const updated = await createStateAdapter(session).getProjectSummary();
     assert.equal(updated.song.tempo, 142);
+    assert.equal(updated.song.arrangementPositionBeats, 8);
   } finally {
     await session.close();
     runtime.off("event", server.boundRuntimeEventHandler);

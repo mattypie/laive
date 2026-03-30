@@ -6,6 +6,8 @@ import {
   applySnapshot,
   createInitialState,
   createStateEngine,
+  getArrangementTrackDetails,
+  getArrangementSummary,
   getSelectedContext,
   makeDeviceId,
   makeParameterId,
@@ -34,7 +36,13 @@ function createRuntimeSnapshot() {
       time_signature_denominator: 4,
       is_playing: true,
       is_recording: false,
-      metronome: false
+      metronome: false,
+      current_song_time: 12,
+      loop: {
+        enabled: true,
+        start_beats: 8,
+        length_beats: 16
+      }
     },
     selection: {
       selected_track: {
@@ -153,7 +161,19 @@ test("applySnapshot normalizes runtime data into a stable project graph", () => 
   assert.equal(summary.counts.playingClips, 1);
   assert.equal(summary.counts.returnTracks, 1);
   assert.equal(summary.counts.masterTracks, 1);
+  assert.equal(summary.counts.arrangementClips, 1);
   assert.equal(summary.song.tempo, 128);
+  assert.equal(summary.song.currentSongTime, 12);
+  assert.equal(summary.song.loopStartBeats, 8);
+  assert.equal(summary.song.loopLengthBeats, 16);
+
+  const arrangement = getArrangementSummary(state);
+  assert.equal(arrangement.counts.arrangementClips, 1);
+  assert.equal(arrangement.song.loopEnabled, true);
+  assert.equal(arrangement.arrangementClips[0].startBeats, 0);
+  const arrangementTrack = getArrangementTrackDetails(state, makeTrackId("visible", 0));
+  assert.equal(arrangementTrack.arrangementClips.length, 1);
+  assert.equal(arrangementTrack.arrangementClips[0].name, "Verse Drums");
 });
 
 test("applyEvent and state engine queries update selected context and clip state", () => {

@@ -74,6 +74,28 @@ test("bridge supports dry run mutations", async () => {
   });
 });
 
+test("bridge can read arrangement state and update arrangement transport", async () => {
+  await withBridge(async ({ client }) => {
+    const arrangement = await client.request("get", "arrangement");
+    const update = await client.request("set", "song.arrangement", {
+      current_song_time: 8,
+      loop_enabled: true,
+      loop_start_beats: 4,
+      loop_length_beats: 12
+    });
+    const song = await client.request("get", "song");
+    const track = await client.request("get", "track:1");
+
+    assert.equal(arrangement.result.arrangement_position_beats, 0);
+    assert.equal(update.result.song.current_song_time, 8);
+    assert.equal(song.result.loop_enabled, true);
+    assert.equal(song.result.loop_start_beats, 4);
+    assert.equal(song.result.loop_length_beats, 12);
+    assert.equal(track.result.arrangement_clips.length, 1);
+    assert.equal(track.result.arrangement_clips[0].id, "clip:arrangement:track:1:index:1");
+  });
+});
+
 test("bridge client rejects pending requests when the socket closes", async () => {
   const sockets = createLoopbackSocketPair();
   sockets.serverSocket.on("data", () => {

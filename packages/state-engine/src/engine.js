@@ -21,6 +21,7 @@ import {
 } from "./normalize.js";
 import {
   findTrack,
+  getArrangementSummary,
   getSelectedContext,
   getTrackDetails,
   listPlayingClips,
@@ -556,6 +557,7 @@ export function createStateEngine(initialState = createInitialState()) {
     },
     query: {
       summarizeProject: () => summarizeProject(currentState),
+      getArrangementSummary: () => getArrangementSummary(currentState),
       getSelectedContext: () => getSelectedContext(currentState),
       findTrack: (query) => findTrack(currentState, query),
       getTrackDetails: (trackId) => getTrackDetails(currentState, trackId),

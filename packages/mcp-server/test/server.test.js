@@ -192,7 +192,22 @@ function createServer(options = {}) {
                 looping: true
               }
             ],
-        arrangementClips: [],
+        arrangementClips: trackId === "track:1"
+          ? [
+              {
+                id: "clip:arrangement:track:1:index:1",
+                location: "arrangement",
+                index: 0,
+                name: "Verse",
+                startBeats: 0,
+                endBeats: 16,
+                loopStartBeats: 0,
+                loopEndBeats: 16,
+                looping: false,
+                isPlaying: false
+              }
+            ]
+          : [],
         devices: trackId === "track:2"
           ? [
               {
