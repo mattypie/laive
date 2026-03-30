@@ -7,6 +7,10 @@ Format:
 
 ## Unreleased
 
+### Features
+
+- Start the `v0.7.0` arrangement slice with arrangement summaries, arrangement clip enumeration in track details, and arrangement transport/loop control in the bridge and MCP surface (`dac62bf`).
+
 ### Maintenance
 
 - Reorganize the docs around end-user MCP adoption, split feature/roadmap/contributing content into dedicated docs, and ship `docs/` plus `logo.png` in the npm package (`e1a15c3`).
