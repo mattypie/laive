@@ -9,7 +9,7 @@ Format:
 
 ### Features
 
-- Start the `v0.7.0` arrangement slice with arrangement summaries, arrangement clip enumeration in track details, and arrangement transport/loop control in the bridge and MCP surface (`dac62bf`).
+- Start the `v0.7.0` arrangement slice with arrangement summaries, arrangement clip enumeration in track details, arrangement transport/loop control, and matching fixture/state-engine coverage (`dac62bf`, `339dc7b`).
 
 ### Maintenance
 
