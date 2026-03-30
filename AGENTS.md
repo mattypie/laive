@@ -9,6 +9,9 @@ This file is maintainer-only guidance. It is not part of the end-user install fl
 - Any user-visible change must add or update a bullet under `## Unreleased` in [CHANGELOG.md](./CHANGELOG.md).
 - User-visible means CLI behavior, installer behavior, MCP configuration, shipped assets, manual setup steps, supported Live behavior, or docs that change how operators use the system.
 - Purely internal refactors that do not change behavior may skip the changelog.
+- Keep changelog entries grouped under `### Features`, `### Fixes`, and `### Maintenance`.
+- Keep changelog bullets terse.
+- Every changelog bullet must point to one or more concrete commit refs in backticks, for example ``(`abc1234`)`` or ``(`abc1234`, `def5678`)``.
 
 ## Semver
 
@@ -38,6 +41,7 @@ This file is maintainer-only guidance. It is not part of the end-user install fl
 - Release commit format: `chore(release): vX.Y.Z`
 - Release tag format: `vX.Y.Z`
 - After tagging and publishing, create or update the matching GitHub release from the `CHANGELOG.md` section for that version.
+- When finalizing a release section, preserve the same `Features` / `Fixes` / `Maintenance` grouping used under `## Unreleased`.
 
 ## Compatibility And Docs
 

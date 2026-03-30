@@ -1,165 +1,190 @@
 # Changelog
 
+Format:
+- group entries under `### Features`, `### Fixes`, and `### Maintenance`
+- keep bullets terse
+- include one or more concrete commit refs in backticks
+
 ## Unreleased
 
-- restructured the top-level docs around end-user MCP adoption, with the root README now acting as a concise install-and-try entrypoint instead of a long mixed operator/developer document
-- added dedicated `docs/features.md`, `docs/roadmap.md`, and `docs/contributing.md` documents so feature coverage, roadmap status, and local development guidance are easier to navigate
-- added `docs/` and `logo.png` to the published package contents so README links and branding survive on the npm package page too
+### Maintenance
+
+- Reorganize the docs around end-user MCP adoption, split feature/roadmap/contributing content into dedicated docs, and ship `docs/` plus `logo.png` in the npm package (`e1a15c3`).
 
 ## v0.6.0 - 2026-03-30
 
-- started the `v0.6.0` mixer/routing slice by exposing return tracks and the master track as first-class bridge-backed MCP targets instead of roadmap-only gaps
-- added mixer metadata to bridged track snapshots, including sends, monitor state, and input/output routing state
-- added MCP tools for `list_return_tracks`, `get_master_track`, `set_send_level`, `set_monitor_state`, and `set_track_routing`
-- added a combined `list_mixer_tracks` MCP tool so agents can enumerate visible, return, and master mixer targets in one call
-- added bridge and MCP support for `create_return_track`, `set_track_volume`, and `set_track_panning`
-- expanded parameter resolution so name-based `set_parameter` calls can target devices on return and master tracks too
-- hardened track identity handling so legacy visible IDs like `track:1` coexist cleanly with `track:return:1` and `track:master`
-- added regression coverage for the new mixer/routing surface, including return/master browser loading, across the Python bridge, fixture runtime, state engine, MCP server, and CLI tests
-- fixed real-runtime return/master serialization so mixer-only tracks that do not expose visible-track state like `arm` do not crash snapshot refresh
-- validated the new mixer controls against a real Live session locally: return-track creation, return/master volume and panning, send writes to the new return, and master-target name-based parameter writes all succeeded
-- documented two remaining `v0.6.0` hardening gaps from real validation: Live prefixes named returns with the send-letter label, and the dry-run create paths still assume fake-runtime `preview_*` helpers that do not exist in the real Live Python runtime
-- fixed the dry-run create hardening gap by replacing the fake-runtime `preview_*` dependency with bridge-local preview objects for track, return-track, scene, and clip creation
-- fixed the return-track naming hardening gap by stripping redundant send-letter prefixes before naming new returns and by making MCP track-name matching tolerant of prefixed return/send labels and their de-prefixed aliases
-- hardened mixer writes further by resolving send names and routing labels through alias-aware lookup against the currently advertised Live choices instead of requiring exact machine-specific labels
-- enriched track readback with clearer send and routing discovery metadata so agents can inspect available mixer targets before writing
-- added an explicit future ergonomics slice to the roadmap so broader UX cleanup does not expand the focused `v0.6.0` mixer/routing release
+### Features
+
+- Add the mixer/routing surface for return and master tracks, including mixer-target listing, browser loading on return/master, return-track creation, and volume/panning/send/monitor/routing controls (`4bf0477`, `8a7590a`, `b91da64`).
+
+### Fixes
+
+- Handle mixer-only track serialization safely when return/master tracks do not expose visible-track state such as `arm` (`b26f923`).
+- Replace fake-runtime dry-run previews with bridge-local previews for track, return-track, scene, and clip creation on real Live (`56f7b8b`).
+- Normalize return-track naming and make return/send name matching tolerant of prefixed and de-prefixed aliases (`7263bb1`).
+- Resolve send names and routing labels through alias-aware lookup against the live-advertised choices, and preserve those aliases in state readback (`b6b8faa`, `530a25b`).
+
+### Maintenance
+
+- Record real-Live mixer validation and capture follow-up roadmap work for score-to-MIDI and post-`0.6.0` ergonomics (`f791636`, `9e0f4af`, `151ea94`).
 
 ## v0.5.1 - 2026-03-28
 
-- added structured JSONL logging for the MCP server, JS bridge client, and Python Remote Script under `~/.local/share/laive/logs` by default, with `LAIVE_LOG_DIR` override support for debugging and tests
-- fixed lazy bridge sessions so a closed bridge socket invalidates the active session and the next MCP tool call reconnects cleanly instead of reusing a dead client
-- enabled keepalive and pending-request rejection on bridge sockets so idle disconnects are surfaced explicitly instead of leaving the MCP layer stuck on a stale connection
+### Fixes
+
+- Add structured JSONL logging for the MCP server, bridge client, and Remote Script, and reconnect cleanly after idle bridge socket closure (`5c0afdc`, `f3f5155`).
 
 ## v0.5.0 - 2026-03-27
 
-- added first-class Session clip editing tools across the bridge and MCP surface: `rename_clip`, `duplicate_clip`, `move_session_clip`, `set_clip_loop_or_length`, and `delete_clip`, including confirmation gates for duplicate/delete mutations
-- added quantized parameter metadata propagation so bridge/state snapshots preserve `valueItems`, derive `allowedValues` / `enumLabels`, and expose them through MCP-facing device trees
-- expanded `set_parameter` to resolve targets by track, device, and parameter name or track index, and to accept enum-label writes for quantized controls instead of only raw numeric values
-- added regression coverage for the new clip-editing and parameter-metadata flows across the Python bridge, fixture runtime, state engine, and MCP server
-- hardened the release script to use a temp npm cache automatically for npm-driven checks, avoiding local `~/.npm` ownership issues during `release:check`
-- fixed real Live parameter serialization so non-quantized device parameters no longer break bridge refreshes when `value_items` is only valid on quantized controls
-- fixed clip loop and length writes against the Live 11 runtime by updating loop markers instead of trying to assign the read-only `clip.length` attribute directly
+### Features
+
+- Add first-class Session clip editing and enum-aware parameter control, including rename/move/loop tools, gated duplicate/delete, and name or enum-label based `set_parameter` writes (`b32301b`).
+
+### Fixes
+
+- Fix real-Live non-quantized parameter metadata and Live 11 clip loop/length writes (`93ec082`).
+
+### Maintenance
+
+- Use a temp npm cache for release checks and mark the `v0.5.0` roadmap slice as landed (`09ee1a0`, `ac6fb6b`).
 
 ## v0.4.1 - 2026-03-23
 
-- documented the next clip-editing ergonomics work discovered during live validation: clip rename, moving Session clips between slots, explicit clip loop or length edits, and gated duplicate or delete workflows
-- documented a follow-up to expose enum-label metadata for common quantized device parameters so agents can reason about built-in device modes without guessing from raw numbers
-- documented a follow-up to expose return/master tracks, send levels, and routing or monitor configuration as first-class bridge-backed MCP controls
-- documented a follow-up to make Arrangement View and clip-envelope control explicit roadmap items instead of leaving them implied in the earlier planning docs
-- sliced the current roadmap gaps into tentative versioned work units so future sessions can pick them up as concrete milestones
-- fixed CI regressions by letting `laive-mcp install --json` return a machine-readable dry-run payload when no Ableton Live install is detected, and by allowing native sidecar placement to proceed when the sidecar is discoverable through Live's browser even if the default `.amxd` path is absent
-- fixed Remote Script packaging to ignore transient Python bytecode caches so repeated package/install flows and CI archives no longer fail on disappearing `__pycache__` files
-- updated the repo-local release workflow to require creating or updating the matching GitHub release from the versioned changelog section after npm publish
-- fixed published MCP startup on Node 18 clients such as Claude by replacing JSON import-attribute syntax with a Node-18-safe package-version loader and lowering the declared Node engine floor accordingly
+### Fixes
+
+- Fix CI dry-run/install packaging assumptions and restore Node 18 MCP startup compatibility for published clients such as Claude (`651eea2`, `5536477`).
+
+### Maintenance
+
+- Expand the roadmap for arrangement/envelope follow-ups and require GitHub releases in the release workflow (`76158e4`, `472b783`).
 
 ## v0.4.0 - 2026-03-23
 
-- Added a bridge-level `select_track` action plus an MCP `ensure_sidecar_on_track` workflow so agents can select a target track and request `laive-sidecar` placement with structured setup guidance when the UI helper or sidecar is unavailable.
-- Refreshed the Max sidecar source project with bundled `logo.png` and `logo.txt` assets so the staged patcher renders a recognizable `laive` banner in Ableton Live instead of a placeholder-looking editor view.
-- Updated the top-level docs and planning documents to describe the current sidecar role more accurately: optional, selection-aware, and complementary to the control-surface bridge rather than the primary control path.
-- Replaced the shipped `laive-sidecar.amxd` with the rebuilt branded device export and clarified in install output/docs that sidecar installation currently targets the default Ableton User Library path rather than Live's custom configured library location.
-- Documented the near-term sidecar roadmap more explicitly around selected-clip transforms, parameter snapshot or restore, clip envelopes, and lightweight analysis workflows.
-- Fixed the local UI-helper executor to reuse the real frontmost Live app name reported by macOS, so helper-driven sidecar placement no longer assumes the process is literally named `Ableton Live`.
-- Fixed the UI automation macOS adapter to send special keys like `return` as real key codes instead of literal text, so browser-driven workflows can actually confirm selections instead of typing the word `return`.
-- Updated the browser-search UI workflow to move selection into Live's browser results before pressing Return, which is required for helper-driven sidecar placement on this system.
-- Made `ensure_sidecar_on_track` more robust by teaching it to prefer bridge-native browser loading when the sidecar is discoverable through Live's browser model, then fall back to UI automation only when that native path cannot resolve the item.
-- Added confirmation polling to sidecar placement so the adapter can wait briefly for the device to appear on the target track instead of reporting an immediate provisional warning.
-- Expanded the bridge-side browser root enumeration to include optional roots such as `user_library`, which is a prerequisite for eventually loading shipped sidecar devices without UI fallback when Live exposes them.
-- Reworked the source patcher again so the supported in-Live device UI is a `jsui` banner that draws `logo.png` first and falls back to built-in ASCII art if the image cannot be loaded.
+### Features
+
+- Add sidecar placement as a first-class workflow, ship the branded sidecar device, and improve the sidecar banner rendering path (`f9cff2e`, `c8b4396`, `40b71d8`, `3881baa`, `edf0ccb`).
+
+### Fixes
+
+- Fix the local UI-helper path for sidecar placement by resolving the frontmost Live app name, handling special keys correctly, advancing browser selection, preferring bridge-native loading, and confirming placement before returning (`122326a`, `4837a88`, `bd47009`, `060f4d9`).
+- Replace the broken `fpic`-style sidecar UI attempts with stable in-Live banner render paths during the sidecar export cycle (`2211e25`, `6da7706`).
+
+### Maintenance
+
+- Slice the roadmap into concrete work units and document clip-editing, enum-metadata, and mixer-control follow-ups (`7b26b8a`, `0d197ff`, `0eb0550`, `a284131`).
 
 ## v0.3.4 - 2026-03-23
 
-- Fixed the Python Remote Script note-write bridge to send `add_new_notes` Python note specifications again instead of Max-style `{"notes": [...]}` payloads, matching the real Live 11 Remote Script runtime for both insert and replace-after-clear flows.
-- Added focused bridge regression coverage for tuple fallback and `MidiNoteSpecification` payload construction so repository tests reflect the Python bridge contract rather than the Max for Live API shape.
+### Fixes
+
+- Restore Python note-spec payloads for note writes so the Live 11 Remote Script bridge uses the correct API shape again (`5d6cf8f`).
 
 ## v0.3.3 - 2026-03-23
 
-- Tightened Live 11 note replacement so the bridge now verifies that the clear step actually removed existing notes before re-adding a new payload, instead of silently appending when `remove_notes_extended` or `remove_notes_by_id` no-op.
-- Added bridge regression coverage for dict-form `remove_notes_extended` plus the real-runtime failure mode where an extended-note clear reports success but leaves the original notes intact.
+### Fixes
+
+- Harden Live 11 note replacement by requiring the clear step to actually remove existing notes before rewriting the clip (`dc820b2`).
 
 ## v0.3.2 - 2026-03-23
 
-- Changed bridge note insertion to prefer Live 11's documented extended-note API by sending `add_new_notes` a single `{"notes": [...]}` payload instead of tuple-based note specs.
-- Changed bridge note replacement to clear existing clip notes through `remove_notes_by_id` or `remove_notes_extended` before re-adding the new payload, avoiding UI-selection-dependent overwrite semantics in real Live sessions.
-- Added regression coverage for the extended-note insert and replace paths so the Python bridge and fake harness exercise the same API family now used against the real runtime.
+### Fixes
+
+- Move clip writes onto the extended-note API family instead of older ad hoc note payload handling (`ed64fad`).
 
 ## v0.3.1 - 2026-03-23
 
-- Changed bridge note replacement to use Live's supported `select_all_notes` + `replace_selected_notes` sequence before any legacy `set_notes` fallback, matching the real Live 11 overwrite path instead of relying on test-harness-only semantics.
-- Added regression coverage for the `replace_selected_notes` sequence so bridge-level overwrite semantics are exercised against the same API family used by the real runtime.
+### Fixes
+
+- Use `replace_selected_notes` for the Live overwrite path instead of relying on weaker fallback behavior (`7a379f4`).
 
 ## v0.3.0 - 2026-03-23
 
-- Added a first-class `replace_notes` bridge and MCP operation so clip note replacement now overwrites the existing payload instead of piggybacking on additive `insert_notes` semantics.
-- Kept `insert_notes` explicitly additive and updated the MCP tool descriptions/tests to distinguish insert-vs-replace behavior.
-- Tightened optional sidecar workflow gating so sidecar tools now require an active `laive-sidecar` device in the current Live set instead of silently succeeding when only the `.amxd` is installed on disk.
+### Features
+
+- Split additive `insert_notes` from overwrite-style `replace_notes` and tighten sidecar workflow gating to require an active sidecar device (`9861f2e`).
 
 ## v0.2.7 - 2026-03-23
 
-- Fixed delayed session-playback mirroring by mapping bridge `track-playback-changed` events into MCP `track.updated` state updates instead of collapsing them to generic dirty-path notifications.
-- Updated project-summary and track-detail queries to derive playing session clips from `playing_slot_index` as well as clip flags, keeping readback coherent when Live settles playback state asynchronously.
-- Added regression tests covering delayed playback events and slot-index-derived playing clips so scene launch and clip-stop flows no longer rely on synchronous runtime behavior in the harness.
+### Fixes
+
+- Keep session playback state coherent by mapping delayed playback events into mirrored track updates and summary/detail readback (`5dc93eb`).
 
 ## v0.2.6 - 2026-03-23
 
-- Added first-class Session View control tools across the bridge and MCP surface: `launch_clip`, `launch_scene`, `stop_track_clips`, and `stop_all_clips`.
-- Extended the Python bridge, fixture runtime, and fake Live harness to propagate session playback state more coherently, including `playing_slot_index` / `fired_slot_index` and explicit clip-playback change events.
-- Added bridge and MCP test coverage for Session View launch/stop flows so clip playback control is exercised end to end instead of being inferred from transport-only behavior.
+### Features
+
+- Add first-class Session View launch and stop controls across the bridge and MCP surface (`1803bd2`).
 
 ## v0.2.5 - 2026-03-23
 
-- Added a browser-backed device loading path to the control-surface bridge, including browser tree/item queries and `load_browser_item` via Live's `application().browser.load_item(...)` flow.
-- Exposed new MCP browser tools so agents can inspect browser categories/items and load devices onto tracks without falling back to UI automation.
+### Features
+
+- Add browser-backed device loading and browser query tools on the control-surface path (`bc8bc82`).
 
 ## v0.2.4 - 2026-03-23
 
-- Fixed Live 11 MIDI note insertion for the Python Remote Script bridge by constructing `Live.Clip.MidiNoteSpecification` objects for `add_new_notes`, matching Ableton's own built-in Remote Script usage instead of passing plain dicts or tuples.
-- Added a clip-note capability adapter in the Python bridge so note reads and note writes use the same runtime-specific API family instead of diverging across `add_new_notes`, legacy note commands, and fixture-only `clip.notes` access.
-- Added bridge-local serializers for songs, tracks, clips, devices, and parameters so the bridge emits stable DTOs, including explicit `note_count`/`noteCount` clip metadata and normalized armed/muted/soloed aliases.
+### Fixes
+
+- Use `MidiNoteSpecification` and bridge-local serializers for note writes and note readback on the Python bridge (`33fc777`).
 
 ## v0.2.3 - 2026-03-23
 
-- Fixed the legacy Remote Script note-write fallback again to drive Live's command-style `set_notes -> notes -> note -> done` sequence, which is what the Live 11 Python bridge actually exposes when `add_new_notes` is unavailable.
+### Fixes
+
+- Fix the command-style `set_notes` fallback for runtimes that do not expose the newer write path (`9af677d`).
 
 ## v0.2.2 - 2026-03-23
 
-- Fixed legacy Remote Script MIDI note insertion by using the older `replace_selected_notes` command sequence when `add_new_notes` is unavailable, instead of incorrectly calling `set_notes` with a single tuple payload.
+### Fixes
+
+- Fix the legacy note insertion fallback for older Live bridge write behavior (`e2fbaf0`).
 
 ## v0.2.1 - 2026-03-22
 
-- Fixed Remote Script MIDI note insertion to send Live note-spec dictionaries instead of legacy Python tuples, covering both `add_new_notes` and `set_notes` bridge paths and resolving real-session `NPythonClip::TNoteSpecification` conversion failures for `insert_notes`.
-- Fixed Remote Script packaging to safely restage into an existing staging directory, avoiding follow-on packaging failures during repeated local package/install flows.
+### Fixes
+
+- Fix note insertion payload handling across the primary and fallback note-write paths (`5c6a045`, `e8d8567`).
 
 ## v0.2.0 - 2026-03-22
 
-- Updated the README to advertise the currently proven live MCP capabilities separately from lower-level bridge capabilities that are not yet surfaced as first-class MCP tools.
-- Expanded the MCP server to expose the remaining control-surface bridge tools for transport control, scene creation, and MIDI note insertion.
-- Added optional sidecar and UI-helper MCP workflow tools plus `get_component_status`, with structured setup instructions when those optional components are unavailable.
-- Fixed the Remote Script packaging helper to retry staged-tree cleanup so `laive-mcp package` no longer fails intermittently on existing `__pycache__` directories.
+### Features
+
+- Expose the broader MCP bridge surface and optional component workflows through the user-facing server (`0ca9b31`).
+
+### Fixes
+
+- Mark the CLI entrypoint executable and harden Remote Script packaging cleanup (`af45195`, `93009a4`).
+
+### Maintenance
+
+- Tighten the README MCP capability summary to match what the server actually exposes (`ce9aa09`, `7b9c62b`).
 
 ## v0.1.4 - 2026-03-22
 
-- Fixed MCP tool schema advertising so argument-bearing tools like `set_tempo`, `get_track_details`, `get_device_tree`, `create_clip`, and `set_parameter` now publish explicit JSON Schemas through `tools/list` instead of empty input objects, allowing Codex clients to send required parameters.
+### Fixes
+
+- Publish explicit JSON Schemas for argument-bearing MCP tools instead of empty input objects (`2bfd593`).
 
 ## v0.1.3 - 2026-03-22
 
-- Fixed MCP `tools/call` responses to return proper `CallToolResult` envelopes with `content`, `structuredContent`, and `isError`, so Codex clients accept the responses instead of rejecting them as an unexpected type.
+### Fixes
+
+- Return proper MCP `CallToolResult` envelopes from `tools/call` (`c86b2eb`).
 
 ## v0.1.2 - 2026-03-22
 
-- Fixed an MCP transport crash when the Live bridge socket is unreachable by preventing the bridge client from raising an unhandled `error` event during lazy connection attempts. Tool calls now return structured MCP errors instead of closing the server process.
+### Fixes
+
+- Prevent bridge-unavailable tool calls from crashing the MCP transport and surface structured tool errors instead (`429d3b0`).
 
 ## v0.1.1 - 2026-03-22
 
-- Fixed MCP startup compatibility by implementing the `initialize` handshake, ignoring `notifications/initialized`, and deferring Live bridge connection until the first real tool call so the server can start before Ableton is reachable.
+### Fixes
+
+- Implement the MCP `initialize` handshake and defer bridge connection until the first real tool call (`3eeb493`).
 
 ## v0.1.0 - 2026-03-22
 
-- Renamed the published npm package from `laive` to `laive-mcp` because `laive` is already taken on npm. The Ableton-side control surface name remains `laive`.
-- Corrected the npm `bin` metadata so the published package exposes a valid executable entrypoint.
-- Set the published project license to `GPL-3.0-only` and added the repository `LICENSE` file.
-- Added stable default installation targets for `~/Applications/laive-ui-helper.app` and the Ableton User Library MIDI effect path.
-- Added shipping and staging for the prebuilt `laive-sidecar.amxd` device.
-- Added `laive mcp-config` for local and published MCP client configuration output.
-- Added publish and release tooling, including `AGENTS.md`, `scripts/release.mjs`, and `scripts/version-workspaces.mjs`.
+### Features
+
+- Ship the initial public package with MCP config output, helper/device delivery, and publish/release tooling under the `laive-mcp` package name (`c5b38c5`).

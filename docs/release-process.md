@@ -7,6 +7,8 @@
 - The root `package.json` version is the public release version.
 - Workspace package versions stay aligned with the root version.
 - `CHANGELOG.md` keeps all pending user-visible changes under `## Unreleased`.
+- `CHANGELOG.md` groups entries under `### Features`, `### Fixes`, and `### Maintenance`.
+- Changelog bullets should be terse and should include concrete commit refs such as ``(`abc1234`)``.
 
 ## Release Checks
 
@@ -42,6 +44,21 @@ That will:
 2. update the root and workspace `package.json` versions
 3. move `CHANGELOG.md` entries from `## Unreleased` into a dated `## vX.Y.Z` section
 4. reset `## Unreleased` for continued development
+
+Keep the grouped changelog structure when you do this:
+
+```md
+## Unreleased
+
+### Features
+- ...
+
+### Fixes
+- ...
+
+### Maintenance
+- ...
+```
 
 ## Publish
 

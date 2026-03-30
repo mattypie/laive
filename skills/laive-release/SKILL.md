@@ -27,25 +27,29 @@ Read these files before taking release actions:
    - `minor`: new end-user capability or automation
    - `patch`: non-breaking fixes and clarifications
 3. Ensure `CHANGELOG.md` has user-visible bullets under `## Unreleased`.
-4. Run dry-run release planning first:
+4. Ensure the changelog uses the repository format:
+   - group entries under `### Features`, `### Fixes`, and `### Maintenance`
+   - keep bullets terse
+   - include one or more concrete commit refs in backticks for every bullet
+5. Run dry-run release planning first:
 
 ```sh
 node ./scripts/release.mjs prepare <patch|minor|major> --json
 ```
 
-5. Run release checks before applying:
+6. Run release checks before applying:
 
 ```sh
 node ./scripts/release.mjs check
 ```
 
-6. When the user explicitly wants release prep applied:
+7. When the user explicitly wants release prep applied:
 
 ```sh
 node ./scripts/release.mjs prepare <patch|minor|major> --apply
 ```
 
-7. After prep, summarize:
+8. After prep, summarize:
    - next version
    - changelog entries included
    - commands run
@@ -82,5 +86,7 @@ gh release edit vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/laive-vX.Y.Z-release-n
 
 - Default to dry-run behavior unless the user explicitly asks to apply or publish.
 - Do not skip `CHANGELOG.md`.
+- Keep the changelog grouped by `Features` / `Fixes` / `Maintenance` for both `## Unreleased` and versioned sections.
+- Keep changelog bullets terse and commit-referenced.
 - If install steps or support posture changed, update the relevant docs in the same change.
 - When a release is published, do not stop after npm. Confirm the matching GitHub release exists and is populated from the changelog.
