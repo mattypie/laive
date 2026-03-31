@@ -589,6 +589,17 @@ test("real bridge session can connect to a live bridge socket and refresh state"
     await createBridgeAdapter(session.bridgeClient).stopTrackClips({
       trackId: "track:2"
     });
+    const arrangementClip = await createBridgeAdapter(session.bridgeClient).createArrangementClip({
+      trackId: "track:2",
+      startBeats: 16,
+      lengthBeats: 8,
+      name: "Runtime Arrangement"
+    });
+    await createBridgeAdapter(session.bridgeClient).duplicateClipToArrangement({
+      clipId: clip.clip.id,
+      destinationBeats: 32,
+      targetTrackId: "track:2"
+    });
     await createBridgeAdapter(session.bridgeClient).launchScene({
       sceneId: "scene:1"
     });
@@ -599,6 +610,9 @@ test("real bridge session can connect to a live bridge socket and refresh state"
     const updated = await createStateAdapter(session).getProjectSummary();
     assert.equal(updated.song.tempo, 142);
     assert.equal(updated.song.arrangementPositionBeats, 8);
+    const arrangementDetails = await createStateAdapter(session).getArrangementTrackDetails("track:2");
+    assert.equal(arrangementClip.clip.location, "arrangement");
+    assert.equal(arrangementDetails.arrangementClips.length, 3);
   } finally {
     await session.close();
     runtime.off("event", server.boundRuntimeEventHandler);

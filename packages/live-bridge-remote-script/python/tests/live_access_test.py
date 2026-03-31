@@ -492,6 +492,47 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(song.loop_start, 8.0)
         self.assertEqual(song.loop_length, 16.0)
 
+    def test_create_arrangement_clip_creates_clip_on_visible_track(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.create_arrangement_clip(
+            "track:1",
+            start_beats=4,
+            length_beats=8,
+            name="Arrangement Verse",
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:1:index:1")
+        self.assertEqual(result["clip"]["start_beats"], 4.0)
+        self.assertEqual(result["clip"]["end_beats"], 12.0)
+        self.assertEqual(result["clip"]["name"], "Arrangement Verse")
+        self.assertEqual(song.tracks[0].arrangement_clips[0].name, "Arrangement Verse")
+
+    def test_duplicate_clip_to_arrangement_copies_session_clip(self):
+        song = FakeSong()
+        song.tracks[0].clip_slots[0].create_clip(4)
+        song.tracks[0].clip_slots[0].clip.name = "Session Source"
+        song.tracks[0].clip_slots[0].clip.notes = [
+            {"pitch": 60, "start_time": 0.0, "duration": 1.0, "velocity": 100, "mute": False}
+        ]
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.duplicate_clip_to_arrangement(
+            "clip:session:track:1:slot:1",
+            destination_beats=12,
+            target_track_id="track:1",
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:1:index:1")
+        self.assertEqual(result["clip"]["start_beats"], 12.0)
+        self.assertEqual(result["clip"]["end_beats"], 16.0)
+        self.assertEqual(result["clip"]["name"], "Session Source")
+        self.assertEqual(song.tracks[0].arrangement_clips[0].name, "Session Source")
+        self.assertEqual(song.tracks[0].arrangement_clips[0].notes[0]["pitch"], 60)
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"

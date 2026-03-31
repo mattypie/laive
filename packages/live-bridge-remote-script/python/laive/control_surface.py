@@ -323,6 +323,14 @@ class LaiveControlSurface(AbletonControlSurface):
                 name=arguments.get("name"),
                 dry_run=dry_run,
             )
+        if target == "create_arrangement_clip":
+            return self._live.create_arrangement_clip(
+                track_id=arguments.get("track_id"),
+                start_beats=arguments.get("start_beats"),
+                length_beats=arguments.get("length_beats", 4),
+                name=arguments.get("name"),
+                dry_run=dry_run,
+            )
         if target == "rename_clip":
             return self._live.rename_clip(
                 clip_id=arguments.get("clip_id"),
@@ -340,6 +348,13 @@ class LaiveControlSurface(AbletonControlSurface):
             return self._live.move_session_clip(
                 clip_id=arguments.get("clip_id"),
                 target_slot_index=arguments.get("target_slot_index"),
+                target_track_id=arguments.get("target_track_id"),
+                dry_run=dry_run,
+            )
+        if target == "duplicate_clip_to_arrangement":
+            return self._live.duplicate_clip_to_arrangement(
+                clip_id=arguments.get("clip_id"),
+                destination_beats=arguments.get("destination_beats"),
                 target_track_id=arguments.get("target_track_id"),
                 dry_run=dry_run,
             )

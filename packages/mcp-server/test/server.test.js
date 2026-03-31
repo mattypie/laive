@@ -336,6 +336,15 @@ function createServer(options = {}) {
     async createClip(payload) {
       return { affectedObjects: [payload.trackId, `clip:${payload.slotIndex}`] };
     },
+    async createArrangementClip(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.trackId, "clip:arrangement:new"],
+        clip: {
+          id: "clip:arrangement:track:1:index:2"
+        }
+      };
+    },
     async renameClip(payload) {
       return { payload, affectedObjects: [payload.clipId] };
     },
@@ -345,6 +354,15 @@ function createServer(options = {}) {
         affectedObjects: [payload.clipId, `clip:duplicate:${payload.targetSlotIndex}`],
         clip: {
           id: `clip:session:${payload.targetTrackId ?? "track:2"}:slot:${payload.targetSlotIndex + 1}`
+        }
+      };
+    },
+    async duplicateClipToArrangement(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId, payload.targetTrackId ?? "track:1", "clip:arrangement:dup"],
+        clip: {
+          id: `clip:arrangement:${payload.targetTrackId ?? "track:1"}:index:2`
         }
       };
     },
@@ -692,6 +710,8 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("get_browser_tree"));
   assert.ok(byName.has("get_arrangement_summary"));
   assert.ok(byName.has("get_arrangement_track_details"));
+  assert.ok(byName.has("create_arrangement_clip"));
+  assert.ok(byName.has("duplicate_clip_to_arrangement"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
   assert.ok(byName.has("ensure_sidecar_on_track"));
@@ -1138,6 +1158,57 @@ test("set_arrangement_transport returns structured mutation response", async () 
   assert.equal(
     response.result.structuredContent.summary,
     "Arrangement transport updated."
+  );
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("create_arrangement_clip returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.25,
+    method: "tools/call",
+    params: {
+      name: "create_arrangement_clip",
+      arguments: {
+        trackId: "track:1",
+        startBeats: 16,
+        lengthBeats: 8,
+        name: "Verse"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip created on track:1."
+  );
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("duplicate_clip_to_arrangement returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.26,
+    method: "tools/call",
+    params: {
+      name: "duplicate_clip_to_arrangement",
+      arguments: {
+        clipId: "clip:session:track:1:slot:1",
+        destinationBeats: 24,
+        targetTrackId: "track:1"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement duplication created from clip:session:track:1:slot:1."
   );
   assert.equal(response.result.structuredContent.state_version_before, 3);
   assert.equal(response.result.structuredContent.state_version_after, 4);

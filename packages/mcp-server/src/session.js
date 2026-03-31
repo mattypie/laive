@@ -470,6 +470,27 @@ export function createBridgeAdapter(target) {
         affectedObjects: result.clip ? [payload.trackId, result.clip.id] : [payload.trackId]
       };
     },
+    async createArrangementClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "create_arrangement_clip",
+          {
+            track_id: payload.trackId,
+            start_beats: payload.startBeats,
+            length_beats: payload.lengthBeats,
+            name: payload.name
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: result.clip ? [payload.trackId, result.clip.id] : [payload.trackId]
+      };
+    },
     async renameClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (
@@ -527,6 +548,26 @@ export function createBridgeAdapter(target) {
       return {
         ...result,
         affectedObjects: [payload.clipId, result.clip?.id ?? null].filter(Boolean)
+      };
+    },
+    async duplicateClipToArrangement(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "duplicate_clip_to_arrangement",
+          {
+            clip_id: payload.clipId,
+            destination_beats: payload.destinationBeats,
+            target_track_id: payload.targetTrackId ?? null
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.targetTrackId ?? null, payload.clipId, result.clip?.id ?? null].filter(Boolean)
       };
     },
     async deleteClip(payload, options = {}) {

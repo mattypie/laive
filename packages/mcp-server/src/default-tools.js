@@ -1000,6 +1000,61 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "create_arrangement_clip",
+      description: "Create a MIDI clip on a target visible track in Arrangement View.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Visible track identifier, for example `track:7`."
+          },
+          startBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Arrangement clip start position in beats."
+          },
+          lengthBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Clip length in beats. Defaults to 4."
+          },
+          name: {
+            type: "string",
+            description: "Optional clip name."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["trackId", "startBeats"]
+      }),
+      async execute(args) {
+        requireString(args.trackId, "trackId");
+        if (!Number.isFinite(Number(args.startBeats)) || Number(args.startBeats) < 0) {
+          throw new McpServerError("invalid_request", "startBeats must be a non-negative number");
+        }
+        if (args.lengthBeats !== undefined && (!Number.isFinite(Number(args.lengthBeats)) || Number(args.lengthBeats) <= 0)) {
+          throw new McpServerError("invalid_request", "lengthBeats must be a positive number");
+        }
+
+        await policyAdapter.assertAllowed("create_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        const created = await bridgeAdapter.createArrangementClip({
+          trackId: args.trackId,
+          startBeats: Number(args.startBeats),
+          lengthBeats: args.lengthBeats ?? 4,
+          name: args.name,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(args.trackId);
+        return buildMutationResult(
+          `Arrangement clip ${args.dryRun ? "previewed" : "created"} on ${args.trackId}.`,
+          created.affectedObjects ?? [args.trackId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "rename_clip",
       description: "Rename a Session View clip by canonical clip id.",
       inputSchema: createObjectSchema({
@@ -1083,6 +1138,55 @@ export function buildDefaultTools({
         return buildMutationResult(
           `Clip ${args.dryRun ? "duplication previewed" : "duplicated"} for ${args.clipId}.`,
           [args.clipId, result.clip?.id].filter(Boolean),
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "duplicate_clip_to_arrangement",
+      description: "Duplicate a clip into Arrangement View at a target beat position.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Source clip id."
+          },
+          destinationBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Arrangement destination position in beats."
+          },
+          targetTrackId: {
+            type: "string",
+            description: "Optional target visible track id. Defaults to the source clip track."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "destinationBeats"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        if (!Number.isFinite(Number(args.destinationBeats)) || Number(args.destinationBeats) < 0) {
+          throw new McpServerError(
+            "invalid_request",
+            "destinationBeats must be a non-negative number"
+          );
+        }
+
+        await policyAdapter.assertAllowed("duplicate_clip_to_arrangement", args);
+        const before = await stateAdapter.getArrangementSummary();
+        const duplicated = await bridgeAdapter.duplicateClipToArrangement({
+          clipId: args.clipId,
+          destinationBeats: Number(args.destinationBeats),
+          targetTrackId: args.targetTrackId ?? null,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(args.targetTrackId ?? "song");
+        return buildMutationResult(
+          `Arrangement duplication ${args.dryRun ? "previewed" : "created"} from ${args.clipId}.`,
+          duplicated.affectedObjects ?? [args.clipId],
           before.stateVersion,
           after.stateVersion,
           after.warnings ?? []

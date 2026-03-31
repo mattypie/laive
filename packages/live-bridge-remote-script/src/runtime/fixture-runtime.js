@@ -237,10 +237,14 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.createScene(args, dryRun);
       case "create_clip":
         return this.createClip(args, dryRun);
+      case "create_arrangement_clip":
+        return this.createArrangementClip(args, dryRun);
       case "rename_clip":
         return this.renameClip(args, dryRun);
       case "duplicate_clip":
         return this.duplicateClip(args, dryRun);
+      case "duplicate_clip_to_arrangement":
+        return this.duplicateClipToArrangement(args, dryRun);
       case "move_session_clip":
         return this.moveSessionClip(args, dryRun);
       case "delete_clip":
@@ -654,7 +658,8 @@ export class FixtureLiveRuntime extends EventEmitter {
       playing_slot_index: -1,
       fired_slot_index: -1,
       devices: [],
-      session_clips: []
+      session_clips: [],
+      arrangement_clips: []
     };
 
     if (!dryRun) {
@@ -697,7 +702,8 @@ export class FixtureLiveRuntime extends EventEmitter {
       availableOutputRoutingChannels: [{ display_name: "Post Mixer", identifier: "post_mixer" }],
       sends: [],
       devices: [],
-      session_clips: []
+      session_clips: [],
+      arrangement_clips: []
     };
 
     if (!dryRun) {
@@ -796,6 +802,62 @@ export class FixtureLiveRuntime extends EventEmitter {
     };
   }
 
+  createArrangementClip(args, dryRun) {
+    const track = this.findTrack(args.track_id);
+    if ((track.section ?? "visible") !== "visible") {
+      throw new Error("Arrangement clips are only supported on visible tracks");
+    }
+    const startBeats = Number(args.start_beats);
+    const lengthBeats = Number(args.length_beats ?? 4);
+    if (!Number.isFinite(startBeats) || startBeats < 0) {
+      throw new Error("start_beats must be a non-negative number");
+    }
+    if (!Number.isFinite(lengthBeats) || lengthBeats <= 0) {
+      throw new Error("length_beats must be a positive number");
+    }
+    const nextIndex = (track.arrangement_clips ?? []).length;
+    const clip = {
+      id: `clip:arrangement:${track.id}:index:${nextIndex + 1}`,
+      location: "arrangement",
+      arrangement_index: nextIndex,
+      arrangementIndex: nextIndex,
+      index: nextIndex,
+      track_id: track.id,
+      name: args.name ?? `Arrangement Clip ${nextIndex + 1}`,
+      length_beats: lengthBeats,
+      lengthBeats,
+      loop_start_beats: 0,
+      loopStartBeats: 0,
+      loop_end_beats: lengthBeats,
+      loopEndBeats: lengthBeats,
+      looping: true,
+      is_playing: false,
+      start_beats: startBeats,
+      startBeats: startBeats,
+      end_beats: startBeats + lengthBeats,
+      endBeats: startBeats + lengthBeats,
+      notes: []
+    };
+
+    if (!dryRun) {
+      track.arrangement_clips = [...(track.arrangement_clips ?? []), clip];
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-created",
+          track_id: track.id,
+          clip: clone(clip)
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      track: clone(track),
+      clip
+    };
+  }
+
   renameClip(args, dryRun) {
     const clip = this.findClip(args.clip_id);
     if (!args.name) {
@@ -875,19 +937,80 @@ export class FixtureLiveRuntime extends EventEmitter {
     };
   }
 
+  duplicateClipToArrangement(args, dryRun) {
+    const sourceClip = this.findClip(args.clip_id);
+    const targetTrack = this.findTrack(args.target_track_id ?? this.findTrackIdForClip(args.clip_id));
+    if ((targetTrack.section ?? "visible") !== "visible") {
+      throw new Error("Arrangement clips are only supported on visible tracks");
+    }
+    const destinationBeats = Number(args.destination_beats);
+    if (!Number.isFinite(destinationBeats) || destinationBeats < 0) {
+      throw new Error("destination_beats must be a non-negative number");
+    }
+    const lengthBeats = Number(
+      sourceClip.length_beats ?? sourceClip.lengthBeats ?? sourceClip.loop_end_beats ?? sourceClip.loopEndBeats ?? 4
+    );
+    const nextIndex = (targetTrack.arrangement_clips ?? []).length;
+    const clip = {
+      ...clone(sourceClip),
+      id: `clip:arrangement:${targetTrack.id}:index:${nextIndex + 1}`,
+      location: "arrangement",
+      arrangement_index: nextIndex,
+      arrangementIndex: nextIndex,
+      index: nextIndex,
+      track_id: targetTrack.id,
+      slot_index: null,
+      slotIndex: null,
+      is_playing: false,
+      start_beats: destinationBeats,
+      startBeats: destinationBeats,
+      end_beats: destinationBeats + lengthBeats,
+      endBeats: destinationBeats + lengthBeats,
+      length_beats: lengthBeats,
+      lengthBeats
+    };
+
+    if (!dryRun) {
+      targetTrack.arrangement_clips = [...(targetTrack.arrangement_clips ?? []), clip];
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-created",
+          track_id: targetTrack.id,
+          clip: clone(clip)
+        }
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      source_clip_id: args.clip_id,
+      track: clone(targetTrack),
+      clip
+    };
+  }
+
   deleteClip(args, dryRun) {
     const clip = this.findClip(args.clip_id);
     const track = this.state.tracks.find((item) =>
-      item.session_clips.some((candidate) => candidate.id === args.clip_id)
+      item.session_clips.some((candidate) => candidate.id === args.clip_id) ||
+      (item.arrangement_clips ?? []).some((candidate) => candidate.id === args.clip_id)
     );
+    const isArrangementClip = clip.location === "arrangement";
 
     if (!dryRun) {
-      track.session_clips = track.session_clips.filter((candidate) => candidate.id !== args.clip_id);
-      if (track.playing_slot_index === clip.slot_index) {
-        track.playing_slot_index = -1;
-      }
-      if (track.fired_slot_index === clip.slot_index) {
-        track.fired_slot_index = -1;
+      if (isArrangementClip) {
+        track.arrangement_clips = (track.arrangement_clips ?? []).filter(
+          (candidate) => candidate.id !== args.clip_id
+        );
+      } else {
+        track.session_clips = track.session_clips.filter((candidate) => candidate.id !== args.clip_id);
+        if (track.playing_slot_index === clip.slot_index) {
+          track.playing_slot_index = -1;
+        }
+        if (track.fired_slot_index === clip.slot_index) {
+          track.fired_slot_index = -1;
+        }
       }
       this.emit("event", {
         topic: "clips.changed",
@@ -903,7 +1026,8 @@ export class FixtureLiveRuntime extends EventEmitter {
       applied: !dryRun,
       clip_id: args.clip_id,
       track_id: track.id,
-      slot_index: clip.slot_index
+      slot_index: clip.slot_index ?? null,
+      arrangement_index: clip.arrangement_index ?? clip.arrangementIndex ?? null
     };
   }
 
@@ -1191,6 +1315,18 @@ export class FixtureLiveRuntime extends EventEmitter {
     return {
       applied: !dryRun
     };
+  }
+
+  findTrackIdForClip(clipId) {
+    for (const track of this.state.tracks) {
+      if (
+        track.session_clips.some((candidate) => candidate.id === clipId) ||
+        (track.arrangement_clips ?? []).some((candidate) => candidate.id === clipId)
+      ) {
+        return track.id;
+      }
+    }
+    throw new Error(`Track not found for clip: ${clipId}`);
   }
 }
 

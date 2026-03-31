@@ -330,6 +330,53 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(set_loop["result"]["clip"]["length_beats"], 8.0)
         self.assertEqual(delete_clip["result"]["clip_id"], "clip:session:track:1:slot:3")
 
+    def test_arrangement_clip_creation_and_duplication_controls(self):
+        self.song.tracks[0].clip_slots[0].create_clip(4)
+        self.song.tracks[0].clip_slots[0].clip.name = "Source Clip"
+
+        create_arrangement_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="create_arrangement_clip",
+                arguments={
+                    "track_id": "track:1",
+                    "start_beats": 8,
+                    "length_beats": 8,
+                    "name": "Arrange Verse",
+                },
+                request_id="arrangement-create-1",
+            )
+        )
+        duplicate_to_arrangement = self.surface.process_request(
+            create_request(
+                "call",
+                target="duplicate_clip_to_arrangement",
+                arguments={
+                    "clip_id": "clip:session:track:1:slot:1",
+                    "destination_beats": 24,
+                    "target_track_id": "track:1",
+                },
+                request_id="arrangement-duplicate-1",
+            )
+        )
+
+        self.assertTrue(create_arrangement_clip["ok"])
+        self.assertEqual(
+            create_arrangement_clip["result"]["clip"]["id"],
+            "clip:arrangement:track:1:index:1",
+        )
+        self.assertEqual(create_arrangement_clip["result"]["clip"]["start_beats"], 8.0)
+        self.assertEqual(create_arrangement_clip["result"]["clip"]["end_beats"], 16.0)
+        self.assertEqual(create_arrangement_clip["result"]["clip"]["name"], "Arrange Verse")
+
+        self.assertTrue(duplicate_to_arrangement["ok"])
+        self.assertEqual(
+            duplicate_to_arrangement["result"]["clip"]["id"],
+            "clip:arrangement:track:1:index:2",
+        )
+        self.assertEqual(duplicate_to_arrangement["result"]["clip"]["start_beats"], 24.0)
+        self.assertEqual(duplicate_to_arrangement["result"]["clip"]["name"], "Source Clip")
+
 
 if __name__ == "__main__":
     unittest.main()

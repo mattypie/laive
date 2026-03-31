@@ -299,6 +299,53 @@ class FakeTrack(ListenerMixin):
         if self.song is not None:
             self.song._notify("tracks")
 
+    def create_midi_clip(self, start_beats, length_beats):
+        clip = FakeClip("Arrangement Clip", length=length_beats)
+        clip.start_time = float(start_beats)
+        clip.end_time = float(start_beats) + float(length_beats)
+        self.arrangement_clips.append(clip)
+        if self.song is not None:
+            self.song._notify("tracks")
+        return clip
+
+    def duplicate_clip_to_arrangement(self, clip, destination_beats):
+        duplicated_clip = FakeClip(getattr(clip, "name", "Arrangement Clip"), length=getattr(clip, "length", 4))
+        duplicated_clip.looping = getattr(clip, "looping", True)
+        duplicated_clip.loop_start = getattr(clip, "loop_start", 0.0)
+        duplicated_clip.loop_end = getattr(clip, "loop_end", getattr(clip, "length", 4))
+        duplicated_clip.notes = [dict(note) for note in getattr(clip, "notes", [])]
+        duplicated_clip.start_time = float(destination_beats)
+        duplicated_clip.end_time = float(destination_beats) + float(getattr(clip, "length", 4))
+        self.arrangement_clips.append(duplicated_clip)
+        if self.song is not None:
+            self.song._notify("tracks")
+        return duplicated_clip
+
+    def delete_clip(self, clip):
+        self.arrangement_clips = [candidate for candidate in self.arrangement_clips if candidate is not clip]
+        if self.song is not None:
+            self.song._notify("tracks")
+
+    def create_midi_clip(self, start_beats, length_beats):
+        clip = FakeClip(length=length_beats)
+        clip.start_time = float(start_beats)
+        clip.end_time = float(start_beats) + float(length_beats)
+        self.arrangement_clips.append(clip)
+        if self.song is not None:
+            self.song._notify("tracks")
+
+    def duplicate_clip_to_arrangement(self, source_clip, destination_beats):
+        clip = FakeClip(name=getattr(source_clip, "name", "Clip 1"), length=getattr(source_clip, "length", 4))
+        clip.looping = bool(getattr(source_clip, "looping", True))
+        clip.loop_start = getattr(source_clip, "loop_start", 0.0)
+        clip.loop_end = getattr(source_clip, "loop_end", getattr(source_clip, "length", 4))
+        clip.start_time = float(destination_beats)
+        clip.end_time = float(destination_beats) + float(getattr(source_clip, "length", 4))
+        clip.notes = [dict(note) for note in getattr(source_clip, "notes", [])]
+        self.arrangement_clips.append(clip)
+        if self.song is not None:
+            self.song._notify("tracks")
+
 
 class FakeSongView(object):
     def __init__(self, song):
