@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
-| `v0.7.0` | Arrangement view | In progress: arrangement clips now flow into track details and arrangement summaries, arrangement loop/transport control is wired through the bridge and MCP surface, and arrangement editing primitives remain to be added |
+| `v0.7.0` | Arrangement view | In progress: arrangement clips now flow into track details and arrangement summaries, arrangement loop/transport control is wired through the bridge and MCP surface, and arrangement clip creation plus session-to-arrangement duplication are now landed locally |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 | `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |

@@ -42,15 +42,19 @@ This is the current core music-making surface.
 ## Arrangement View
 
 - `get_arrangement_summary`
+- `get_arrangement_track_details`
 - `set_arrangement_transport`
+- `create_arrangement_clip`
+- `duplicate_clip_to_arrangement`
 
-The first `v0.7.0` slice is read-focused:
+The current `v0.7.0` slice now includes:
 - arrangement clip enumeration now flows through track details and arrangement summaries
+- arrangement clip creation on visible tracks
+- session-to-arrangement clip duplication
 - song readback now includes Arrangement transport position plus loop start, length, and enabled state
 - arrangement loop and transport-region control is exposed without requiring the Session View surface
 
 Still pending in this slice:
-- arrangement clip creation/move workflows where they are reliably supported in Live
 - Arrangement-specific editing ergonomics beyond transport and summary control
 
 ## Mixer And Routing

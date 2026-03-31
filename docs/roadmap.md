@@ -39,6 +39,10 @@ Landed in the first work unit:
 - Arrangement transport position and loop-state readback
 - arrangement loop and transport-region writes
 
+Landed in the second work unit:
+- arrangement clip creation on visible tracks
+- session-to-arrangement duplication primitives
+
 ### `v0.8.0`
 
 - clip-envelope read/write
