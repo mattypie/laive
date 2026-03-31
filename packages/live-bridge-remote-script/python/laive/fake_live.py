@@ -491,7 +491,30 @@ class FakeSong(ListenerMixin):
         self.scenes.insert(index, scene)
         for scene_index, current_scene in enumerate(self.scenes):
             current_scene.bind_song(self, scene_index)
+        for track in self.tracks:
+            track.clip_slots.insert(index, FakeClipSlot(track, index))
+            for slot_index, slot in enumerate(track.clip_slots):
+                slot.track = track
+                slot.index = slot_index
         self.view.selected_scene = self.scenes[index]
+        self._notify("scenes")
+
+    def delete_scene(self, index):
+        if index < 0 or index >= len(self.scenes):
+            return
+        del self.scenes[index]
+        for scene_index, current_scene in enumerate(self.scenes):
+            current_scene.bind_song(self, scene_index)
+        for track in self.tracks:
+            if index < len(track.clip_slots):
+                del track.clip_slots[index]
+            for slot_index, slot in enumerate(track.clip_slots):
+                slot.track = track
+                slot.index = slot_index
+        if self.scenes:
+            self.view.selected_scene = self.scenes[min(index, len(self.scenes) - 1)]
+        else:
+            self.view.selected_scene = None
         self._notify("scenes")
 
     def preview_track(self, index, name=None):

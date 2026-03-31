@@ -510,6 +510,48 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["clip"]["name"], "Arrangement Verse")
         self.assertEqual(song.tracks[0].arrangement_clips[0].name, "Arrangement Verse")
 
+    def test_create_arrangement_clip_falls_back_to_session_duplication(self):
+        song = FakeSong()
+        song.tracks[0].create_midi_clip = None
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.create_arrangement_clip(
+            "track:1",
+            start_beats=12,
+            length_beats=4,
+            name="Fallback Arrange",
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:1:index:1")
+        self.assertEqual(result["clip"]["start_beats"], 12.0)
+        self.assertEqual(result["clip"]["end_beats"], 16.0)
+        self.assertEqual(result["clip"]["name"], "Fallback Arrange")
+        self.assertEqual(song.tracks[0].arrangement_clips[0].name, "Fallback Arrange")
+        self.assertFalse(song.tracks[0].clip_slots[0].has_clip)
+
+    def test_create_arrangement_clip_fallback_cleans_up_temporary_scene(self):
+        song = FakeSong()
+        song.tracks[0].create_midi_clip = None
+        for slot in song.tracks[0].clip_slots:
+            slot.create_clip(4)
+        initial_scene_count = len(song.scenes)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.create_arrangement_clip(
+            "track:1",
+            start_beats=20,
+            length_beats=8,
+            name="Scene Fallback",
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:1:index:1")
+        self.assertEqual(result["clip"]["name"], "Scene Fallback")
+        self.assertEqual(len(song.scenes), initial_scene_count)
+        self.assertEqual(len(song.tracks[0].clip_slots), initial_scene_count + 2)
+        self.assertTrue(all(slot.has_clip for slot in song.tracks[0].clip_slots))
+
     def test_duplicate_clip_to_arrangement_copies_session_clip(self):
         song = FakeSong()
         song.tracks[0].clip_slots[0].create_clip(4)

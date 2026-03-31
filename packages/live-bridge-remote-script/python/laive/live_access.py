@@ -470,11 +470,18 @@ class LiveSetAdapter(object):
         else:
             create_midi_clip = getattr(track, "create_midi_clip", None)
             if not callable(create_midi_clip):
-                raise RequestError("unsupported_runtime", "Arrangement clip creation is unavailable")
-            create_midi_clip(next_start_beats, next_length_beats)
-            clip, arrangement_index = self._latest_arrangement_clip(track)
-            if name:
-                clip.name = name
+                clip, arrangement_index = self._create_arrangement_clip_fallback(
+                    track,
+                    track_id,
+                    next_start_beats,
+                    next_length_beats,
+                    name=name,
+                )
+            else:
+                create_midi_clip(next_start_beats, next_length_beats)
+                clip, arrangement_index = self._latest_arrangement_clip(track)
+                if name:
+                    clip.name = name
 
         return {
             "applied": not dry_run,
@@ -986,6 +993,40 @@ class LiveSetAdapter(object):
         arrangement_index = len(arrangement_clips) - 1
         return arrangement_clips[arrangement_index], arrangement_index
 
+    def _create_arrangement_clip_fallback(self, track, track_id, start_beats, length_beats, name=None):
+        slot_index = self._first_empty_clip_slot_index(track)
+        created_scene_index = None
+
+        if slot_index is None:
+            create_scene = getattr(self.song, "create_scene", None)
+            if not callable(create_scene):
+                raise RequestError("unsupported_runtime", "Arrangement clip creation is unavailable")
+            created_scene_index = len(getattr(self.song, "scenes", []))
+            create_scene(created_scene_index)
+            slot_index = created_scene_index
+
+        try:
+            slot = self._find_clip_slot(track, slot_index)
+            self._ensure_slot_is_empty(slot, slot_index)
+            slot.create_clip(length_beats)
+            temp_clip = slot.clip
+            if temp_clip is None:
+                raise RequestError("runtime_error", "Temporary clip creation failed")
+            if name:
+                temp_clip.name = name
+
+            duplication = self.duplicate_clip_to_arrangement(
+                _clip_id(track_id, slot_index),
+                start_beats,
+                target_track_id=track_id,
+                dry_run=False,
+            )
+            clip = self._find_clip_reference(duplication["clip"]["id"])["clip"]
+            arrangement_index = duplication["clip"]["arrangement_index"]
+            return clip, arrangement_index
+        finally:
+            self._cleanup_temporary_session_clip(track, slot_index, created_scene_index)
+
     def _preview_duplicate_clip(self, source_clip, target_slot_index):
         preview = type("PreviewClip", (), {})()
         preview.name = getattr(source_clip, "name", "Clip {0}".format(target_slot_index + 1))
@@ -1002,6 +1043,12 @@ class LiveSetAdapter(object):
         preview.start_time = float(start_beats)
         preview.end_time = float(start_beats) + float(length_beats)
         return preview
+
+    def _first_empty_clip_slot_index(self, track):
+        for slot_index, slot in enumerate(getattr(track, "clip_slots", [])):
+            if not getattr(slot, "has_clip", False):
+                return slot_index
+        return None
 
     def _preview_duplicate_arrangement_clip(self, source_clip, destination_beats):
         preview = self._preview_clip(
@@ -1045,6 +1092,29 @@ class LiveSetAdapter(object):
         setattr(target_track, "arrangement_clips", arrangement_clips)
         arrangement_index = len(arrangement_clips) - 1
         return duplicated_clip, arrangement_index
+
+    def _cleanup_temporary_session_clip(self, track, slot_index, created_scene_index=None):
+        try:
+            slot = self._find_clip_slot(track, slot_index)
+        except RequestError:
+            slot = None
+
+        if slot is not None and getattr(slot, "has_clip", False):
+            delete_clip = getattr(slot, "delete_clip", None)
+            if callable(delete_clip):
+                delete_clip()
+            else:
+                slot.clip = None
+
+        if created_scene_index is None:
+            return
+
+        delete_scene = getattr(self.song, "delete_scene", None)
+        if callable(delete_scene):
+            try:
+                delete_scene(created_scene_index)
+            except Exception:
+                pass
 
     def _preview_track(self, index, name=None, section="visible"):
         preview = type("PreviewTrack", (), {})()
