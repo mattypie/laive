@@ -245,6 +245,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.duplicateClip(args, dryRun);
       case "duplicate_clip_to_arrangement":
         return this.duplicateClipToArrangement(args, dryRun);
+      case "move_arrangement_clip":
+        return this.moveArrangementClip(args, dryRun);
       case "move_session_clip":
         return this.moveSessionClip(args, dryRun);
       case "delete_clip":
@@ -987,6 +989,48 @@ export class FixtureLiveRuntime extends EventEmitter {
       source_clip_id: args.clip_id,
       track: clone(targetTrack),
       clip
+    };
+  }
+
+  moveArrangementClip(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (clip.location !== "arrangement") {
+      throw new Error(`Arrangement clip not found: ${args.clip_id}`);
+    }
+
+    const destinationBeats = Number(args.destination_beats);
+    if (!Number.isFinite(destinationBeats) || destinationBeats < 0) {
+      throw new Error("destination_beats must be a non-negative number");
+    }
+
+    const nextClip = {
+      ...clone(clip),
+      start_beats: destinationBeats,
+      startBeats: destinationBeats,
+      end_beats: destinationBeats + (Number(clip.length_beats ?? clip.lengthBeats ?? (clip.end_beats ?? clip.endBeats ?? 0) - (clip.start_beats ?? clip.startBeats ?? 0)) || 0),
+      endBeats: destinationBeats + (Number(clip.length_beats ?? clip.lengthBeats ?? (clip.end_beats ?? clip.endBeats ?? 0) - (clip.start_beats ?? clip.startBeats ?? 0)) || 0)
+    };
+
+    if (!dryRun) {
+      const track = this.findTrack(clip.track_id ?? clip.trackId ?? this.findTrackIdForClip(args.clip_id));
+      track.arrangement_clips = (track.arrangement_clips ?? []).map((candidate) =>
+        candidate.id === clip.id ? nextClip : candidate
+      );
+      this.state.song.current_song_time = destinationBeats;
+      this.state.song.arrangement_position_beats = destinationBeats;
+      this.emit("event", {
+        topic: "track-updated",
+        payload: clone(track)
+      });
+      this.emit("event", {
+        topic: "song-updated",
+        payload: clone(this.state.song)
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      clip: nextClip
     };
   }
 

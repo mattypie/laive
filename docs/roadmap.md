@@ -42,6 +42,7 @@ Landed in the first work unit:
 Landed in the second work unit:
 - arrangement clip creation on visible tracks
 - session-to-arrangement duplication primitives
+- arrangement clip movement primitives
 
 ### `v0.8.0`
 

@@ -119,6 +119,20 @@ test("bridge can create arrangement clips and duplicate clips into arrangement",
   });
 });
 
+test("bridge can move arrangement clips", async () => {
+  await withBridge(async ({ client }) => {
+    const moved = await client.request("call", "move_arrangement_clip", {
+      clip_id: "clip:arrangement:track:1:index:1",
+      destination_beats: 24
+    });
+    const track = await client.request("get", "track:1");
+
+    assert.equal(moved.result.clip.location, "arrangement");
+    assert.equal(moved.result.clip.start_beats, 24);
+    assert.equal(track.result.arrangement_clips[0].start_beats, 24);
+  });
+});
+
 test("bridge client rejects pending requests when the socket closes", async () => {
   const sockets = createLoopbackSocketPair();
   sockets.serverSocket.on("data", () => {

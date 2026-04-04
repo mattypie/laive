@@ -71,6 +71,7 @@ class LiveSetAdapter(object):
             "rename_clip": True,
             "duplicate_clip": True,
             "duplicate_clip_to_arrangement": True,
+            "move_arrangement_clip": True,
             "move_session_clip": True,
             "delete_clip": True,
             "set_clip_loop_or_length": True,
@@ -577,6 +578,42 @@ class LiveSetAdapter(object):
             "clip": self._serialize_arrangement_clip(duplicated_clip, target_track_id, arrangement_index),
         }
 
+    def move_arrangement_clip(self, clip_id, destination_beats, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        if clip_ref["location"] != "arrangement":
+            raise RequestError("invalid_argument", "move_arrangement_clip only supports arrangement clips")
+
+        destination_beats = float(destination_beats)
+        if destination_beats < 0:
+            raise RequestError("invalid_argument", "destination_beats must be non-negative")
+
+        track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+
+        if dry_run:
+            clip_state = self._serialize_arrangement_clip(
+                clip_ref["clip"],
+                clip_ref["track_id"],
+                clip_ref["arrangement_index"],
+            )
+            length_beats = self._arrangement_clip_length_beats(clip_ref["clip"])
+            clip_state["start_beats"] = destination_beats
+            clip_state["startBeats"] = destination_beats
+            clip_state["end_beats"] = destination_beats + length_beats
+            clip_state["endBeats"] = destination_beats + length_beats
+        else:
+            clip, arrangement_index = self._move_arrangement_clip_runtime(
+                clip_ref,
+                track,
+                destination_beats,
+            )
+            clip_state = self._serialize_arrangement_clip(clip, clip_ref["track_id"], arrangement_index)
+
+        return {
+            "applied": not dry_run,
+            "source_clip_id": clip_id,
+            "clip": clip_state,
+        }
+
     def delete_clip(self, clip_id, dry_run=False):
         clip_ref = self._find_clip_reference(clip_id)
         if not dry_run:
@@ -993,6 +1030,49 @@ class LiveSetAdapter(object):
         arrangement_index = len(arrangement_clips) - 1
         return arrangement_clips[arrangement_index], arrangement_index
 
+    def _move_arrangement_clip_runtime(self, clip_ref, track, destination_beats):
+        clip = clip_ref["clip"]
+        length_beats = self._arrangement_clip_length_beats(clip)
+        if self._set_arrangement_clip_position(clip, destination_beats, length_beats):
+            return clip, self._find_arrangement_clip_index(track, clip)
+        return self._move_arrangement_clip_fallback(clip_ref, destination_beats)
+
+    def _set_arrangement_clip_position(self, clip, destination_beats, length_beats):
+        if not hasattr(clip, "start_time"):
+            return False
+        try:
+            self._set_clip_attribute(clip, "start_time", float(destination_beats))
+            if hasattr(clip, "end_time"):
+                self._set_clip_attribute(clip, "end_time", float(destination_beats) + float(length_beats))
+            return True
+        except Exception:
+            return False
+
+    def _arrangement_clip_length_beats(self, clip):
+        start_beats = getattr(clip, "start_time", 0.0)
+        end_beats = getattr(clip, "end_time", None)
+        if end_beats is not None:
+            length = float(end_beats) - float(start_beats)
+            if length > 0:
+                return length
+        loop_end = getattr(clip, "loop_end", None)
+        loop_start = getattr(clip, "loop_start", 0.0)
+        if loop_end is not None:
+            length = float(loop_end) - float(loop_start)
+            if length > 0:
+                return length
+        clip_length = getattr(clip, "length", None)
+        if clip_length is not None and float(clip_length) > 0:
+            return float(clip_length)
+        return 4.0
+
+    def _find_arrangement_clip_index(self, track, target_clip):
+        arrangement_clips = self._get_arrangement_clips(track)
+        for arrangement_index, clip in enumerate(arrangement_clips):
+            if clip is target_clip:
+                return arrangement_index
+        raise RequestError("runtime_error", "Arrangement clip could not be located after mutation")
+
     def _create_arrangement_clip_fallback(self, track, track_id, start_beats, length_beats, name=None):
         slot_index = self._first_empty_clip_slot_index(track)
         created_scene_index = None
@@ -1092,6 +1172,19 @@ class LiveSetAdapter(object):
         setattr(target_track, "arrangement_clips", arrangement_clips)
         arrangement_index = len(arrangement_clips) - 1
         return duplicated_clip, arrangement_index
+
+    def _move_arrangement_clip_fallback(self, clip_ref, destination_beats):
+        duplicated = self.duplicate_clip_to_arrangement(
+            clip_ref["clip_id"],
+            destination_beats,
+            target_track_id=clip_ref["track_id"],
+            dry_run=False,
+        )
+        duplicated_ref = self._find_clip_reference(duplicated["clip"]["id"])
+        self.delete_clip(clip_ref["clip_id"], dry_run=False)
+        track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+        arrangement_index = self._find_arrangement_clip_index(track, duplicated_ref["clip"])
+        return duplicated_ref["clip"], arrangement_index
 
     def _cleanup_temporary_session_clip(self, track, slot_index, created_scene_index=None):
         try:

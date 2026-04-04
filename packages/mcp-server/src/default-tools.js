@@ -1194,6 +1194,50 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "move_arrangement_clip",
+      description: "Move an Arrangement View clip to a new beat position.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Arrangement clip id."
+          },
+          destinationBeats: {
+            type: "number",
+            minimum: 0,
+            description: "New Arrangement start position in beats."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "destinationBeats"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        if (!Number.isFinite(Number(args.destinationBeats)) || Number(args.destinationBeats) < 0) {
+          throw new McpServerError(
+            "invalid_request",
+            "destinationBeats must be a non-negative number"
+          );
+        }
+
+        await policyAdapter.assertAllowed("move_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        const moved = await bridgeAdapter.moveArrangementClip({
+          clipId: args.clipId,
+          destinationBeats: Number(args.destinationBeats),
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Arrangement clip ${args.dryRun ? "move previewed" : "moved"} for ${args.clipId}.`,
+          moved.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "move_session_clip",
       description: "Move a Session View clip to a target slot, optionally on another track.",
       inputSchema: createObjectSchema({

@@ -570,6 +570,25 @@ export function createBridgeAdapter(target) {
         affectedObjects: [payload.targetTrackId ?? null, payload.clipId, result.clip?.id ?? null].filter(Boolean)
       };
     },
+    async moveArrangementClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "move_arrangement_clip",
+          {
+            clip_id: payload.clipId,
+            destination_beats: payload.destinationBeats
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
     async deleteClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (

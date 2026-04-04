@@ -366,6 +366,15 @@ function createServer(options = {}) {
         }
       };
     },
+    async moveArrangementClip(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId],
+        clip: {
+          id: payload.clipId
+        }
+      };
+    },
     async moveSessionClip(payload) {
       return {
         payload,
@@ -712,6 +721,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("get_arrangement_track_details"));
   assert.ok(byName.has("create_arrangement_clip"));
   assert.ok(byName.has("duplicate_clip_to_arrangement"));
+  assert.ok(byName.has("move_arrangement_clip"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
   assert.ok(byName.has("ensure_sidecar_on_track"));
@@ -1209,6 +1219,54 @@ test("duplicate_clip_to_arrangement returns structured mutation response", async
   assert.equal(
     response.result.structuredContent.summary,
     "Arrangement duplication created from clip:session:track:1:slot:1."
+  );
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("move_arrangement_clip returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.265,
+    method: "tools/call",
+    params: {
+      name: "move_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:2:index:1",
+        destinationBeats: 28
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip moved for clip:arrangement:track:2:index:1."
+  );
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("move_arrangement_clip returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.27,
+    method: "tools/call",
+    params: {
+      name: "move_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:1:index:1",
+        destinationBeats: 28
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip moved for clip:arrangement:track:1:index:1."
   );
   assert.equal(response.result.structuredContent.state_version_before, 3);
   assert.equal(response.result.structuredContent.state_version_after, 4);

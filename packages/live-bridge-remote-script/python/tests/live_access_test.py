@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import unittest
 
 from laive.clip_notes import ClipNoteAdapter
-from laive.fake_live import FakeSong
+from laive.fake_live import FakeClip, FakeSong
 from laive.live_access import LiveSetAdapter
 from laive.protocol import RequestError
 from laive.serializers import serialize_track_state
@@ -574,6 +574,65 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["clip"]["name"], "Session Source")
         self.assertEqual(song.tracks[0].arrangement_clips[0].name, "Session Source")
         self.assertEqual(song.tracks[0].arrangement_clips[0].notes[0]["pitch"], 60)
+
+    def test_move_arrangement_clip_updates_position_when_runtime_allows(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.move_arrangement_clip(
+            "clip:arrangement:track:2:index:1",
+            destination_beats=24,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:2:index:1")
+        self.assertEqual(result["clip"]["start_beats"], 24.0)
+        self.assertEqual(result["clip"]["end_beats"], 32.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].start_time, 24.0)
+
+    def test_move_arrangement_clip_falls_back_to_duplicate_and_delete(self):
+        class ImmutableArrangementClip(object):
+            def __init__(self, name, length):
+                self.name = name
+                self.length = length
+                self.looping = True
+                self.loop_start = 0.0
+                self.loop_end = float(length)
+                self.notes = []
+                self._start_time = 8.0
+                self._end_time = 16.0
+
+            @property
+            def start_time(self):
+                return self._start_time
+
+            @start_time.setter
+            def start_time(self, _value):
+                raise RuntimeError("start_time is read-only")
+
+            @property
+            def end_time(self):
+                return self._end_time
+
+            @end_time.setter
+            def end_time(self, _value):
+                raise RuntimeError("end_time is read-only")
+
+        song = FakeSong()
+        clip = ImmutableArrangementClip(name="Locked Arrange", length=8)
+        song.tracks[0].arrangement_clips = [clip]
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.move_arrangement_clip(
+            "clip:arrangement:track:1:index:1",
+            destination_beats=20,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["start_beats"], 20.0)
+        self.assertEqual(result["clip"]["end_beats"], 28.0)
+        self.assertEqual(len(song.tracks[0].arrangement_clips), 1)
+        self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 20.0)
 
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
