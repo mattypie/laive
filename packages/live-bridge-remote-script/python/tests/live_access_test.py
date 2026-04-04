@@ -731,7 +731,7 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(song.tracks[1].arrangement_clips[0].start_time, 8.0)
         self.assertEqual(song.tracks[1].arrangement_clips[0].end_time, 16.0)
 
-    def test_set_arrangement_clip_bounds_rejects_runtime_that_cannot_apply_bounds(self):
+    def test_set_arrangement_clip_bounds_falls_back_when_runtime_cannot_apply_bounds(self):
         class ImmutableBoundsClip(object):
             def __init__(self, name, length):
                 self.name = name
@@ -763,14 +763,18 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         song.tracks[0].arrangement_clips = [ImmutableBoundsClip(name="Locked", length=8)]
         adapter = LiveSetAdapter(song)
 
-        with self.assertRaises(RequestError) as context:
-            adapter.set_arrangement_clip_bounds(
-                "clip:arrangement:track:1:index:1",
-                start_beats=12,
-                end_beats=20,
-            )
+        result = adapter.set_arrangement_clip_bounds(
+            "clip:arrangement:track:1:index:1",
+            start_beats=12,
+            end_beats=20,
+        )
 
-        self.assertEqual(context.exception.code, "unsupported_runtime")
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["start_beats"], 12.0)
+        self.assertEqual(result["clip"]["end_beats"], 20.0)
+        self.assertEqual(len(song.tracks[0].arrangement_clips), 1)
+        self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 12.0)
+        self.assertEqual(song.tracks[0].arrangement_clips[0].end_time, 20.0)
 
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):

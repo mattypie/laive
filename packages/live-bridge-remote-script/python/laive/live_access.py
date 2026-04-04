@@ -1102,30 +1102,38 @@ class LiveSetAdapter(object):
     def _set_arrangement_clip_bounds_runtime(self, clip_ref, track, start_beats, end_beats):
         clip = clip_ref["clip"]
         if not hasattr(clip, "start_time") or not hasattr(clip, "end_time"):
-            raise RequestError(
-                "unsupported_runtime",
-                "Arrangement clip bounds are unavailable for this runtime",
+            return self._rewrite_arrangement_clip_bounds_fallback(
+                clip_ref,
+                track,
+                start_beats,
+                end_beats,
             )
         try:
             self._set_clip_attribute(clip, "start_time", float(start_beats))
             self._set_clip_attribute(clip, "end_time", float(end_beats))
         except Exception:
-            raise RequestError(
-                "unsupported_runtime",
-                "Arrangement clip bounds are unavailable for this runtime",
+            return self._rewrite_arrangement_clip_bounds_fallback(
+                clip_ref,
+                track,
+                start_beats,
+                end_beats,
             )
 
         actual_start = getattr(clip, "start_time", None)
         actual_end = getattr(clip, "end_time", None)
         if actual_start is None or actual_end is None:
-            raise RequestError(
-                "unsupported_runtime",
-                "Arrangement clip bounds are unavailable for this runtime",
+            return self._rewrite_arrangement_clip_bounds_fallback(
+                clip_ref,
+                track,
+                start_beats,
+                end_beats,
             )
         if abs(float(actual_start) - float(start_beats)) > 1e-6 or abs(float(actual_end) - float(end_beats)) > 1e-6:
-            raise RequestError(
-                "unsupported_runtime",
-                "Arrangement clip bounds could not be updated by the current runtime",
+            return self._rewrite_arrangement_clip_bounds_fallback(
+                clip_ref,
+                track,
+                start_beats,
+                end_beats,
             )
 
         arrangement_index = self._find_arrangement_clip_index(
@@ -1134,6 +1142,64 @@ class LiveSetAdapter(object):
             fallback_index=clip_ref["arrangement_index"],
         )
         return clip, arrangement_index
+
+    def _rewrite_arrangement_clip_bounds_fallback(self, clip_ref, track, start_beats, end_beats):
+        slot_index = self._first_empty_clip_slot_index(track)
+        created_scene_index = None
+
+        if slot_index is None:
+            create_scene = getattr(self.song, "create_scene", None)
+            if not callable(create_scene):
+                raise RequestError(
+                    "unsupported_runtime",
+                    "Arrangement clip bounds are unavailable for this runtime",
+                )
+            created_scene_index = len(getattr(self.song, "scenes", []))
+            create_scene(created_scene_index)
+            slot_index = created_scene_index
+
+        try:
+            slot = self._find_clip_slot(track, slot_index)
+            self._ensure_slot_is_empty(slot, slot_index)
+            length_beats = float(end_beats) - float(start_beats)
+            slot.create_clip(length_beats)
+            temp_clip = slot.clip
+            if temp_clip is None:
+                raise RequestError("runtime_error", "Temporary clip creation failed")
+
+            source_clip = clip_ref["clip"]
+            temp_clip.name = getattr(source_clip, "name", temp_clip.name)
+            if hasattr(temp_clip, "looping"):
+                temp_clip.looping = bool(getattr(source_clip, "looping", True))
+            if hasattr(temp_clip, "loop_start"):
+                temp_clip.loop_start = 0.0
+            if hasattr(temp_clip, "loop_end"):
+                temp_clip.loop_end = length_beats
+            self._clip_notes.replace_notes(
+                temp_clip,
+                [
+                    self._clip_notes.normalize_input(note)
+                    for note in self._clip_notes.serialize_notes(source_clip)
+                ],
+            )
+
+            duplicated = self.duplicate_clip_to_arrangement(
+                _clip_id(clip_ref["track_id"], slot_index),
+                start_beats,
+                target_track_id=clip_ref["track_id"],
+                dry_run=False,
+            )
+            duplicated_ref = self._find_clip_reference(duplicated["clip"]["id"])
+            self.delete_clip(clip_ref["clip_id"], dry_run=False)
+            arrangement_index = duplicated_ref["arrangement_index"]
+            if (
+                clip_ref["track_id"] == duplicated_ref["track_id"]
+                and arrangement_index > clip_ref["arrangement_index"]
+            ):
+                arrangement_index -= 1
+            return duplicated_ref["clip"], arrangement_index
+        finally:
+            self._cleanup_temporary_session_clip(track, slot_index, created_scene_index)
 
     def _set_arrangement_clip_position(self, clip, destination_beats, length_beats):
         if not hasattr(clip, "start_time"):
