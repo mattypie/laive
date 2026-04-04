@@ -369,9 +369,10 @@ function createServer(options = {}) {
     async moveArrangementClip(payload) {
       return {
         payload,
-        affectedObjects: [payload.clipId],
+        affectedObjects: ["track:1", payload.clipId, "clip:arrangement:track:1:index:2"],
+        track_id: "track:1",
         clip: {
-          id: payload.clipId
+          id: "clip:arrangement:track:1:index:2"
         }
       };
     },

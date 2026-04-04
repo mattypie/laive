@@ -586,7 +586,7 @@ export function createBridgeAdapter(target) {
 
       return {
         ...result,
-        affectedObjects: [payload.clipId]
+        affectedObjects: [result.track_id ?? null, payload.clipId, result.clip?.id ?? null].filter(Boolean)
       };
     },
     async deleteClip(payload, options = {}) {

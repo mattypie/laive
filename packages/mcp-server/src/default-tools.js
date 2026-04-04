@@ -1227,7 +1227,8 @@ export function buildDefaultTools({
           destinationBeats: Number(args.destinationBeats),
           dryRun: Boolean(args.dryRun)
         });
-        const after = await stateAdapter.refreshState(args.clipId);
+        const refreshTarget = moved.clip?.id ?? moved.track_id ?? args.clipId;
+        const after = await stateAdapter.refreshState(refreshTarget);
         return buildMutationResult(
           `Arrangement clip ${args.dryRun ? "move previewed" : "moved"} for ${args.clipId}.`,
           moved.affectedObjects ?? [args.clipId],
