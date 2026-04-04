@@ -418,6 +418,25 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(set_arrangement_clip_bounds["result"]["clip"]["start_beats"], 36.0)
         self.assertEqual(set_arrangement_clip_bounds["result"]["clip"]["end_beats"], 44.0)
 
+        split_arrangement_clip = self.surface.process_request(
+            create_request(
+                "call",
+                target="split_arrangement_clip",
+                arguments={
+                    "clip_id": "clip:arrangement:track:1:index:2",
+                    "split_beats": 40,
+                },
+                request_id="arrangement-split-1",
+            )
+        )
+
+        self.assertTrue(split_arrangement_clip["ok"])
+        self.assertEqual(len(split_arrangement_clip["result"]["clips"]), 2)
+        self.assertEqual(split_arrangement_clip["result"]["clips"][0]["start_beats"], 36.0)
+        self.assertEqual(split_arrangement_clip["result"]["clips"][0]["end_beats"], 40.0)
+        self.assertEqual(split_arrangement_clip["result"]["clips"][1]["start_beats"], 40.0)
+        self.assertEqual(split_arrangement_clip["result"]["clips"][1]["end_beats"], 44.0)
+
 
 if __name__ == "__main__":
     unittest.main()

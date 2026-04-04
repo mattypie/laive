@@ -776,6 +776,61 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 12.0)
         self.assertEqual(song.tracks[0].arrangement_clips[0].end_time, 20.0)
 
+    def test_split_arrangement_clip_splits_midi_clip_and_trims_note_timing(self):
+        song = FakeSong()
+        clip = song.tracks[1].arrangement_clips[0]
+        clip.notes = [
+            {"pitch": 36, "start_time": 8.0, "duration": 2.0, "velocity": 100, "mute": False},
+            {"pitch": 38, "start_time": 11.0, "duration": 2.0, "velocity": 100, "mute": False},
+            {"pitch": 40, "start_time": 14.0, "duration": 1.0, "velocity": 100, "mute": False},
+        ]
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.split_arrangement_clip(
+            "clip:arrangement:track:2:index:1",
+            split_beats=12,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(len(result["clips"]), 2)
+        left_clip = result["clips"][0]
+        right_clip = result["clips"][1]
+        self.assertEqual(left_clip["start_beats"], 8.0)
+        self.assertEqual(left_clip["end_beats"], 12.0)
+        self.assertEqual(right_clip["start_beats"], 12.0)
+        self.assertEqual(right_clip["end_beats"], 16.0)
+        self.assertEqual(len(song.tracks[1].arrangement_clips), 2)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].start_time, 8.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].end_time, 12.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[1].start_time, 12.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[1].end_time, 16.0)
+        self.assertEqual(
+            [(note["pitch"], note["start_time"], note["duration"]) for note in song.tracks[1].arrangement_clips[0].notes],
+            [(36, 0.0, 2.0), (38, 3.0, 1.0)],
+        )
+        self.assertEqual(
+            [(note["pitch"], note["start_time"], note["duration"]) for note in song.tracks[1].arrangement_clips[1].notes],
+            [(38, 0.0, 1.0), (40, 2.0, 1.0)],
+        )
+
+    def test_split_arrangement_clip_supports_dry_run(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.split_arrangement_clip(
+            "clip:arrangement:track:2:index:1",
+            split_beats=12,
+            dry_run=True,
+        )
+
+        self.assertFalse(result["applied"])
+        self.assertEqual(len(result["clips"]), 2)
+        self.assertEqual(result["clips"][0]["start_beats"], 8.0)
+        self.assertEqual(result["clips"][0]["end_beats"], 12.0)
+        self.assertEqual(result["clips"][1]["start_beats"], 12.0)
+        self.assertEqual(result["clips"][1]["end_beats"], 16.0)
+        self.assertEqual(len(song.tracks[1].arrangement_clips), 1)
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"

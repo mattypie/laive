@@ -72,6 +72,7 @@ class LiveSetAdapter(object):
             "duplicate_clip": True,
             "duplicate_clip_to_arrangement": True,
             "set_arrangement_clip_bounds": True,
+            "split_arrangement_clip": True,
             "move_arrangement_clip": True,
             "move_session_clip": True,
             "delete_clip": True,
@@ -668,6 +669,69 @@ class LiveSetAdapter(object):
             "clip": clip_state,
         }
 
+    def split_arrangement_clip(self, clip_id, split_beats, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        if clip_ref["location"] != "arrangement":
+            raise RequestError(
+                "invalid_argument",
+                "split_arrangement_clip only supports arrangement clips",
+            )
+
+        clip = clip_ref["clip"]
+        if bool(getattr(clip, "is_audio_clip", False)):
+            raise RequestError(
+                "unsupported_runtime",
+                "split_arrangement_clip currently supports MIDI arrangement clips only",
+            )
+
+        current_start = float(getattr(clip, "start_time", 0.0) or 0.0)
+        current_end = getattr(clip, "end_time", None)
+        if current_end is None:
+            current_end = current_start + self._arrangement_clip_length_beats(clip)
+        current_end = float(current_end)
+        split_beats = float(split_beats)
+
+        if split_beats <= current_start or split_beats >= current_end:
+            raise RequestError(
+                "invalid_argument",
+                "split_beats must fall strictly inside the arrangement clip bounds",
+            )
+
+        if dry_run:
+            left_clip = self._serialize_arrangement_clip(
+                clip,
+                clip_ref["track_id"],
+                clip_ref["arrangement_index"],
+            )
+            left_clip["start_beats"] = current_start
+            left_clip["startBeats"] = current_start
+            left_clip["end_beats"] = split_beats
+            left_clip["endBeats"] = split_beats
+            right_clip = dict(left_clip)
+            right_clip["id"] = _arrangement_clip_id(
+                clip_ref["track_id"], clip_ref["arrangement_index"] + 1
+            )
+            right_clip["arrangement_index"] = clip_ref["arrangement_index"] + 1
+            right_clip["arrangementIndex"] = clip_ref["arrangement_index"] + 1
+            right_clip["index"] = clip_ref["arrangement_index"] + 1
+            right_clip["start_beats"] = split_beats
+            right_clip["startBeats"] = split_beats
+            right_clip["end_beats"] = current_end
+            right_clip["endBeats"] = current_end
+            return {
+                "applied": False,
+                "source_clip_id": clip_id,
+                "clips": [left_clip, right_clip],
+            }
+
+        track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+        clips = self._split_arrangement_clip_runtime(clip_ref, track, split_beats)
+        return {
+            "applied": True,
+            "source_clip_id": clip_id,
+            "clips": clips,
+        }
+
     def delete_clip(self, clip_id, dry_run=False):
         clip_ref = self._find_clip_reference(clip_id)
         if not dry_run:
@@ -1237,6 +1301,134 @@ class LiveSetAdapter(object):
         if clip_length is not None and float(clip_length) > 0:
             return float(clip_length)
         return 4.0
+
+    def _split_arrangement_clip_runtime(self, clip_ref, track, split_beats):
+        slot_index = self._first_empty_clip_slot_index(track)
+        created_scene_index = None
+
+        if slot_index is None:
+            create_scene = getattr(self.song, "create_scene", None)
+            if not callable(create_scene):
+                raise RequestError(
+                    "unsupported_runtime",
+                    "Arrangement clip splitting is unavailable for this runtime",
+                )
+            created_scene_index = len(getattr(self.song, "scenes", []))
+            create_scene(created_scene_index)
+            slot_index = created_scene_index
+
+        source_clip = clip_ref["clip"]
+        source_start = float(getattr(source_clip, "start_time", 0.0) or 0.0)
+        source_end = getattr(source_clip, "end_time", None)
+        if source_end is None:
+            source_end = source_start + self._arrangement_clip_length_beats(source_clip)
+        source_end = float(source_end)
+
+        try:
+            left_ref = self._materialize_arrangement_segment(
+                clip_ref["track_id"],
+                track,
+                slot_index,
+                source_clip,
+                source_start,
+                split_beats,
+            )
+            right_ref = self._materialize_arrangement_segment(
+                clip_ref["track_id"],
+                track,
+                slot_index,
+                source_clip,
+                split_beats,
+                source_end,
+            )
+            self.delete_clip(clip_ref["clip_id"], dry_run=False)
+            return [
+                self._serialize_arrangement_clip(
+                    left_ref["clip"],
+                    clip_ref["track_id"],
+                    left_ref["arrangement_index"],
+                ),
+                self._serialize_arrangement_clip(
+                    right_ref["clip"],
+                    clip_ref["track_id"],
+                    right_ref["arrangement_index"],
+                ),
+            ]
+        finally:
+            self._cleanup_temporary_session_clip(track, slot_index, created_scene_index)
+
+    def _materialize_arrangement_segment(
+        self,
+        track_id,
+        track,
+        slot_index,
+        source_clip,
+        segment_start_beats,
+        segment_end_beats,
+    ):
+        slot = self._find_clip_slot(track, slot_index)
+        self._ensure_slot_is_empty(slot, slot_index)
+        segment_length = float(segment_end_beats) - float(segment_start_beats)
+        slot.create_clip(segment_length)
+        temp_clip = slot.clip
+        if temp_clip is None:
+            raise RequestError("runtime_error", "Temporary clip creation failed")
+        temp_clip.name = getattr(source_clip, "name", temp_clip.name)
+        if hasattr(temp_clip, "looping"):
+            temp_clip.looping = bool(getattr(source_clip, "looping", True))
+        if hasattr(temp_clip, "loop_start"):
+            temp_clip.loop_start = 0.0
+        if hasattr(temp_clip, "loop_end"):
+            temp_clip.loop_end = segment_length
+
+        segment_notes = self._segment_arrangement_notes(
+            source_clip,
+            segment_start_beats,
+            segment_end_beats,
+        )
+        self._clip_notes.replace_notes(temp_clip, segment_notes)
+
+        duplicated = self.duplicate_clip_to_arrangement(
+            _clip_id(track_id, slot_index),
+            segment_start_beats,
+            target_track_id=track_id,
+            dry_run=False,
+        )
+        duplicated_ref = self._find_clip_reference(duplicated["clip"]["id"])
+        self._cleanup_temporary_session_clip(track, slot_index)
+        return duplicated_ref
+
+    def _segment_arrangement_notes(self, source_clip, segment_start_beats, segment_end_beats):
+        notes = self._clip_notes.serialize_notes(source_clip)
+        clip_start = float(getattr(source_clip, "start_time", 0.0) or 0.0)
+        base = self._arrangement_note_base(notes, clip_start)
+        segmented_notes = []
+
+        for note in notes:
+            note_start = float(note.get("start_time", 0.0))
+            note_duration = float(note.get("duration", 0.0))
+            absolute_start = note_start + (clip_start - base)
+            absolute_end = absolute_start + note_duration
+            overlap_start = max(absolute_start, float(segment_start_beats))
+            overlap_end = min(absolute_end, float(segment_end_beats))
+            if overlap_end <= overlap_start:
+                continue
+            segmented_note = dict(note)
+            segmented_note["start_time"] = overlap_start - float(segment_start_beats)
+            segmented_note["duration"] = overlap_end - overlap_start
+            segmented_note.pop("id", None)
+            segmented_note.pop("note_id", None)
+            segmented_notes.append(self._clip_notes.normalize_input(segmented_note))
+
+        return segmented_notes
+
+    def _arrangement_note_base(self, notes, clip_start):
+        if not notes:
+            return 0.0
+        min_start = min(float(note.get("start_time", 0.0)) for note in notes)
+        if clip_start > 0 and min_start >= clip_start - 1e-6:
+            return float(clip_start)
+        return 0.0
 
     def _find_arrangement_clip_index(self, track, target_clip, fallback_index=None):
         arrangement_clips = self._get_arrangement_clips(track)
