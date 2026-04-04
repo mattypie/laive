@@ -397,6 +397,27 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(move_arrangement_clip["result"]["clip"]["start_beats"], 32.0)
         self.assertEqual(move_arrangement_clip["result"]["clip"]["end_beats"], 36.0)
 
+        set_arrangement_clip_bounds = self.surface.process_request(
+            create_request(
+                "call",
+                target="set_arrangement_clip_bounds",
+                arguments={
+                    "clip_id": "clip:arrangement:track:1:index:2",
+                    "start_beats": 36,
+                    "end_beats": 44,
+                },
+                request_id="arrangement-bounds-1",
+            )
+        )
+
+        self.assertTrue(set_arrangement_clip_bounds["ok"])
+        self.assertEqual(
+            set_arrangement_clip_bounds["result"]["clip"]["id"],
+            "clip:arrangement:track:1:index:2",
+        )
+        self.assertEqual(set_arrangement_clip_bounds["result"]["clip"]["start_beats"], 36.0)
+        self.assertEqual(set_arrangement_clip_bounds["result"]["clip"]["end_beats"], 44.0)
+
 
 if __name__ == "__main__":
     unittest.main()

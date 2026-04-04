@@ -697,6 +697,81 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["clip"]["start_beats"], 28.0)
         self.assertEqual(result["clip"]["end_beats"], 36.0)
 
+    def test_set_arrangement_clip_bounds_updates_start_and_end_when_runtime_allows(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_arrangement_clip_bounds(
+            "clip:arrangement:track:2:index:1",
+            start_beats=10,
+            end_beats=18,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:2:index:1")
+        self.assertEqual(result["clip"]["start_beats"], 10.0)
+        self.assertEqual(result["clip"]["end_beats"], 18.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].start_time, 10.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].end_time, 18.0)
+
+    def test_set_arrangement_clip_bounds_supports_dry_run(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_arrangement_clip_bounds(
+            "clip:arrangement:track:2:index:1",
+            start_beats=12,
+            end_beats=20,
+            dry_run=True,
+        )
+
+        self.assertFalse(result["applied"])
+        self.assertEqual(result["clip"]["start_beats"], 12.0)
+        self.assertEqual(result["clip"]["end_beats"], 20.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].start_time, 8.0)
+        self.assertEqual(song.tracks[1].arrangement_clips[0].end_time, 16.0)
+
+    def test_set_arrangement_clip_bounds_rejects_runtime_that_cannot_apply_bounds(self):
+        class ImmutableBoundsClip(object):
+            def __init__(self, name, length):
+                self.name = name
+                self.length = length
+                self.looping = True
+                self.loop_start = 0.0
+                self.loop_end = float(length)
+                self.notes = []
+                self._start_time = 8.0
+                self._end_time = 16.0
+
+            @property
+            def start_time(self):
+                return self._start_time
+
+            @start_time.setter
+            def start_time(self, _value):
+                raise RuntimeError("start_time is read-only")
+
+            @property
+            def end_time(self):
+                return self._end_time
+
+            @end_time.setter
+            def end_time(self, _value):
+                raise RuntimeError("end_time is read-only")
+
+        song = FakeSong()
+        song.tracks[0].arrangement_clips = [ImmutableBoundsClip(name="Locked", length=8)]
+        adapter = LiveSetAdapter(song)
+
+        with self.assertRaises(RequestError) as context:
+            adapter.set_arrangement_clip_bounds(
+                "clip:arrangement:track:1:index:1",
+                start_beats=12,
+                end_beats=20,
+            )
+
+        self.assertEqual(context.exception.code, "unsupported_runtime")
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"

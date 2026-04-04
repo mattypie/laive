@@ -364,6 +364,13 @@ class LaiveControlSurface(AbletonControlSurface):
                 destination_beats=arguments.get("destination_beats"),
                 dry_run=dry_run,
             )
+        if target == "set_arrangement_clip_bounds":
+            return self._live.set_arrangement_clip_bounds(
+                clip_id=arguments.get("clip_id"),
+                start_beats=arguments.get("start_beats"),
+                end_beats=arguments.get("end_beats"),
+                dry_run=dry_run,
+            )
         if target == "delete_clip":
             return self._live.delete_clip(
                 clip_id=arguments.get("clip_id"),

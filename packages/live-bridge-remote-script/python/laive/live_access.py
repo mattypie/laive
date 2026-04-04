@@ -71,6 +71,7 @@ class LiveSetAdapter(object):
             "rename_clip": True,
             "duplicate_clip": True,
             "duplicate_clip_to_arrangement": True,
+            "set_arrangement_clip_bounds": True,
             "move_arrangement_clip": True,
             "move_session_clip": True,
             "delete_clip": True,
@@ -614,6 +615,59 @@ class LiveSetAdapter(object):
             "clip": clip_state,
         }
 
+    def set_arrangement_clip_bounds(self, clip_id, start_beats=None, end_beats=None, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        if clip_ref["location"] != "arrangement":
+            raise RequestError(
+                "invalid_argument",
+                "set_arrangement_clip_bounds only supports arrangement clips",
+            )
+        if start_beats is None and end_beats is None:
+            raise RequestError(
+                "invalid_argument",
+                "At least one of start_beats or end_beats is required",
+            )
+
+        current_start = float(getattr(clip_ref["clip"], "start_time", 0.0) or 0.0)
+        current_end = getattr(clip_ref["clip"], "end_time", None)
+        if current_end is None:
+            current_end = current_start + self._arrangement_clip_length_beats(clip_ref["clip"])
+        current_end = float(current_end)
+
+        next_start = float(start_beats) if start_beats is not None else current_start
+        next_end = float(end_beats) if end_beats is not None else current_end
+
+        if next_start < 0:
+            raise RequestError("invalid_argument", "start_beats must be non-negative")
+        if next_end <= next_start:
+            raise RequestError("invalid_argument", "end_beats must be greater than start_beats")
+
+        if dry_run:
+            clip_state = self._serialize_arrangement_clip(
+                clip_ref["clip"],
+                clip_ref["track_id"],
+                clip_ref["arrangement_index"],
+            )
+            clip_state["start_beats"] = next_start
+            clip_state["startBeats"] = next_start
+            clip_state["end_beats"] = next_end
+            clip_state["endBeats"] = next_end
+        else:
+            track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+            clip, arrangement_index = self._set_arrangement_clip_bounds_runtime(
+                clip_ref,
+                track,
+                next_start,
+                next_end,
+            )
+            clip_state = self._serialize_arrangement_clip(clip, clip_ref["track_id"], arrangement_index)
+
+        return {
+            "applied": not dry_run,
+            "source_clip_id": clip_id,
+            "clip": clip_state,
+        }
+
     def delete_clip(self, clip_id, dry_run=False):
         clip_ref = self._find_clip_reference(clip_id)
         if not dry_run:
@@ -1044,6 +1098,42 @@ class LiveSetAdapter(object):
             except RequestError:
                 pass
         return self._move_arrangement_clip_fallback(clip_ref, destination_beats)
+
+    def _set_arrangement_clip_bounds_runtime(self, clip_ref, track, start_beats, end_beats):
+        clip = clip_ref["clip"]
+        if not hasattr(clip, "start_time") or not hasattr(clip, "end_time"):
+            raise RequestError(
+                "unsupported_runtime",
+                "Arrangement clip bounds are unavailable for this runtime",
+            )
+        try:
+            self._set_clip_attribute(clip, "start_time", float(start_beats))
+            self._set_clip_attribute(clip, "end_time", float(end_beats))
+        except Exception:
+            raise RequestError(
+                "unsupported_runtime",
+                "Arrangement clip bounds are unavailable for this runtime",
+            )
+
+        actual_start = getattr(clip, "start_time", None)
+        actual_end = getattr(clip, "end_time", None)
+        if actual_start is None or actual_end is None:
+            raise RequestError(
+                "unsupported_runtime",
+                "Arrangement clip bounds are unavailable for this runtime",
+            )
+        if abs(float(actual_start) - float(start_beats)) > 1e-6 or abs(float(actual_end) - float(end_beats)) > 1e-6:
+            raise RequestError(
+                "unsupported_runtime",
+                "Arrangement clip bounds could not be updated by the current runtime",
+            )
+
+        arrangement_index = self._find_arrangement_clip_index(
+            track,
+            clip,
+            fallback_index=clip_ref["arrangement_index"],
+        )
+        return clip, arrangement_index
 
     def _set_arrangement_clip_position(self, clip, destination_beats, length_beats):
         if not hasattr(clip, "start_time"):
