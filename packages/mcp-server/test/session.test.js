@@ -605,8 +605,12 @@ test("real bridge session can connect to a live bridge socket and refresh state"
       startBeats: 20,
       endBeats: 28
     });
-    await createBridgeAdapter(session.bridgeClient).moveArrangementClip({
+    await createBridgeAdapter(session.bridgeClient).splitArrangementClip({
       clipId: "clip:arrangement:track:2:index:1",
+      splitBeats: 24
+    });
+    await createBridgeAdapter(session.bridgeClient).moveArrangementClip({
+      clipId: "clip:arrangement:track:2:index:2",
       destinationBeats: 30
     });
     await createBridgeAdapter(session.bridgeClient).launchScene({
@@ -621,13 +625,22 @@ test("real bridge session can connect to a live bridge socket and refresh state"
     assert.equal(updated.song.arrangementPositionBeats, 30);
     const arrangementDetails = await createStateAdapter(session).getArrangementTrackDetails("track:2");
     assert.equal(arrangementClip.clip.location, "arrangement");
-    assert.equal(arrangementDetails.arrangementClips.length, 3);
+    assert.equal(arrangementDetails.arrangementClips.length, 4);
+    assert.equal(
+      arrangementDetails.arrangementClips.some(
+        (clip) =>
+          clip.id === "clip:arrangement:track:2:index:2" &&
+          clip.startBeats === 30 &&
+          clip.endBeats === 34
+      ),
+      true
+    );
     assert.equal(
       arrangementDetails.arrangementClips.some(
         (clip) =>
           clip.id === "clip:arrangement:track:2:index:1" &&
-          clip.startBeats === 30 &&
-          clip.endBeats === 38
+          clip.startBeats === 20 &&
+          clip.endBeats === 24
       ),
       true
     );

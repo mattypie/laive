@@ -150,6 +150,32 @@ test("bridge can set arrangement clip bounds", async () => {
   });
 });
 
+test("bridge can split arrangement clips", async () => {
+  await withBridge(async ({ client }) => {
+    const duplicated = await client.request("call", "duplicate_clip_to_arrangement", {
+      clip_id: "clip:session:track:1:slot:1",
+      destination_beats: 8,
+      target_track_id: "track:1"
+    });
+    const split = await client.request("call", "split_arrangement_clip", {
+      clip_id: duplicated.result.clip.id,
+      split_beats: 10
+    });
+    const track = await client.request("get", "track:1");
+
+    assert.equal(split.result.clips.length, 2);
+    assert.equal(split.result.clips[0].start_beats, 8);
+    assert.equal(split.result.clips[0].end_beats, 10);
+    assert.equal(split.result.clips[1].start_beats, 10);
+    assert.equal(split.result.clips[1].end_beats, 12);
+    assert.equal(track.result.arrangement_clips.length, 3);
+    assert.equal(track.result.arrangement_clips[1].start_beats, 8);
+    assert.equal(track.result.arrangement_clips[1].end_beats, 10);
+    assert.equal(track.result.arrangement_clips[2].start_beats, 10);
+    assert.equal(track.result.arrangement_clips[2].end_beats, 12);
+  });
+});
+
 test("bridge client rejects pending requests when the socket closes", async () => {
   const sockets = createLoopbackSocketPair();
   sockets.serverSocket.on("data", () => {

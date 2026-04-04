@@ -21,7 +21,7 @@ It installs:
 
 Grouped capability summary:
 - Project and set reads: project summary, selected context, tracks, clips, devices, parameters
-- Arrangement workflows: arrangement summaries, arrangement loop and transport-region control, and arrangement-clip editing primitives
+- Arrangement workflows: arrangement summaries, arrangement loop and transport-region control, and arrangement-clip editing primitives including trim, move, and split
 - Session workflows: create clips and scenes, edit notes, launch clips and scenes, stop clip playback
 - Mixer and routing: return/master discovery, send levels, monitor state, routing, return-track creation
 - Device workflows: browser-backed device loading, parameter writes, enum-label targeting where metadata exists

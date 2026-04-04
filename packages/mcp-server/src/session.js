@@ -609,6 +609,28 @@ export function createBridgeAdapter(target) {
         affectedObjects: [payload.clipId, result.clip?.id ?? null].filter(Boolean)
       };
     },
+    async splitArrangementClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "split_arrangement_clip",
+          {
+            clip_id: payload.clipId,
+            split_beats: payload.splitBeats
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [
+          payload.clipId,
+          ...(result.clips ?? []).map((clip) => clip.id)
+        ].filter(Boolean)
+      };
+    },
     async deleteClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (

@@ -13,6 +13,7 @@ Format:
 - Add arrangement clip creation and session-to-arrangement duplication primitives across the bridge, fixture runtime, MCP surface, and tests (`80a7ff4`).
 - Add first-class arrangement clip movement across the bridge, fixture runtime, MCP surface, and tests (`479277d`).
 - Add explicit arrangement clip bound editing across the bridge, fixture runtime, MCP surface, and tests (`50dd80b`).
+- Add MIDI arrangement clip splitting across the bridge, fixture runtime, MCP surface, and tests (`06f24e2`).
 
 ### Maintenance
 

@@ -385,6 +385,16 @@ function createServer(options = {}) {
         }
       };
     },
+    async splitArrangementClip(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId, "clip:arrangement:track:1:index:1", "clip:arrangement:track:1:index:2"],
+        clips: [
+          { id: "clip:arrangement:track:1:index:1", trackId: "track:1" },
+          { id: "clip:arrangement:track:1:index:2", trackId: "track:1" }
+        ]
+      };
+    },
     async moveSessionClip(payload) {
       return {
         payload,
@@ -732,6 +742,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("create_arrangement_clip"));
   assert.ok(byName.has("duplicate_clip_to_arrangement"));
   assert.ok(byName.has("set_arrangement_clip_bounds"));
+  assert.ok(byName.has("split_arrangement_clip"));
   assert.ok(byName.has("move_arrangement_clip"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
@@ -1279,6 +1290,30 @@ test("set_arrangement_clip_bounds returns structured mutation response", async (
   assert.equal(
     response.result.structuredContent.summary,
     "Arrangement clip bounds updated for clip:arrangement:track:1:index:1."
+  );
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("split_arrangement_clip returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.276,
+    method: "tools/call",
+    params: {
+      name: "split_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:1:index:1",
+        splitBeats: 16
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip split for clip:arrangement:track:1:index:1."
   );
   assert.equal(response.result.structuredContent.state_version_before, 3);
   assert.equal(response.result.structuredContent.state_version_after, 4);

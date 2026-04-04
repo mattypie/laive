@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
-| `v0.7.0` | Arrangement view | In progress: arrangement clips now flow into track details and arrangement summaries, arrangement loop/transport control is wired through the bridge and MCP surface, arrangement clip creation now falls back to session-to-arrangement duplication when direct arrangement clip writes are unavailable in the active Live runtime, and explicit arrangement clip movement plus arrangement-bound editing are available across the bridge and MCP surface |
+| `v0.7.0` | Arrangement view | In progress: arrangement clips now flow into track details and arrangement summaries, arrangement loop/transport control is wired through the bridge and MCP surface, arrangement clip creation now falls back to session-to-arrangement duplication when direct arrangement clip writes are unavailable in the active Live runtime, and explicit arrangement clip movement, arrangement-bound editing, plus MIDI arrangement clip splitting are available across the bridge and MCP surface |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 | `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |
@@ -142,3 +142,4 @@
 - Added arrangement-facing MCP tools for `get_arrangement_summary` and `set_arrangement_transport`.
 - Extended the fixture runtime and fake Live harness so arrangement readback and arrangement loop/position writes are exercised in tests rather than only in the real bridge.
 - Added explicit arrangement clip bound editing through `set_arrangement_clip_bounds`, so agents can trim or extend arrangement clips by start and end beat instead of relying on Session-oriented loop controls.
+- Added MIDI arrangement clip splitting through `split_arrangement_clip`, using a deterministic rewrite flow that trims note timing into left/right arrangement clips when direct runtime split support is unavailable.

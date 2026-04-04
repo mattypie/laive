@@ -47,6 +47,9 @@ Landed in the second work unit:
 Landed in the third work unit:
 - explicit arrangement clip bound editing with start/end beat control
 
+Landed in the fourth work unit:
+- MIDI arrangement clip splitting with trimmed left/right note timing
+
 ### `v0.8.0`
 
 - clip-envelope read/write

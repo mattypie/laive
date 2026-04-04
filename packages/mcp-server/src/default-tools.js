@@ -1302,6 +1302,51 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "split_arrangement_clip",
+      description: "Split a MIDI Arrangement View clip into left and right clips at a target beat.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Arrangement clip id."
+          },
+          splitBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Beat position where the arrangement clip should split."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "splitBeats"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        if (!Number.isFinite(Number(args.splitBeats)) || Number(args.splitBeats) <= 0) {
+          throw new McpServerError(
+            "invalid_request",
+            "splitBeats must be a positive number"
+          );
+        }
+
+        await policyAdapter.assertAllowed("split_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        const split = await bridgeAdapter.splitArrangementClip({
+          clipId: args.clipId,
+          splitBeats: Number(args.splitBeats),
+          dryRun: Boolean(args.dryRun)
+        });
+        const refreshTarget = split.clips?.[0]?.trackId ?? split.clips?.[0]?.track_id ?? "project";
+        const after = await stateAdapter.refreshState(refreshTarget);
+        return buildMutationResult(
+          `Arrangement clip ${args.dryRun ? "split previewed" : "split"} for ${args.clipId}.`,
+          split.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "move_session_clip",
       description: "Move a Session View clip to a target slot, optionally on another track.",
       inputSchema: createObjectSchema({

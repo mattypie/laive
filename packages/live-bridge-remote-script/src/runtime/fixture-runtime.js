@@ -247,6 +247,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.duplicateClipToArrangement(args, dryRun);
       case "set_arrangement_clip_bounds":
         return this.setArrangementClipBounds(args, dryRun);
+      case "split_arrangement_clip":
+        return this.splitArrangementClip(args, dryRun);
       case "move_arrangement_clip":
         return this.moveArrangementClip(args, dryRun);
       case "move_session_clip":
@@ -1088,6 +1090,146 @@ export class FixtureLiveRuntime extends EventEmitter {
       applied: !dryRun,
       clip: nextClip
     };
+  }
+
+  splitArrangementClip(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (clip.location !== "arrangement") {
+      throw new Error(`Arrangement clip not found: ${args.clip_id}`);
+    }
+    if (clip.is_audio || clip.isAudio) {
+      throw new Error("split_arrangement_clip currently supports MIDI arrangement clips only");
+    }
+
+    const currentStart = Number(clip.start_beats ?? clip.startBeats ?? 0);
+    const currentEnd = Number(
+      clip.end_beats ?? clip.endBeats ?? currentStart + Number(clip.length_beats ?? clip.lengthBeats ?? 4)
+    );
+    const splitBeats = Number(args.split_beats);
+
+    if (!Number.isFinite(splitBeats) || splitBeats <= currentStart || splitBeats >= currentEnd) {
+      throw new Error("split_beats must fall strictly inside the arrangement clip bounds");
+    }
+
+    const leftLength = splitBeats - currentStart;
+    const rightLength = currentEnd - splitBeats;
+    const sourceTrackId = clip.track_id ?? clip.trackId ?? this.findTrackIdForClip(args.clip_id);
+    const track = this.findTrack(sourceTrackId);
+    const sourceIndex = clip.arrangement_index ?? clip.arrangementIndex ?? 0;
+    const existingClips = track.arrangement_clips ?? [];
+
+    const leftClip = {
+      ...clone(clip),
+      id: `clip:arrangement:${sourceTrackId}:index:${sourceIndex + 1}`,
+      arrangement_index: sourceIndex,
+      arrangementIndex: sourceIndex,
+      index: sourceIndex,
+      track_id: sourceTrackId,
+      start_beats: currentStart,
+      startBeats: currentStart,
+      end_beats: splitBeats,
+      endBeats: splitBeats,
+      length_beats: leftLength,
+      lengthBeats: leftLength,
+      loop_end_beats: leftLength,
+      loopEndBeats: leftLength,
+      notes: this.segmentArrangementNotes(clip, currentStart, splitBeats)
+    };
+
+    const rightClip = {
+      ...clone(clip),
+      id: `clip:arrangement:${sourceTrackId}:index:${sourceIndex + 2}`,
+      arrangement_index: sourceIndex + 1,
+      arrangementIndex: sourceIndex + 1,
+      index: sourceIndex + 1,
+      track_id: sourceTrackId,
+      start_beats: splitBeats,
+      startBeats: splitBeats,
+      end_beats: currentEnd,
+      endBeats: currentEnd,
+      length_beats: rightLength,
+      lengthBeats: rightLength,
+      loop_end_beats: rightLength,
+      loopEndBeats: rightLength,
+      notes: this.segmentArrangementNotes(clip, splitBeats, currentEnd)
+    };
+
+    if (!dryRun) {
+      track.arrangement_clips = [
+        ...existingClips.slice(0, sourceIndex),
+        leftClip,
+        rightClip,
+        ...existingClips.slice(sourceIndex + 1)
+      ].map((candidate, index) => ({
+        ...candidate,
+        id: `clip:arrangement:${sourceTrackId}:index:${index + 1}`,
+        arrangement_index: index,
+        arrangementIndex: index,
+        index
+      }));
+      this.emit("event", {
+        topic: "track-updated",
+        payload: clone(track)
+      });
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-split",
+          clip_id: args.clip_id,
+          track_id: sourceTrackId
+        }
+      });
+      return {
+        applied: true,
+        source_clip_id: args.clip_id,
+        clips: clone(track.arrangement_clips.slice(sourceIndex, sourceIndex + 2))
+      };
+    }
+
+    return {
+      applied: false,
+      source_clip_id: args.clip_id,
+      clips: [leftClip, rightClip]
+    };
+  }
+
+  segmentArrangementNotes(clip, segmentStart, segmentEnd) {
+    const notes = Array.isArray(clip.notes) ? clone(clip.notes) : [];
+    const clipStart = Number(clip.start_beats ?? clip.startBeats ?? 0);
+    const base = this.arrangementNoteBase(notes, clipStart);
+    const segmented = [];
+
+    for (const note of notes) {
+      const noteStart = Number(note.start_time ?? note.start_beats ?? note.startBeats ?? 0);
+      const duration = Number(note.duration ?? note.duration_beats ?? note.durationBeats ?? 0);
+      const absoluteStart = noteStart + (clipStart - base);
+      const absoluteEnd = absoluteStart + duration;
+      const overlapStart = Math.max(absoluteStart, Number(segmentStart));
+      const overlapEnd = Math.min(absoluteEnd, Number(segmentEnd));
+      if (!(overlapEnd > overlapStart)) {
+        continue;
+      }
+      segmented.push({
+        ...clone(note),
+        start_time: overlapStart - Number(segmentStart),
+        duration: overlapEnd - overlapStart
+      });
+    }
+
+    return segmented;
+  }
+
+  arrangementNoteBase(notes, clipStart) {
+    if (!Array.isArray(notes) || notes.length === 0) {
+      return 0;
+    }
+    const minStart = Math.min(
+      ...notes.map((note) => Number(note.start_time ?? note.start_beats ?? note.startBeats ?? 0))
+    );
+    if (clipStart > 0 && minStart >= clipStart - 1e-6) {
+      return clipStart;
+    }
+    return 0;
   }
 
   deleteClip(args, dryRun) {
