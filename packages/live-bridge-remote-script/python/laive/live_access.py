@@ -1034,7 +1034,15 @@ class LiveSetAdapter(object):
         clip = clip_ref["clip"]
         length_beats = self._arrangement_clip_length_beats(clip)
         if self._set_arrangement_clip_position(clip, destination_beats, length_beats):
-            return clip, self._find_arrangement_clip_index(track, clip, fallback_index=clip_ref["arrangement_index"])
+            try:
+                arrangement_index = self._find_arrangement_clip_index(
+                    track,
+                    clip,
+                    fallback_index=clip_ref["arrangement_index"],
+                )
+                return clip, arrangement_index
+            except RequestError:
+                pass
         return self._move_arrangement_clip_fallback(clip_ref, destination_beats)
 
     def _set_arrangement_clip_position(self, clip, destination_beats, length_beats):

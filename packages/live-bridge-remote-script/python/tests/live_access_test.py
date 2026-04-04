@@ -670,6 +670,33 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(len(song.tracks[0].arrangement_clips), 1)
         self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 24.0)
 
+    def test_move_arrangement_clip_falls_back_when_clip_cannot_be_relocated(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        original_find_arrangement_clip_index = adapter._find_arrangement_clip_index
+
+        call_count = {"count": 0}
+
+        def broken_find_arrangement_clip_index(track, target_clip, fallback_index=None):
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                raise RequestError("runtime_error", "Arrangement clip could not be located after mutation")
+            return original_find_arrangement_clip_index(track, target_clip, fallback_index=fallback_index)
+
+        adapter._find_arrangement_clip_index = broken_find_arrangement_clip_index
+        try:
+            result = adapter.move_arrangement_clip(
+                "clip:arrangement:track:2:index:1",
+                destination_beats=28,
+            )
+        finally:
+            adapter._find_arrangement_clip_index = original_find_arrangement_clip_index
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["start_beats"], 28.0)
+        self.assertEqual(result["clip"]["end_beats"], 36.0)
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"
