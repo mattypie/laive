@@ -1203,8 +1203,9 @@ class LiveSetAdapter(object):
         )
         duplicated_ref = self._find_clip_reference(duplicated["clip"]["id"])
         self.delete_clip(clip_ref["clip_id"], dry_run=False)
-        track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
-        arrangement_index = self._find_arrangement_clip_index(track, duplicated_ref["clip"])
+        arrangement_index = duplicated_ref["arrangement_index"]
+        if clip_ref["track_id"] == duplicated_ref["track_id"] and arrangement_index > clip_ref["arrangement_index"]:
+            arrangement_index -= 1
         return duplicated_ref["clip"], arrangement_index
 
     def _cleanup_temporary_session_clip(self, track, slot_index, created_scene_index=None):
