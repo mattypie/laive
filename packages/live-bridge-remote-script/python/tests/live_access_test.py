@@ -831,6 +831,28 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["clips"][1]["end_beats"], 16.0)
         self.assertEqual(len(song.tracks[1].arrangement_clips), 1)
 
+    def test_split_arrangement_clip_does_not_require_an_empty_session_slot(self):
+        song = FakeSong()
+        track = song.tracks[1]
+        clip = track.arrangement_clips[0]
+        clip.notes = [
+            {"pitch": 36, "start_time": 8.0, "duration": 2.0, "velocity": 100, "mute": False},
+            {"pitch": 38, "start_time": 11.0, "duration": 2.0, "velocity": 100, "mute": False},
+        ]
+        for index, slot in enumerate(track.clip_slots):
+            slot.create_clip(4.0)
+            slot.clip.name = "Busy {0}".format(index + 1)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.split_arrangement_clip(
+            "clip:arrangement:track:2:index:1",
+            split_beats=12,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(len(track.arrangement_clips), 2)
+        self.assertTrue(all(slot.has_clip for slot in track.clip_slots))
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"
