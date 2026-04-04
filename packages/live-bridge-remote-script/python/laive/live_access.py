@@ -481,8 +481,15 @@ class LiveSetAdapter(object):
                     name=name,
                 )
             else:
+                existing_clip_keys = self._arrangement_clip_keys(track)
                 create_midi_clip(next_start_beats, next_length_beats)
-                clip, arrangement_index = self._latest_arrangement_clip(track)
+                clip, arrangement_index = self._find_created_arrangement_clip(
+                    track,
+                    existing_clip_keys,
+                    next_start_beats,
+                    next_start_beats + next_length_beats,
+                    name=name,
+                )
                 if name:
                     clip.name = name
 
@@ -1147,6 +1154,50 @@ class LiveSetAdapter(object):
             raise RequestError("runtime_error", "Arrangement clip was not created")
         arrangement_index = len(arrangement_clips) - 1
         return arrangement_clips[arrangement_index], arrangement_index
+
+    def _arrangement_clip_keys(self, track):
+        keys = set()
+        for arrangement_index, clip in enumerate(self._get_arrangement_clips(track)):
+            clip_id = getattr(clip, "id", None)
+            start_beats = getattr(clip, "start_time", None)
+            end_beats = getattr(clip, "end_time", None)
+            keys.add((clip_id, arrangement_index, start_beats, end_beats))
+        return keys
+
+    def _find_created_arrangement_clip(
+        self,
+        track,
+        existing_clip_keys,
+        start_beats,
+        end_beats,
+        name=None,
+    ):
+        candidates = []
+        target_start = float(start_beats)
+        target_end = float(end_beats)
+
+        for arrangement_index, clip in enumerate(self._get_arrangement_clips(track)):
+            clip_id = getattr(clip, "id", None)
+            clip_start = getattr(clip, "start_time", None)
+            clip_end = getattr(clip, "end_time", None)
+            clip_key = (clip_id, arrangement_index, clip_start, clip_end)
+            if clip_key in existing_clip_keys:
+                continue
+            if clip_start is None or clip_end is None:
+                continue
+            if abs(float(clip_start) - target_start) > 1e-6 or abs(float(clip_end) - target_end) > 1e-6:
+                continue
+            candidates.append((arrangement_index, clip))
+
+        if not candidates:
+            return self._latest_arrangement_clip(track)
+
+        if name:
+            for arrangement_index, clip in candidates:
+                if getattr(clip, "name", None) == name:
+                    return clip, arrangement_index
+
+        return candidates[-1][1], candidates[-1][0]
 
     def _move_arrangement_clip_runtime(self, clip_ref, track, destination_beats):
         clip = clip_ref["clip"]

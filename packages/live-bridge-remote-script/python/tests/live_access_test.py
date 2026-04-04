@@ -776,6 +776,32 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 12.0)
         self.assertEqual(song.tracks[0].arrangement_clips[0].end_time, 20.0)
 
+    def test_find_created_arrangement_clip_prefers_new_overlap_match(self):
+        song = FakeSong()
+        track = song.tracks[1]
+        original_clip = track.arrangement_clips[0]
+        original_clip.start_time = 12.0
+        original_clip.end_time = 16.0
+        new_left = FakeClip(name="Split Probe", length=4.0)
+        new_left.start_time = 8.0
+        new_left.end_time = 12.0
+        track.arrangement_clips = [original_clip, new_left]
+        adapter = LiveSetAdapter(song)
+
+        existing_keys = {
+            (getattr(original_clip, "id", None), 0, original_clip.start_time, original_clip.end_time),
+        }
+        clip, arrangement_index = adapter._find_created_arrangement_clip(
+            track,
+            existing_keys,
+            start_beats=8.0,
+            end_beats=12.0,
+            name="Split Probe",
+        )
+
+        self.assertIs(clip, new_left)
+        self.assertEqual(arrangement_index, 1)
+
     def test_split_arrangement_clip_splits_midi_clip_and_trims_note_timing(self):
         song = FakeSong()
         clip = song.tracks[1].arrangement_clips[0]
