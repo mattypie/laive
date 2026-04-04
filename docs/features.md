@@ -47,12 +47,14 @@ This is the current core music-making surface.
 - `create_arrangement_clip`
 - `duplicate_clip_to_arrangement`
 - `move_arrangement_clip`
+- `set_arrangement_clip_bounds`
 
 The current `v0.7.0` slice now includes:
 - arrangement clip enumeration now flows through track details and arrangement summaries
 - arrangement clip creation on visible tracks
 - session-to-arrangement clip duplication
 - explicit arrangement clip movement
+- explicit arrangement clip bound editing with start/end beat control
 - song readback now includes Arrangement transport position plus loop start, length, and enabled state
 - arrangement loop and transport-region control is exposed without requiring the Session View surface
 

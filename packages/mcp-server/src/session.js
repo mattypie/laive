@@ -589,6 +589,26 @@ export function createBridgeAdapter(target) {
         affectedObjects: [result.track_id ?? null, payload.clipId, result.clip?.id ?? null].filter(Boolean)
       };
     },
+    async setArrangementClipBounds(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "set_arrangement_clip_bounds",
+          {
+            clip_id: payload.clipId,
+            start_beats: payload.startBeats,
+            end_beats: payload.endBeats
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [payload.clipId, result.clip?.id ?? null].filter(Boolean)
+      };
+    },
     async deleteClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (

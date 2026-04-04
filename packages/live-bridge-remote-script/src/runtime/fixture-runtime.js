@@ -245,6 +245,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.duplicateClip(args, dryRun);
       case "duplicate_clip_to_arrangement":
         return this.duplicateClipToArrangement(args, dryRun);
+      case "set_arrangement_clip_bounds":
+        return this.setArrangementClipBounds(args, dryRun);
       case "move_arrangement_clip":
         return this.moveArrangementClip(args, dryRun);
       case "move_session_clip":
@@ -1025,6 +1027,60 @@ export class FixtureLiveRuntime extends EventEmitter {
       this.emit("event", {
         topic: "song-updated",
         payload: clone(this.state.song)
+      });
+    }
+
+    return {
+      applied: !dryRun,
+      clip: nextClip
+    };
+  }
+
+  setArrangementClipBounds(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (clip.location !== "arrangement") {
+      throw new Error(`Arrangement clip not found: ${args.clip_id}`);
+    }
+    if (args.start_beats === undefined && args.end_beats === undefined) {
+      throw new Error("At least one arrangement bound field is required");
+    }
+
+    const currentStart = Number(clip.start_beats ?? clip.startBeats ?? 0);
+    const currentEnd = Number(
+      clip.end_beats ?? clip.endBeats ?? currentStart + Number(clip.length_beats ?? clip.lengthBeats ?? 4)
+    );
+    const nextStart = args.start_beats === undefined ? currentStart : Number(args.start_beats);
+    const nextEnd = args.end_beats === undefined ? currentEnd : Number(args.end_beats);
+
+    if (!Number.isFinite(nextStart) || nextStart < 0) {
+      throw new Error("start_beats must be a non-negative number");
+    }
+    if (!Number.isFinite(nextEnd) || nextEnd <= nextStart) {
+      throw new Error("end_beats must be greater than start_beats");
+    }
+
+    const nextClip = {
+      ...clone(clip),
+      start_beats: nextStart,
+      startBeats: nextStart,
+      end_beats: nextEnd,
+      endBeats: nextEnd,
+      length_beats: nextEnd - nextStart,
+      lengthBeats: nextEnd - nextStart
+    };
+
+    if (!dryRun) {
+      const track = this.findTrack(clip.track_id ?? clip.trackId ?? this.findTrackIdForClip(args.clip_id));
+      track.arrangement_clips = (track.arrangement_clips ?? []).map((candidate) =>
+        candidate.id === clip.id ? nextClip : candidate
+      );
+      this.emit("event", {
+        topic: "clips.changed",
+        payload: {
+          action: "clip-bounds-updated",
+          clip_id: clip.id,
+          clip: clone(nextClip)
+        }
       });
     }
 

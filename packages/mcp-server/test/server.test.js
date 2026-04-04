@@ -376,6 +376,15 @@ function createServer(options = {}) {
         }
       };
     },
+    async setArrangementClipBounds(payload) {
+      return {
+        payload,
+        affectedObjects: [payload.clipId],
+        clip: {
+          id: payload.clipId
+        }
+      };
+    },
     async moveSessionClip(payload) {
       return {
         payload,
@@ -722,6 +731,7 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("get_arrangement_track_details"));
   assert.ok(byName.has("create_arrangement_clip"));
   assert.ok(byName.has("duplicate_clip_to_arrangement"));
+  assert.ok(byName.has("set_arrangement_clip_bounds"));
   assert.ok(byName.has("move_arrangement_clip"));
   assert.ok(byName.has("get_browser_items"));
   assert.ok(byName.has("load_browser_item"));
@@ -1244,6 +1254,31 @@ test("move_arrangement_clip returns structured mutation response", async () => {
   assert.equal(
     response.result.structuredContent.summary,
     "Arrangement clip moved for clip:arrangement:track:2:index:1."
+  );
+  assert.equal(response.result.structuredContent.state_version_before, 3);
+  assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("set_arrangement_clip_bounds returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.275,
+    method: "tools/call",
+    params: {
+      name: "set_arrangement_clip_bounds",
+      arguments: {
+        clipId: "clip:arrangement:track:1:index:1",
+        startBeats: 12,
+        endBeats: 20
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip bounds updated for clip:arrangement:track:1:index:1."
   );
   assert.equal(response.result.structuredContent.state_version_before, 3);
   assert.equal(response.result.structuredContent.state_version_after, 4);

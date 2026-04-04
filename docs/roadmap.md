@@ -44,6 +44,9 @@ Landed in the second work unit:
 - session-to-arrangement duplication primitives
 - arrangement clip movement primitives
 
+Landed in the third work unit:
+- explicit arrangement clip bound editing with start/end beat control
+
 ### `v0.8.0`
 
 - clip-envelope read/write

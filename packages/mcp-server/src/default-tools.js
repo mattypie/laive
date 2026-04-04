@@ -1239,6 +1239,69 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "set_arrangement_clip_bounds",
+      description: "Adjust explicit Arrangement View clip bounds using start and/or end beats.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Arrangement clip id."
+          },
+          startBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Optional new Arrangement clip start position in beats."
+          },
+          endBeats: {
+            type: "number",
+            exclusiveMinimum: 0,
+            description: "Optional new Arrangement clip end position in beats."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        if (args.startBeats === undefined && args.endBeats === undefined) {
+          throw new McpServerError(
+            "invalid_request",
+            "Provide at least one of startBeats or endBeats"
+          );
+        }
+        if (args.startBeats !== undefined && (!Number.isFinite(Number(args.startBeats)) || Number(args.startBeats) < 0)) {
+          throw new McpServerError("invalid_request", "startBeats must be a non-negative number");
+        }
+        if (args.endBeats !== undefined && (!Number.isFinite(Number(args.endBeats)) || Number(args.endBeats) <= 0)) {
+          throw new McpServerError("invalid_request", "endBeats must be a positive number");
+        }
+        if (
+          args.startBeats !== undefined &&
+          args.endBeats !== undefined &&
+          Number(args.endBeats) <= Number(args.startBeats)
+        ) {
+          throw new McpServerError("invalid_request", "endBeats must be greater than startBeats");
+        }
+
+        await policyAdapter.assertAllowed("set_arrangement_clip_bounds", args);
+        const before = await stateAdapter.getArrangementSummary();
+        await bridgeAdapter.setArrangementClipBounds({
+          clipId: args.clipId,
+          startBeats: args.startBeats === undefined ? undefined : Number(args.startBeats),
+          endBeats: args.endBeats === undefined ? undefined : Number(args.endBeats),
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Arrangement clip bounds ${args.dryRun ? "previewed" : "updated"} for ${args.clipId}.`,
+          [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "move_session_clip",
       description: "Move a Session View clip to a target slot, optionally on another track.",
       inputSchema: createObjectSchema({
