@@ -634,6 +634,42 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(len(song.tracks[0].arrangement_clips), 1)
         self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 20.0)
 
+    def test_move_arrangement_clip_falls_back_when_position_write_is_ignored(self):
+        class NoOpMoveClip(FakeClip):
+            @property
+            def start_time(self):
+                return getattr(self, "_start_time", 8.0)
+
+            @start_time.setter
+            def start_time(self, _value):
+                return None
+
+            @property
+            def end_time(self):
+                return getattr(self, "_end_time", 16.0)
+
+            @end_time.setter
+            def end_time(self, _value):
+                return None
+
+        song = FakeSong()
+        clip = NoOpMoveClip(name="Sticky Arrange", length=8)
+        clip._start_time = 8.0
+        clip._end_time = 16.0
+        song.tracks[0].arrangement_clips = [clip]
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.move_arrangement_clip(
+            "clip:arrangement:track:1:index:1",
+            destination_beats=24,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["start_beats"], 24.0)
+        self.assertEqual(result["clip"]["end_beats"], 32.0)
+        self.assertEqual(len(song.tracks[0].arrangement_clips), 1)
+        self.assertEqual(song.tracks[0].arrangement_clips[0].start_time, 24.0)
+
     def test_serialize_track_state_tolerates_missing_mixer_only_properties(self):
         class MixerOnlyTrack(object):
             name = "Master"

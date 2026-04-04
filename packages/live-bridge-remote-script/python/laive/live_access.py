@@ -1034,7 +1034,7 @@ class LiveSetAdapter(object):
         clip = clip_ref["clip"]
         length_beats = self._arrangement_clip_length_beats(clip)
         if self._set_arrangement_clip_position(clip, destination_beats, length_beats):
-            return clip, self._find_arrangement_clip_index(track, clip)
+            return clip, self._find_arrangement_clip_index(track, clip, fallback_index=clip_ref["arrangement_index"])
         return self._move_arrangement_clip_fallback(clip_ref, destination_beats)
 
     def _set_arrangement_clip_position(self, clip, destination_beats, length_beats):
@@ -1044,6 +1044,14 @@ class LiveSetAdapter(object):
             self._set_clip_attribute(clip, "start_time", float(destination_beats))
             if hasattr(clip, "end_time"):
                 self._set_clip_attribute(clip, "end_time", float(destination_beats) + float(length_beats))
+            start_beats = getattr(clip, "start_time", None)
+            end_beats = getattr(clip, "end_time", None)
+            if start_beats is None:
+                return False
+            if abs(float(start_beats) - float(destination_beats)) > 1e-6:
+                return False
+            if end_beats is not None and abs(float(end_beats) - (float(destination_beats) + float(length_beats))) > 1e-6:
+                return False
             return True
         except Exception:
             return False
@@ -1066,11 +1074,16 @@ class LiveSetAdapter(object):
             return float(clip_length)
         return 4.0
 
-    def _find_arrangement_clip_index(self, track, target_clip):
+    def _find_arrangement_clip_index(self, track, target_clip, fallback_index=None):
         arrangement_clips = self._get_arrangement_clips(track)
         for arrangement_index, clip in enumerate(arrangement_clips):
             if clip is target_clip:
                 return arrangement_index
+            target_id = getattr(target_clip, "id", None)
+            if target_id is not None and getattr(clip, "id", None) == target_id:
+                return arrangement_index
+        if fallback_index is not None and 0 <= int(fallback_index) < len(arrangement_clips):
+            return int(fallback_index)
         raise RequestError("runtime_error", "Arrangement clip could not be located after mutation")
 
     def _create_arrangement_clip_fallback(self, track, track_id, start_beats, length_beats, name=None):
