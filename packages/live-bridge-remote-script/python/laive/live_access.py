@@ -1310,6 +1310,8 @@ class LiveSetAdapter(object):
             source_end = source_start + self._arrangement_clip_length_beats(source_clip)
         source_end = float(source_end)
         source_name = getattr(source_clip, "name", None)
+        source_notes = self._clip_notes.serialize_notes(source_clip)
+        note_base = self._arrangement_note_base(source_notes, source_start)
         segment_specs = (
             ("left", source_start, split_beats),
             ("right", split_beats, source_end),
@@ -1346,8 +1348,10 @@ class LiveSetAdapter(object):
                     created_clip_id = created["clip"]["id"]
                 else:
                     created_clip_id = right_ref["clip_id"]
-            segment_notes = self._segment_arrangement_notes(
-                source_clip,
+            segment_notes = self._segment_arrangement_notes_from_notes(
+                source_notes,
+                source_start,
+                note_base,
                 segment_start_beats,
                 segment_end_beats,
             )
@@ -1409,12 +1413,21 @@ class LiveSetAdapter(object):
         notes = self._clip_notes.serialize_notes(source_clip)
         clip_start = float(getattr(source_clip, "start_time", 0.0) or 0.0)
         base = self._arrangement_note_base(notes, clip_start)
+        return self._segment_arrangement_notes_from_notes(
+            notes,
+            clip_start,
+            base,
+            segment_start_beats,
+            segment_end_beats,
+        )
+
+    def _segment_arrangement_notes_from_notes(self, notes, clip_start, base, segment_start_beats, segment_end_beats):
         segmented_notes = []
 
         for note in notes:
             note_start = float(note.get("start_time", 0.0))
             note_duration = float(note.get("duration", 0.0))
-            absolute_start = note_start + (clip_start - base)
+            absolute_start = note_start + (float(clip_start) - float(base))
             absolute_end = absolute_start + note_duration
             overlap_start = max(absolute_start, float(segment_start_beats))
             overlap_end = min(absolute_end, float(segment_end_beats))
