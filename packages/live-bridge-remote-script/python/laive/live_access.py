@@ -1309,22 +1309,43 @@ class LiveSetAdapter(object):
         if source_end is None:
             source_end = source_start + self._arrangement_clip_length_beats(source_clip)
         source_end = float(source_end)
+        source_name = getattr(source_clip, "name", None)
         segment_specs = (
-            (source_start, split_beats),
-            (split_beats, source_end),
+            ("left", source_start, split_beats),
+            ("right", split_beats, source_end),
         )
         created_clips = []
+        original_clip_id = clip_ref["clip_id"]
 
-        for segment_start_beats, segment_end_beats in segment_specs:
+        for segment_key, segment_start_beats, segment_end_beats in segment_specs:
             segment_length = float(segment_end_beats) - float(segment_start_beats)
-            created = self.create_arrangement_clip(
-                clip_ref["track_id"],
-                segment_start_beats,
-                segment_length,
-                name=getattr(source_clip, "name", None),
-                dry_run=False,
-            )
-            created_clip_id = created["clip"]["id"]
+            if segment_key == "left":
+                created = self.create_arrangement_clip(
+                    clip_ref["track_id"],
+                    segment_start_beats,
+                    segment_length,
+                    name=source_name,
+                    dry_run=False,
+                )
+                created_clip_id = created["clip"]["id"]
+            else:
+                right_ref = self._find_arrangement_clip_with_bounds(
+                    clip_ref["track_id"],
+                    segment_start_beats,
+                    segment_end_beats,
+                    exclude_clip_ids=[clip["id"] for clip in created_clips],
+                )
+                if right_ref is None:
+                    created = self.create_arrangement_clip(
+                        clip_ref["track_id"],
+                        segment_start_beats,
+                        segment_length,
+                        name=source_name,
+                        dry_run=False,
+                    )
+                    created_clip_id = created["clip"]["id"]
+                else:
+                    created_clip_id = right_ref["clip_id"]
             segment_notes = self._segment_arrangement_notes(
                 source_clip,
                 segment_start_beats,
@@ -1340,8 +1361,49 @@ class LiveSetAdapter(object):
                 )
             )
 
-        self.delete_clip(clip_ref["clip_id"], dry_run=False)
+        if any(clip["id"] == original_clip_id for clip in created_clips):
+            return created_clips
+
+        try:
+            self.delete_clip(original_clip_id, dry_run=False)
+        except RequestError:
+            replacement = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                split_beats,
+                source_end,
+                exclude_clip_ids=[created_clips[0]["id"]],
+            )
+            if replacement is None or replacement["clip_id"] != original_clip_id:
+                raise
         return created_clips
+
+    def _find_arrangement_clip_with_bounds(
+        self,
+        track_id,
+        start_beats,
+        end_beats,
+        exclude_clip_ids=None,
+    ):
+        exclude_clip_ids = set(exclude_clip_ids or [])
+        track, _track_index, _track_section = self._find_track(track_id)
+        for arrangement_index, clip in enumerate(self._get_arrangement_clips(track)):
+            clip_id = getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index)
+            if clip_id in exclude_clip_ids:
+                continue
+            clip_start = float(getattr(clip, "start_time", 0.0) or 0.0)
+            clip_end = getattr(clip, "end_time", None)
+            if clip_end is None:
+                clip_end = clip_start + self._arrangement_clip_length_beats(clip)
+            clip_end = float(clip_end)
+            if abs(clip_start - float(start_beats)) <= 1e-6 and abs(clip_end - float(end_beats)) <= 1e-6:
+                return {
+                    "clip": clip,
+                    "clip_id": clip_id,
+                    "track_id": track_id,
+                    "location": "arrangement",
+                    "arrangement_index": arrangement_index,
+                }
+        return None
 
     def _segment_arrangement_notes(self, source_clip, segment_start_beats, segment_end_beats):
         notes = self._clip_notes.serialize_notes(source_clip)
