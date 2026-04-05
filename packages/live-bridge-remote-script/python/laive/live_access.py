@@ -1244,6 +1244,13 @@ class LiveSetAdapter(object):
                 end_beats,
             )
         if abs(float(actual_start) - float(start_beats)) > 1e-6 or abs(float(actual_end) - float(end_beats)) > 1e-6:
+            matching_ref = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                start_beats,
+                end_beats,
+            )
+            if matching_ref is not None:
+                return matching_ref["clip"], matching_ref["arrangement_index"]
             return self._rewrite_arrangement_clip_bounds_fallback(
                 clip_ref,
                 track,
@@ -1389,15 +1396,21 @@ class LiveSetAdapter(object):
         )
         self._replace_notes_resilient(left_clip_ref["clip"], left_notes)
 
-        right_created = self.create_arrangement_clip(
+        right_ref = self._find_arrangement_clip_with_bounds(
             clip_ref["track_id"],
             split_beats,
-            float(source_end) - float(split_beats),
-            name=source_name,
-            dry_run=False,
+            source_end,
+            exclude_clip_ids=[left_clip_ref["clip_id"]],
         )
-        right_clip_id = right_created["clip"]["id"]
-        right_ref = self._find_clip_reference(right_clip_id)
+        if right_ref is None:
+            right_created = self.create_arrangement_clip(
+                clip_ref["track_id"],
+                split_beats,
+                float(source_end) - float(split_beats),
+                name=source_name,
+                dry_run=False,
+            )
+            right_ref = self._find_clip_reference(right_created["clip"]["id"])
         self._replace_notes_resilient(right_ref["clip"], right_notes)
 
         return [
