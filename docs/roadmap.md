@@ -54,6 +54,10 @@ Landed in the fifth work unit:
 - arrangement-to-arrangement duplication as a first-class bridge and MCP tool
 - real Live validation for MIDI arrangement splitting on Live 11
 
+Landed in the sixth work unit:
+- arrangement clip selection and jump helpers
+- arrangement-focused rename/delete wrappers in the MCP surface
+
 ### `v0.8.0`
 
 - clip-envelope read/write

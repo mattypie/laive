@@ -44,18 +44,24 @@ This is the current core music-making surface.
 - `get_arrangement_summary`
 - `get_arrangement_track_details`
 - `set_arrangement_transport`
+- `jump_to_arrangement_clip`
+- `select_clip`
 - `create_arrangement_clip`
 - `duplicate_clip_to_arrangement`
 - `duplicate_arrangement_clip`
+- `rename_arrangement_clip`
 - `move_arrangement_clip`
 - `set_arrangement_clip_bounds`
 - `split_arrangement_clip`
+- `delete_arrangement_clip`
 
 The current `v0.7.0` slice now includes:
 - arrangement clip enumeration now flows through track details and arrangement summaries
+- arrangement clip selection and jump helpers
 - arrangement clip creation on visible tracks
 - session-to-arrangement clip duplication
 - arrangement-to-arrangement clip duplication
+- arrangement-focused rename/delete wrappers on the MCP surface
 - explicit arrangement clip movement
 - explicit arrangement clip bound editing with start/end beat control
 - MIDI arrangement clip splitting with trimmed left/right note timing
@@ -63,7 +69,7 @@ The current `v0.7.0` slice now includes:
 - arrangement loop and transport-region control is exposed without requiring the Session View surface
 
 Still pending in this slice:
-- Arrangement-specific editing ergonomics beyond transport and summary control
+- deeper arrangement navigation and automation helpers beyond selection/jump/transport control
 
 ## Mixer And Routing
 

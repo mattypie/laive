@@ -305,6 +305,16 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(result["track"]["id"], "track:2")
         self.assertEqual(song.view.selected_track, song.tracks[1])
 
+    def test_select_clip_updates_song_view_for_arrangement_clip(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.select_clip("clip:arrangement:track:2:index:1")
+
+        self.assertEqual(result["clip"]["id"], "clip:arrangement:track:2:index:1")
+        self.assertEqual(song.view.selected_track, song.tracks[1])
+        self.assertEqual(song.view.detail_clip, song.tracks[1].arrangement_clips[0])
+
     def test_launch_clip_marks_clip_playing(self):
         clip = DirectSetNotesClip()
         song = SongWithSingleClip(clip)
@@ -1090,6 +1100,7 @@ class SongView(object):
         self.selected_track = song.tracks[0]
         self.selected_scene = song.scenes[0] if song.scenes else None
         self.highlighted_clip_slot = None
+        self.detail_clip = None
 
 
 class ClipSlotWithClip(object):

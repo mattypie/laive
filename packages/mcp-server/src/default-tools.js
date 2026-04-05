@@ -497,6 +497,40 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "select_clip",
+      description: "Select a Session or Arrangement clip by canonical clip id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+
+        await policyAdapter.assertAllowed("select_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await bridgeAdapter.selectClip(
+          {
+            clipId: args.clipId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Clip ${args.dryRun ? "selection previewed" : "selected"} for ${args.clipId}.`,
+          result.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "list_tracks",
       description: "List tracks in compact form.",
       inputSchema: EMPTY_OBJECT_SCHEMA,
@@ -802,6 +836,59 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "jump_to_arrangement_clip",
+      description: "Select an Arrangement clip and move the Arrangement playhead to its start beat.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Arrangement clip id."
+          },
+          play: {
+            type: "boolean",
+            description: "Start transport after jumping."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+
+        await policyAdapter.assertAllowed("jump_to_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        const selected = await bridgeAdapter.selectClip(
+          { clipId: args.clipId },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        if (selected.clip?.location !== "arrangement") {
+          throw new McpServerError(
+            "invalid_request",
+            "jump_to_arrangement_clip requires an arrangement clip id"
+          );
+        }
+
+        if (!args.dryRun) {
+          await bridgeAdapter.setArrangementTransport({
+            currentSongTime: selected.clip.startBeats,
+            arrangementPositionBeats: selected.clip.startBeats
+          });
+          if (args.play) {
+            await bridgeAdapter.playTransport();
+          }
+        }
+
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Arrangement clip ${args.dryRun ? "jump previewed" : "selected and positioned"} for ${args.clipId}.`,
+          selected.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "play_transport",
       description: "Start Ableton Live transport playback.",
       inputSchema: createObjectSchema({
@@ -1056,7 +1143,7 @@ export function buildDefaultTools({
     },
     {
       name: "rename_clip",
-      description: "Rename a Session View clip by canonical clip id.",
+      description: "Rename a Session or Arrangement clip by canonical clip id.",
       inputSchema: createObjectSchema({
         properties: {
           clipId: {
@@ -1087,6 +1174,46 @@ export function buildDefaultTools({
         const after = await stateAdapter.refreshState(args.clipId);
         return buildMutationResult(
           `Clip ${args.dryRun ? "rename previewed" : "renamed"} for ${args.clipId}.`,
+          [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "rename_arrangement_clip",
+      description: "Rename an Arrangement View clip by canonical clip id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Arrangement clip id."
+          },
+          name: {
+            type: "string",
+            description: "New clip name."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "name"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireString(args.name, "name");
+
+        await policyAdapter.assertAllowed("rename_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        await bridgeAdapter.renameClip(
+          {
+            clipId: args.clipId,
+            name: args.name
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return buildMutationResult(
+          `Arrangement clip ${args.dryRun ? "rename previewed" : "renamed"} for ${args.clipId}.`,
           [args.clipId],
           before.stateVersion,
           after.stateVersion,
@@ -1510,7 +1637,7 @@ export function buildDefaultTools({
     },
     {
       name: "delete_clip",
-      description: "Delete a Session View clip by canonical clip id.",
+      description: "Delete a Session or Arrangement clip by canonical clip id.",
       inputSchema: createObjectSchema({
         properties: {
           clipId: {
@@ -1540,6 +1667,45 @@ export function buildDefaultTools({
         const after = await stateAdapter.refreshState("project");
         return buildMutationResult(
           `Clip ${args.dryRun ? "deletion previewed" : "deleted"} for ${args.clipId}.`,
+          [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "delete_arrangement_clip",
+      description: "Delete an Arrangement View clip by canonical clip id.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Arrangement clip id."
+          },
+          confirm: {
+            type: "boolean",
+            description: "Required for non-dry-run deletion."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireConfirmation(args, "delete_arrangement_clip");
+
+        await policyAdapter.assertAllowed("delete_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        await bridgeAdapter.deleteClip(
+          {
+            clipId: args.clipId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Arrangement clip ${args.dryRun ? "deletion previewed" : "deleted"} for ${args.clipId}.`,
           [args.clipId],
           before.stateVersion,
           after.stateVersion,

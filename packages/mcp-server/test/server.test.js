@@ -557,6 +557,19 @@ function createServer(options = {}) {
         affectedObjects: [payload.trackId]
       };
     },
+    async selectClip(payload) {
+      return {
+        clip: {
+          id: payload.clipId,
+          location: payload.clipId.includes(":arrangement:") ? "arrangement" : "session",
+          startBeats: 16
+        },
+        track: {
+          id: payload.clipId.includes("track:2") ? "track:2" : "track:1"
+        },
+        affectedObjects: [payload.clipId]
+      };
+    },
     async getCapabilities() {
       return {
         bridgeVersion: "0.1.0",
@@ -749,7 +762,11 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("get_arrangement_summary"));
   assert.ok(byName.has("get_arrangement_track_details"));
   assert.ok(byName.has("create_arrangement_clip"));
+  assert.ok(byName.has("jump_to_arrangement_clip"));
+  assert.ok(byName.has("select_clip"));
   assert.ok(byName.has("duplicate_clip_to_arrangement"));
+  assert.ok(byName.has("rename_arrangement_clip"));
+  assert.ok(byName.has("delete_arrangement_clip"));
   assert.ok(byName.has("duplicate_arrangement_clip"));
   assert.ok(byName.has("set_arrangement_clip_bounds"));
   assert.ok(byName.has("split_arrangement_clip"));
@@ -1205,6 +1222,28 @@ test("set_arrangement_transport returns structured mutation response", async () 
   assert.equal(response.result.structuredContent.state_version_after, 4);
 });
 
+test("jump_to_arrangement_clip returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.18,
+    method: "tools/call",
+    params: {
+      name: "jump_to_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:2:index:1",
+        play: true
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip selected and positioned for clip:arrangement:track:2:index:1."
+  );
+});
+
 test("create_arrangement_clip returns structured mutation response", async () => {
   const server = createServer();
   const response = await server.safeHandleRpcMessage({
@@ -1279,6 +1318,28 @@ test("duplicate_arrangement_clip returns structured mutation response", async ()
   );
   assert.equal(response.result.structuredContent.state_version_before, 3);
   assert.equal(response.result.structuredContent.state_version_after, 4);
+});
+
+test("rename_arrangement_clip returns structured mutation response", async () => {
+  const server = createServer();
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 2.262,
+    method: "tools/call",
+    params: {
+      name: "rename_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:2:index:1",
+        name: "Arranged Bass"
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.summary,
+    "Arrangement clip renamed for clip:arrangement:track:2:index:1."
+  );
 });
 
 test("move_arrangement_clip returns structured mutation response", async () => {
@@ -1500,6 +1561,37 @@ test("session editing tools return structured mutation responses", async () => {
   assert.equal(deleteBlocked.result.isError, true);
   assert.equal(deleteBlocked.result.structuredContent.error.code, "confirmation_required");
   assert.equal(deleteConfirmed.result.isError, false);
+});
+
+test("delete_arrangement_clip validates confirmation", async () => {
+  const server = createServer();
+  const blocked = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 26.1,
+    method: "tools/call",
+    params: {
+      name: "delete_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:2:index:1"
+      }
+    }
+  });
+  const confirmed = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 26.2,
+    method: "tools/call",
+    params: {
+      name: "delete_arrangement_clip",
+      arguments: {
+        clipId: "clip:arrangement:track:2:index:1",
+        confirm: true
+      }
+    }
+  });
+
+  assert.equal(blocked.result.isError, true);
+  assert.equal(blocked.result.structuredContent.error.code, "confirmation_required");
+  assert.equal(confirmed.result.isError, false);
 });
 
 test("play_transport returns structured mutation response", async () => {

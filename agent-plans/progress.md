@@ -145,3 +145,5 @@
 - Added MIDI arrangement clip splitting through `split_arrangement_clip`, using Live-native overlap behavior first and falling back to bridge-side rewrites when the runtime does not split clips for us.
 - Live-validated the arrangement split path on Live 11: a probe clip on `track:1` now splits cleanly into `8..12` and `12..16` arrangement clips with trimmed note counts in each half.
 - Added `duplicate_arrangement_clip` as a first-class arrangement primitive so agents can duplicate Arrangement clips without routing through the broader session-to-arrangement tool name.
+- Added `select_clip` and `jump_to_arrangement_clip` so agents can target Arrangement clips semantically instead of composing low-level selection and transport writes by hand.
+- Added arrangement-focused MCP wrappers for `rename_arrangement_clip` and `delete_arrangement_clip`, while keeping the underlying generic clip operations available for Session and Arrangement clips alike.

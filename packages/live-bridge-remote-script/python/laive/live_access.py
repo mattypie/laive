@@ -63,6 +63,7 @@ class LiveSetAdapter(object):
             "set_arrangement_state": True,
             "set_arrangement_transport": True,
             "select_track": True,
+            "select_clip": True,
             "create_track": hasattr(self.song, "create_midi_track"),
             "create_return_track": hasattr(self.song, "create_return_track"),
             "create_scene": hasattr(self.song, "create_scene"),
@@ -206,6 +207,37 @@ class LiveSetAdapter(object):
         return {
             "applied": not dry_run,
             "track": self._serialize_track(track, index, section),
+        }
+
+    def select_clip(self, clip_id, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        track, index, section = self._find_track(clip_ref["track_id"])
+        song_view = getattr(self.song, "view", None)
+        if song_view is None or not hasattr(song_view, "selected_track"):
+            raise RequestError("unsupported_runtime", "Song clip selection is unavailable")
+
+        if not dry_run:
+            song_view.selected_track = track
+            if hasattr(song_view, "detail_clip"):
+                song_view.detail_clip = clip_ref["clip"]
+            if clip_ref["location"] == "session":
+                slot_index = clip_ref["slot_index"]
+                clip_slots = getattr(track, "clip_slots", [])
+                if hasattr(song_view, "highlighted_clip_slot") and slot_index is not None and slot_index < len(clip_slots):
+                    song_view.highlighted_clip_slot = clip_slots[slot_index]
+                scenes = getattr(self.song, "scenes", [])
+                if hasattr(song_view, "selected_scene") and slot_index is not None and slot_index < len(scenes):
+                    song_view.selected_scene = scenes[slot_index]
+
+        serialized_clip = (
+            self._serialize_arrangement_clip(clip_ref["clip"], clip_ref["track_id"], clip_ref["arrangement_index"])
+            if clip_ref["location"] == "arrangement"
+            else self._serialize_clip(clip_ref["clip"], clip_ref["track_id"], clip_ref["slot_index"])
+        )
+        return {
+            "applied": not dry_run,
+            "track": self._serialize_track(track, index, section),
+            "clip": serialized_clip,
         }
 
     def set_tempo(self, value, dry_run=False):

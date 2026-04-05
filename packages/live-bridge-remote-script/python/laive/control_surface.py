@@ -441,6 +441,11 @@ class LaiveControlSurface(AbletonControlSurface):
                 track_id=arguments.get("track_id"),
                 dry_run=dry_run,
             )
+        if target == "select_clip":
+            return self._live.select_clip(
+                clip_id=arguments.get("clip_id"),
+                dry_run=dry_run,
+            )
         raise RequestError("unknown_target", "Unknown call target: {0}".format(target))
 
     def _handle_mutation(self, handler, target, arguments, dry_run):

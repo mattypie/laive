@@ -975,6 +975,24 @@ export function createBridgeAdapter(target) {
         ...result,
         affectedObjects: [payload.trackId]
       };
+    },
+    async selectClip(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "select_clip",
+          {
+            clip_id: payload.clipId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+
+      return {
+        ...result,
+        affectedObjects: [result.track?.id ?? null, payload.clipId].filter(Boolean)
+      };
     }
   };
 }

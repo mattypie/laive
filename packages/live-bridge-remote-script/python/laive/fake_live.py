@@ -353,6 +353,7 @@ class FakeSongView(object):
         self.selected_track = song.tracks[0] if song.tracks else None
         self.selected_scene = song.scenes[0] if song.scenes else None
         self.highlighted_clip_slot = None
+        self.detail_clip = None
 
 
 class FakeScene(object):

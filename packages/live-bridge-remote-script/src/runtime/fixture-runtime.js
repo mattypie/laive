@@ -267,6 +267,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.getBrowserItems(args);
       case "load_browser_item":
         return this.loadBrowserItem(args, dryRun);
+      case "select_clip":
+        return this.selectClip(args, dryRun);
       case "fire_clip":
       case "launch_clip":
         return this.fireClip(args, dryRun);
@@ -884,6 +886,24 @@ export class FixtureLiveRuntime extends EventEmitter {
     }
     return {
       applied: !dryRun,
+      clip: clone(clip)
+    };
+  }
+
+  selectClip(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    const trackId = this.findTrackIdForClip(args.clip_id);
+    const track = this.findTrack(trackId);
+    if (!dryRun) {
+      this.state.selected_context = {
+        ...(this.state.selected_context ?? {}),
+        track_id: trackId,
+        clip_id: clip.id
+      };
+    }
+    return {
+      applied: !dryRun,
+      track: clone(track),
       clip: clone(clip)
     };
   }

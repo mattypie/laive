@@ -315,6 +315,18 @@ test("bridge can browse and load browser items", async () => {
   });
 });
 
+test("bridge can select arrangement clips", async () => {
+  await withBridge(async ({ client }) => {
+    const selected = await client.request("call", "select_clip", {
+      clip_id: "clip:arrangement:track:1:index:1"
+    });
+
+    assert.equal(selected.result.track.id, "track:1");
+    assert.equal(selected.result.clip.id, "clip:arrangement:track:1:index:1");
+    assert.equal(selected.result.clip.location, "arrangement");
+  });
+});
+
 test("bridge can edit session clips", async () => {
   await withBridge(async ({ client }) => {
     await client.request("call", "rename_clip", {
