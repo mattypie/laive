@@ -745,7 +745,10 @@ class LiveSetAdapter(object):
             track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
         except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at lookup_track: {0}".format(error))
-        clips = self._split_arrangement_clip_runtime(clip_ref, track, split_beats)
+        try:
+            clips = self._split_arrangement_clip_runtime(clip_ref, track, split_beats)
+        except BaseException as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at runtime: {0}".format(error))
         return {
             "applied": True,
             "source_clip_id": clip_id,
