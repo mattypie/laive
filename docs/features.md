@@ -57,7 +57,7 @@ This is the current core music-making surface.
 
 The current `v0.7.0` slice now includes:
 - arrangement clip enumeration now flows through track details and arrangement summaries
-- arrangement clip selection and jump helpers
+- arrangement clip selection and jump helpers, with arrangement-aware `get_selected_context` readback
 - arrangement clip creation on visible tracks
 - session-to-arrangement clip duplication
 - arrangement-to-arrangement clip duplication

@@ -132,6 +132,55 @@ class LiveSetAdapter(object):
         clip, track_id, slot_index = self._find_clip(clip_id)
         return self._serialize_clip(clip, track_id, slot_index)
 
+    def get_selection_state(self):
+        song_view = getattr(self.song, "view", None)
+        if song_view is None:
+            return {}
+
+        selected_track_id = None
+        selected_track = getattr(song_view, "selected_track", None)
+        if selected_track is not None:
+            track_ref = self._find_track_reference_by_object(selected_track)
+            if track_ref is not None:
+                selected_track_id = track_ref["track_id"]
+
+        selected_scene_id = None
+        selected_scene_index = None
+        selected_scene = getattr(song_view, "selected_scene", None)
+        if selected_scene is not None:
+            scene_ref = self._find_scene_reference_by_object(selected_scene)
+            if scene_ref is not None:
+                selected_scene_id = scene_ref["scene_id"]
+                selected_scene_index = scene_ref["scene_index"]
+
+        selected_clip_id = None
+        selected_clip_location = None
+        detail_view_target = None
+        detail_clip = getattr(song_view, "detail_clip", None)
+        if detail_clip is not None:
+            clip_ref = self._find_clip_reference_by_object(detail_clip)
+            if clip_ref is not None:
+                selected_clip_id = clip_ref["clip_id"]
+                selected_clip_location = clip_ref["location"]
+                detail_view_target = "clip"
+
+        arrangement_position = getattr(
+            self.song,
+            "current_song_time",
+            getattr(self.song, "arrangement_position_beats", None),
+        )
+
+        return {
+            "selected_track_id": selected_track_id,
+            "selected_scene_id": selected_scene_id,
+            "selected_scene_index": selected_scene_index,
+            "selected_clip_id": selected_clip_id,
+            "selected_clip_location": selected_clip_location,
+            "detail_view_target": detail_view_target,
+            "current_song_time": arrangement_position,
+            "arrangement_position_beats": arrangement_position,
+        }
+
     def get_device(self, device_id):
         device, track_id, device_index = self._find_device(device_id)
         return self._serialize_device(device, track_id, device_index)
@@ -1058,6 +1107,17 @@ class LiveSetAdapter(object):
                 return track, index, section
         raise RequestError("not_found", "Track not found: {0}".format(track_id))
 
+    def _find_track_reference_by_object(self, target_track):
+        for section, index, track in self._iter_tracks():
+            if self._same_live_object(track, target_track):
+                return {
+                    "track": track,
+                    "track_id": getattr(track, "id", None) or _track_id(index, section),
+                    "section": section,
+                    "index": index,
+                }
+        return None
+
     def _normalize_monitoring_state(self, monitoring_state):
         if isinstance(monitoring_state, str):
             normalized = monitoring_state.strip().lower()
@@ -1190,6 +1250,64 @@ class LiveSetAdapter(object):
             "arrangement_index": None,
             "slot_index": slot_index,
         }
+
+    def _find_clip_reference_by_object(self, target_clip):
+        for track_index, track in enumerate(getattr(self.song, "tracks", [])):
+            track_id = getattr(track, "id", None) or _track_id(track_index)
+            for slot_index, slot in enumerate(getattr(track, "clip_slots", [])):
+                if not getattr(slot, "has_clip", False):
+                    continue
+                current_clip = slot.clip
+                if self._same_live_object(current_clip, target_clip):
+                    clip_id = getattr(current_clip, "id", None) or _clip_id(track_id, slot_index)
+                    return {
+                        "clip": current_clip,
+                        "clip_id": clip_id,
+                        "track_id": track_id,
+                        "location": "session",
+                        "arrangement_index": None,
+                        "slot_index": slot_index,
+                    }
+            for arrangement_index, clip in enumerate(self._get_arrangement_clips(track)):
+                if self._same_live_object(clip, target_clip):
+                    clip_id = getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index)
+                    return {
+                        "clip": clip,
+                        "clip_id": clip_id,
+                        "track_id": track_id,
+                        "location": "arrangement",
+                        "arrangement_index": arrangement_index,
+                        "slot_index": None,
+                    }
+        return None
+
+    def _find_scene_reference_by_object(self, target_scene):
+        for scene_index, scene in enumerate(getattr(self.song, "scenes", [])):
+            if self._same_live_object(scene, target_scene):
+                return {
+                    "scene": scene,
+                    "scene_id": getattr(scene, "id", None) or _scene_id(scene_index),
+                    "scene_index": scene_index,
+                }
+        return None
+
+    def _same_live_object(self, left, right):
+        if left is None or right is None:
+            return False
+        if left is right:
+            return True
+        try:
+            if left == right:
+                return True
+        except Exception:
+            pass
+
+        left_id = getattr(left, "id", None)
+        right_id = getattr(right, "id", None)
+        if left_id is not None and right_id is not None and left_id == right_id:
+            return True
+
+        return False
 
     def _serialize_clip_reference(self, clip_ref):
         if clip_ref["location"] == "arrangement":

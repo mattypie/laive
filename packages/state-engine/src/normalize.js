@@ -193,8 +193,18 @@ export function normalizeSelection(snapshot, existingEntity, options = {}) {
     selectedTrackId,
     selectedSceneId,
     selectedClipId: pickFirst(snapshot.selected_clip_id, snapshot.selectedClipId) ?? null,
+    selectedClipLocation:
+      pickFirst(snapshot.selected_clip_location, snapshot.selectedClipLocation) ?? null,
     selectedDeviceId: pickFirst(snapshot.selected_device_id, snapshot.selectedDeviceId) ?? null,
     detailView: pickFirst(snapshot.detail_view, snapshot.detailView) ?? null,
+    detailViewTarget:
+      pickFirst(snapshot.detail_view_target, snapshot.detailViewTarget) ?? null,
+    currentSongTime:
+      pickFirst(snapshot.current_song_time, snapshot.currentSongTime) ??
+      pickFirst(snapshot.arrangement_position_beats, snapshot.arrangementPositionBeats) ??
+      null,
+    arrangementPositionBeats:
+      pickFirst(snapshot.arrangement_position_beats, snapshot.arrangementPositionBeats) ?? null,
     browserVisible: Boolean(pickFirst(snapshot.browser_visible, snapshot.browserVisible))
   };
 }

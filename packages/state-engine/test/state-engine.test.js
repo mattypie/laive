@@ -9,6 +9,7 @@ import {
   getArrangementTrackDetails,
   getArrangementSummary,
   getSelectedContext,
+  makeArrangementClipId,
   makeDeviceId,
   makeParameterId,
   makeSessionClipId,
@@ -208,6 +209,8 @@ test("applyEvent and state engine queries update selected context and clip state
   assert.equal(context.track.name, "Drums");
   assert.equal(context.clip.name, "Groove");
   assert.equal(context.device.name, "Drum Rack");
+  assert.equal(context.selectedClipLocation, "session");
+  assert.equal(context.detailViewTarget, "clip");
 
   const details = engine.query.getTrackDetails(makeTrackId("visible", 0));
   assert.equal(details.sessionClips.length, 2);
@@ -251,4 +254,32 @@ test("replayTrace rehydrates state from snapshot and event history", () => {
 
   const selectionContext = getSelectedContext(replay.state);
   assert.equal(selectionContext.selection.selectedSceneId, "scene:1");
+});
+
+test("selected context exposes arrangement-specific selection details", () => {
+  const engine = createStateEngine();
+  engine.applySnapshot(createRuntimeSnapshot());
+
+  engine.applyEvent({
+    event: "selection.changed",
+    observed_at: "2026-03-22T18:05:00.000Z",
+    payload: {
+      selected_track_id: makeTrackId("visible", 0),
+      selected_clip_id: makeArrangementClipId(makeTrackId("visible", 0), 0),
+      selected_clip_location: "arrangement",
+      detail_view_target: "clip",
+      arrangement_position_beats: 12,
+      current_song_time: 12
+    }
+  });
+
+  const context = engine.query.getSelectedContext();
+  assert.equal(context.selectedTrackId, makeTrackId("visible", 0));
+  assert.equal(context.selectedTrackName, "Drums");
+  assert.equal(context.selectedClipLocation, "arrangement");
+  assert.equal(context.detailViewTarget, "clip");
+  assert.equal(context.arrangementSelection.arrangementPositionBeats, 12);
+  assert.equal(context.selectedArrangementClip.id, makeArrangementClipId(makeTrackId("visible", 0), 0));
+  assert.equal(context.selectedArrangementClip.startBeats, 0);
+  assert.equal(context.selectedArrangementClip.endBeats, 16);
 });

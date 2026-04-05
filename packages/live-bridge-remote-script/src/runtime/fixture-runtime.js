@@ -151,6 +151,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return clone(this.state.scenes);
       case "browser.tree":
         return clone(this.state.browser);
+      case "selection":
+        return clone(this.state.selected_context ?? {});
       default:
         return this.lookupTarget(target);
     }

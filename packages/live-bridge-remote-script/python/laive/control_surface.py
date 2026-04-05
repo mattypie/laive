@@ -220,6 +220,8 @@ class LaiveControlSurface(AbletonControlSurface):
             return self._live.get_browser_tree()
         if target == "browser.items":
             return self._live.get_browser_items()
+        if target == "selection":
+            return self._live.get_selection_state()
         if isinstance(target, str) and target.startswith("track:"):
             return self._live.get_track(target)
         if isinstance(target, str) and target.startswith("clip:"):

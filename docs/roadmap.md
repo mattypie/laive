@@ -57,6 +57,7 @@ Landed in the fifth work unit:
 Landed in the sixth work unit:
 - arrangement clip selection and jump helpers
 - arrangement-focused rename/delete wrappers in the MCP surface
+- arrangement-aware `get_selected_context` readback for selected arrangement clips
 
 ### `v0.8.0`
 

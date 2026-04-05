@@ -147,3 +147,4 @@
 - Added `duplicate_arrangement_clip` as a first-class arrangement primitive so agents can duplicate Arrangement clips without routing through the broader session-to-arrangement tool name.
 - Added `select_clip` and `jump_to_arrangement_clip` so agents can target Arrangement clips semantically instead of composing low-level selection and transport writes by hand.
 - Added arrangement-focused MCP wrappers for `rename_arrangement_clip` and `delete_arrangement_clip`, while keeping the underlying generic clip operations available for Session and Arrangement clips alike.
+- Enriched `get_selected_context` so arrangement selections now report the selected arrangement clip, its bounds, and the current arrangement position instead of a mostly empty selection mirror.

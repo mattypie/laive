@@ -180,8 +180,56 @@ export function getSelectedContext(state) {
     ? state.scenes[selection.selectedSceneId] ?? null
     : null;
 
+  const detailViewTarget =
+    selection.detailViewTarget ??
+    (clip ? "clip" : device ? "device" : selection.detailView ?? null);
+  const selectedClipLocation = selection.selectedClipLocation ?? clip?.location ?? null;
+  const selectedArrangementClip =
+    selectedClipLocation === "arrangement" && clip
+      ? {
+          id: clip.id,
+          trackId: clip.trackId,
+          name: clip.name,
+          startBeats: clip.startBeats,
+          endBeats: clip.endBeats,
+          loopStartBeats: clip.loopStartBeats,
+          loopEndBeats: clip.loopEndBeats,
+          isMidi: clip.isMidi,
+          isAudio: clip.isAudio,
+          noteCount: clip.noteCount
+        }
+      : null;
+  const selectedSessionClip =
+    selectedClipLocation === "session" && clip
+      ? {
+          id: clip.id,
+          trackId: clip.trackId,
+          name: clip.name,
+          slotIndex: clip.slotIndex,
+          loopStartBeats: clip.loopStartBeats,
+          loopEndBeats: clip.loopEndBeats,
+          isMidi: clip.isMidi,
+          isAudio: clip.isAudio,
+          noteCount: clip.noteCount
+        }
+      : null;
+
   return {
     selection,
+    selectedTrackId: track?.id ?? selection.selectedTrackId ?? null,
+    selectedTrackName: track?.name ?? null,
+    selectedSceneId: scene?.id ?? selection.selectedSceneId ?? null,
+    selectedSceneName: scene?.name ?? null,
+    selectedClipId: clip?.id ?? selection.selectedClipId ?? null,
+    selectedClipLocation,
+    detailViewTarget,
+    arrangementSelection: {
+      arrangementPositionBeats:
+        selection.arrangementPositionBeats ?? state.song?.arrangementPositionBeats ?? null,
+      currentSongTime: selection.currentSongTime ?? state.song?.currentSongTime ?? null
+    },
+    selectedArrangementClip,
+    selectedSessionClip,
     track,
     clip,
     device,

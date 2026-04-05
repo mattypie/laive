@@ -171,7 +171,7 @@ function normalizeTrack(track) {
   };
 }
 
-function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks }) {
+function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks, selection = null }) {
   return {
     observed_at: new Date().toISOString(),
     bridge_version: getRootPackageVersion(),
@@ -182,7 +182,7 @@ function toRuntimeSnapshot({ liveVersion, capabilities, song, scenes, tracks }) 
       is_recording: song.is_recording ?? false,
       metronome: song.metronome ?? false
     },
-    selection: null,
+    selection,
     capabilities: {
       runtime_version: "bridge",
       supported_commands: ["get", "set", "call", "subscribe", "unsubscribe"],
@@ -278,14 +278,15 @@ export function mapBridgeEvent(topic, payload) {
 }
 
 async function buildRuntimeSnapshot(bridgeClient) {
-  const [hello, capabilities, song, scenes, tracks, returnTracks, masterTrack] = await Promise.all([
+  const [hello, capabilities, song, scenes, tracks, returnTracks, masterTrack, selection] = await Promise.all([
     bridgeClient.request("hello"),
     bridgeClient.request("capabilities"),
     bridgeClient.request("get", "song"),
     bridgeClient.request("get", "scenes"),
     bridgeClient.request("get", "tracks"),
     optionalBridgeRequest(bridgeClient, "get", "return_tracks"),
-    optionalBridgeRequest(bridgeClient, "get", "master_track")
+    optionalBridgeRequest(bridgeClient, "get", "master_track"),
+    optionalBridgeRequest(bridgeClient, "get", "selection")
   ]);
 
   const mergedTracks = [];
@@ -307,7 +308,8 @@ async function buildRuntimeSnapshot(bridgeClient) {
     capabilities: capabilities.result,
     song: song.result,
     scenes: scenes.result,
-    tracks: mergedTracks
+    tracks: mergedTracks,
+    selection: selection?.result ?? null
   });
 }
 
@@ -1035,6 +1037,20 @@ export function createStateAdapter(session) {
     async getSelectedContext() {
       if (typeof session.ensureConnected === "function") {
         await session.ensureConnected();
+      }
+      if (session.bridgeClient) {
+        const selection = await optionalBridgeRequest(session.bridgeClient, "get", "selection");
+        if (selection?.result) {
+          session.stateEngine.reconcileSubtree(
+            {
+              kind: "selection",
+              payload: selection.result
+            },
+            {
+              observedAt: new Date().toISOString()
+            }
+          );
+        }
       }
       const context = session.stateEngine.query.getSelectedContext() ?? {};
       return {

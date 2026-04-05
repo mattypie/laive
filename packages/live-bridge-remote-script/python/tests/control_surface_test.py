@@ -183,6 +183,28 @@ class LaiveControlSurfaceTests(unittest.TestCase):
         self.assertEqual(self.song.view.selected_track, self.song.tracks[1])
         self.assertEqual(self.song.view.detail_clip, self.song.tracks[1].arrangement_clips[0])
 
+    def test_get_selection_reads_arrangement_context(self):
+        self.surface.process_request(
+            create_request(
+                "call",
+                target="select_clip",
+                arguments={"clip_id": "clip:arrangement:track:2:index:1"},
+                request_id="select-clip-selection-1",
+            )
+        )
+
+        response = self.surface.process_request(
+            create_request("get", target="selection", request_id="get-selection-1")
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["selected_track_id"], "track:2")
+        self.assertEqual(
+            response["result"]["selected_clip_id"],
+            "clip:arrangement:track:2:index:1",
+        )
+        self.assertEqual(response["result"]["selected_clip_location"], "arrangement")
+
     def test_select_track_routes_to_live_adapter(self):
         response = self.surface.process_request(
             create_request(

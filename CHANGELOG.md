@@ -13,6 +13,7 @@ Format:
 - Add arrangement clip creation and session-to-arrangement duplication primitives across the bridge, fixture runtime, MCP surface, and tests (`80a7ff4`).
 - Add first-class arrangement-to-arrangement duplication across the bridge, fixture runtime, MCP surface, and tests (`cfeca18`).
 - Add arrangement clip selection/jump helpers plus arrangement-focused rename/delete MCP wrappers for better `v0.7.0` ergonomics (`3894f2e`).
+- Add arrangement-aware selected-context readback so `get_selected_context` reports the selected arrangement clip, its bounds, and the current arrangement position after clip selection/jump flows (`482fab6`).
 - Add first-class arrangement clip movement across the bridge, fixture runtime, MCP surface, and tests (`479277d`).
 - Add explicit arrangement clip bound editing across the bridge, fixture runtime, MCP surface, and tests (`50dd80b`).
 - Add MIDI arrangement clip splitting across the bridge, fixture runtime, MCP surface, and tests, then harden it around Live 11's native overlap behavior until the split path validates end to end on a real set (`06f24e2`, `97d7be3`, `b165055`, `cfeca18`, `282cc24`).

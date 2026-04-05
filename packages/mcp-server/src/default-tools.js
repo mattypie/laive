@@ -483,15 +483,22 @@ export function buildDefaultTools({
       inputSchema: EMPTY_OBJECT_SCHEMA,
       async execute() {
         const context = await stateAdapter.getSelectedContext();
+        const affectedObjects = [
+          context.selectedTrackId,
+          context.selectedSceneId,
+          context.selectedClipId,
+          context.device?.id ?? null
+        ].filter(Boolean);
         return {
           summary: "Selected context loaded.",
-          affected_objects: Object.values(context)
-            .filter(Boolean)
-            .map((value) => value.id ?? value),
+          affected_objects: affectedObjects,
           state_version_before: context.stateVersion,
           state_version_after: context.stateVersion,
           warnings: [],
-          next_suggested_actions: ["get_track_details", "get_device_tree"],
+          next_suggested_actions:
+            context.selectedClipLocation === "arrangement"
+              ? ["get_arrangement_track_details", "jump_to_arrangement_clip"]
+              : ["get_track_details", "get_device_tree"],
           context
         };
       }
