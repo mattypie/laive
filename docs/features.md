@@ -68,8 +68,9 @@ The current `v0.7.0` slice now includes:
 - song readback now includes Arrangement transport position plus loop start, length, and enabled state
 - arrangement loop and transport-region control is exposed without requiring the Session View surface
 
-Still pending in this slice:
+Next up beyond `v0.7.0`:
 - deeper arrangement navigation and automation helpers beyond selection/jump/transport control
+- clip-envelope read/write in `v0.8.0`
 
 ## Mixer And Routing
 

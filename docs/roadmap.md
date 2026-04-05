@@ -6,7 +6,8 @@ This is the user-facing roadmap summary. The deeper execution tracker lives in:
 ## Current Status
 
 - `v0.6.0` delivered the mixer and routing slice
-- `v0.7.0` is in progress with the first arrangement read/control slice landed locally
+- `v0.7.0` delivered the arrangement view slice
+- `v0.8.0` is next: envelopes and deeper sidecar workflows
 
 ## Delivered
 
@@ -24,40 +25,16 @@ This is the user-facing roadmap summary. The deeper execution tracker lives in:
 - return-track creation
 - mixer alias/discovery hardening
 
-## Planned
-
 ### `v0.7.0`
 
 - Arrangement View support
 - arrangement-clip enumeration
 - arrangement summaries
 - arrangement loop and transport-region control
-- arrangement editing primitives where reliably supported
+- arrangement clip creation, duplication, movement, trimming, splitting, selection, and delete/rename ergonomics
+- arrangement-aware selected-context readback
 
-Landed in the first work unit:
-- arrangement clip enumeration in track details and arrangement summaries
-- Arrangement transport position and loop-state readback
-- arrangement loop and transport-region writes
-
-Landed in the second work unit:
-- arrangement clip creation on visible tracks
-- session-to-arrangement duplication primitives
-- arrangement clip movement primitives
-
-Landed in the third work unit:
-- explicit arrangement clip bound editing with start/end beat control
-
-Landed in the fourth work unit:
-- MIDI arrangement clip splitting with trimmed left/right note timing
-
-Landed in the fifth work unit:
-- arrangement-to-arrangement duplication as a first-class bridge and MCP tool
-- real Live validation for MIDI arrangement splitting on Live 11
-
-Landed in the sixth work unit:
-- arrangement clip selection and jump helpers
-- arrangement-focused rename/delete wrappers in the MCP surface
-- arrangement-aware `get_selected_context` readback for selected arrangement clips
+## Planned
 
 ### `v0.8.0`
 

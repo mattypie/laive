@@ -4,7 +4,7 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.7.0` arrangement-view implementation, with the first arrangement read/control slice now landed locally after `v0.6.0` mixer/routing
+- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view
 
 ## Versioned Roadmap
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
-| `v0.7.0` | Arrangement view | In progress: arrangement clips now flow into track details and arrangement summaries, arrangement loop/transport control is wired through the bridge and MCP surface, arrangement clip creation now falls back to session-to-arrangement duplication when direct arrangement clip writes are unavailable in the active Live runtime, and explicit arrangement clip movement, arrangement-bound editing, plus MIDI arrangement clip splitting are available across the bridge and MCP surface |
+| `v0.7.0` | Arrangement view | Complete for release: arrangement summaries/details, transport and loop control, arrangement clip creation, session-to-arrangement duplication, arrangement-to-arrangement duplication, move, bounds editing, MIDI split, selection/jump, rename/delete, and arrangement-aware selected context are all validated locally |
 | `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 | `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |

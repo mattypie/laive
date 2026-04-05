@@ -9,6 +9,14 @@ Format:
 
 ### Features
 
+### Fixes
+
+### Maintenance
+
+## v0.7.0 - 2026-04-05
+
+### Features
+
 - Start the `v0.7.0` arrangement slice with arrangement summaries, arrangement clip enumeration in track details, arrangement transport/loop control, and matching fixture/state-engine coverage (`dac62bf`, `339dc7b`).
 - Add arrangement clip creation and session-to-arrangement duplication primitives across the bridge, fixture runtime, MCP surface, and tests (`80a7ff4`).
 - Add first-class arrangement-to-arrangement duplication across the bridge, fixture runtime, MCP surface, and tests (`cfeca18`).
