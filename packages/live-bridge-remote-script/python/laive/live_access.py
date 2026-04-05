@@ -1416,7 +1416,7 @@ class LiveSetAdapter(object):
         except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at segment_notes: {0}".format(error))
         try:
-            left_created = self.create_arrangement_clip(
+            self.create_arrangement_clip(
                 clip_ref["track_id"],
                 source_start,
                 float(split_beats) - float(source_start),
@@ -1426,14 +1426,15 @@ class LiveSetAdapter(object):
         except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at create_left: {0}".format(error))
         try:
-            left_clip_ref = self._find_clip_reference(left_created["clip"]["id"])
+            left_clip_ref = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                source_start,
+                split_beats,
+            )
         except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_left: {0}".format(error))
-        try:
-            self._replace_notes_resilient(left_clip_ref["clip"], left_notes)
-        except BaseException as error:
-            raise RequestError("runtime_error", "split_arrangement_clip failed at write_left_notes: {0}".format(error))
-
+        if left_clip_ref is None:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_left: left clip was not found")
         try:
             right_ref = self._find_arrangement_clip_with_bounds(
                 clip_ref["track_id"],
@@ -1445,52 +1446,30 @@ class LiveSetAdapter(object):
             raise RequestError("runtime_error", "split_arrangement_clip failed at scan_right_overlap: {0}".format(error))
         if right_ref is None:
             try:
-                source_ref = self._find_arrangement_clip_with_bounds(
+                self.create_arrangement_clip(
                     clip_ref["track_id"],
-                    source_start,
+                    split_beats,
+                    float(source_end) - float(split_beats),
+                    name=source_name,
+                    dry_run=False,
+                )
+            except BaseException as error:
+                raise RequestError("runtime_error", "split_arrangement_clip failed at create_right: {0}".format(error))
+            try:
+                right_ref = self._find_arrangement_clip_with_bounds(
+                    clip_ref["track_id"],
+                    split_beats,
                     source_end,
                     exclude_clip_ids=[left_clip_ref["clip_id"]],
                 )
             except BaseException as error:
-                raise RequestError("runtime_error", "split_arrangement_clip failed at scan_source_overlap: {0}".format(error))
-            if source_ref is None:
-                try:
-                    source_ref = self._find_clip_reference(clip_ref["clip_id"])
-                except RequestError:
-                    source_ref = None
-                except BaseException as error:
-                    raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_source_after_split: {0}".format(error))
-            if source_ref is not None:
-                try:
-                    right_clip, right_index = self._set_arrangement_clip_bounds_runtime(
-                        source_ref,
-                        track,
-                        split_beats,
-                        source_end,
-                    )
-                except BaseException as error:
-                    raise RequestError("runtime_error", "split_arrangement_clip failed at rewrite_right: {0}".format(error))
-                try:
-                    right_ref = self._find_clip_reference(
-                        getattr(right_clip, "id", None) or _arrangement_clip_id(clip_ref["track_id"], right_index)
-                    )
-                except BaseException as error:
-                    raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_right_after_rewrite: {0}".format(error))
-            else:
-                try:
-                    right_created = self.create_arrangement_clip(
-                        clip_ref["track_id"],
-                        split_beats,
-                        float(source_end) - float(split_beats),
-                        name=source_name,
-                        dry_run=False,
-                    )
-                except BaseException as error:
-                    raise RequestError("runtime_error", "split_arrangement_clip failed at create_right: {0}".format(error))
-                try:
-                    right_ref = self._find_clip_reference(right_created["clip"]["id"])
-                except BaseException as error:
-                    raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_right_after_create: {0}".format(error))
+                raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_right_after_create: {0}".format(error))
+        if right_ref is None:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_right: right clip was not found")
+        try:
+            self._replace_notes_resilient(left_clip_ref["clip"], left_notes)
+        except BaseException as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at write_left_notes: {0}".format(error))
         try:
             self._replace_notes_resilient(right_ref["clip"], right_notes)
         except BaseException as error:
