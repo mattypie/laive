@@ -1859,6 +1859,308 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "get_clip_envelopes",
+      description:
+        "Return clip-envelope status and available parameter targets for a session or arrangement clip.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Canonical clip id such as clip:session:track:8:slot:1."
+          }
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        const envelopeState = await bridgeAdapter.getClipEnvelopes({
+          clipId: args.clipId
+        });
+        return buildInformationalResult(
+          `Clip envelope state loaded for ${args.clipId}.`,
+          {
+            affected_objects: [args.clipId],
+            clip_envelopes: envelopeState
+          },
+          ["select_clip_envelope_parameter", "clear_clip_envelope"]
+        );
+      }
+    },
+    {
+      name: "show_clip_envelope",
+      description: "Show the envelope lane for a target clip in Live's detail view.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        await policyAdapter.assertAllowed("show_clip_envelope", args);
+        const before = await stateAdapter.getSelectedContext();
+        const result = await bridgeAdapter.showClipEnvelope(
+          { clipId: args.clipId },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Clip envelope ${args.dryRun ? "show previewed" : "shown"} for ${args.clipId}.`,
+          result.affectedObjects ?? [args.clipId],
+          before?.selection?.snapshotVersion ?? before?.snapshotVersion ?? null,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "hide_clip_envelope",
+      description: "Hide the envelope lane for a target clip in Live's detail view.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        await policyAdapter.assertAllowed("hide_clip_envelope", args);
+        const before = await stateAdapter.getSelectedContext();
+        const result = await bridgeAdapter.hideClipEnvelope(
+          { clipId: args.clipId },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return buildMutationResult(
+          `Clip envelope ${args.dryRun ? "hide previewed" : "hidden"} for ${args.clipId}.`,
+          result.affectedObjects ?? [args.clipId],
+          before?.selection?.snapshotVersion ?? before?.snapshotVersion ?? null,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
+      name: "select_clip_envelope_parameter",
+      description: "Select a parameter as the active envelope target for a clip.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          parameterId: {
+            type: "string",
+            description: "Parameter target id returned by get_clip_envelopes."
+          },
+          showEnvelope: {
+            type: "boolean",
+            description: "If true, also show the envelope lane in Live."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "parameterId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireString(args.parameterId, "parameterId");
+        await policyAdapter.assertAllowed("select_clip_envelope_parameter", args);
+        const before = await stateAdapter.getSelectedContext();
+        const result = await bridgeAdapter.selectClipEnvelopeParameter(
+          {
+            clipId: args.clipId,
+            parameterId: args.parameterId,
+            showEnvelope: args.showEnvelope !== false
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState("project");
+        return {
+          ...buildMutationResult(
+            `Clip envelope parameter ${args.dryRun ? "selection previewed" : "selected"} for ${args.clipId}.`,
+            result.affectedObjects ?? [args.clipId, args.parameterId],
+            before?.selection?.snapshotVersion ?? before?.snapshotVersion ?? null,
+            after.stateVersion,
+            after.warnings ?? []
+          ),
+          clip_envelope: result
+        };
+      }
+    },
+    {
+      name: "clear_clip_envelope",
+      description: "Clear clip automation for a specific parameter target.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          parameterId: {
+            type: "string",
+            description: "Parameter target id returned by get_clip_envelopes."
+          },
+          confirm: {
+            type: "boolean",
+            description: "Required for non-dry-run clearing."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "parameterId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireString(args.parameterId, "parameterId");
+        requireConfirmation(args, "clear_clip_envelope");
+        await policyAdapter.assertAllowed("clear_clip_envelope", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await bridgeAdapter.clearClipEnvelope(
+          {
+            clipId: args.clipId,
+            parameterId: args.parameterId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return {
+          ...buildMutationResult(
+            `Clip envelope ${args.dryRun ? "clear previewed" : "cleared"} for ${args.clipId}.`,
+            result.affectedObjects ?? [args.clipId, args.parameterId],
+            before.stateVersion,
+            after.stateVersion,
+            after.warnings ?? []
+          ),
+          clip_envelope: result
+        };
+      }
+    },
+    {
+      name: "clear_all_clip_envelopes",
+      description: "Clear all automation lanes from a clip.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target clip id."
+          },
+          confirm: {
+            type: "boolean",
+            description: "Required for non-dry-run clearing."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireConfirmation(args, "clear_all_clip_envelopes");
+        await policyAdapter.assertAllowed("clear_all_clip_envelopes", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await bridgeAdapter.clearAllClipEnvelopes(
+          {
+            clipId: args.clipId
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return {
+          ...buildMutationResult(
+            `All clip envelopes ${args.dryRun ? "clear previewed" : "cleared"} for ${args.clipId}.`,
+            result.affectedObjects ?? [args.clipId],
+            before.stateVersion,
+            after.stateVersion,
+            after.warnings ?? []
+          ),
+          clip_envelope: result
+        };
+      }
+    },
+    {
+      name: "set_clip_envelope",
+      description: "Write step-based automation for a Session clip envelope target.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Target Session clip id."
+          },
+          parameterId: {
+            type: "string",
+            description: "Parameter target id returned by get_clip_envelopes."
+          },
+          steps: {
+            type: "array",
+            description: "Envelope steps to write.",
+            items: createObjectSchema({
+              properties: {
+                startBeats: {
+                  type: "number",
+                  description: "Beat position where the step begins."
+                },
+                durationBeats: {
+                  type: "number",
+                  description: "How long the step holds its value."
+                },
+                value: {
+                  type: "number",
+                  description: "Envelope value to write."
+                }
+              },
+              required: ["startBeats", "durationBeats", "value"]
+            })
+          },
+          clearExisting: {
+            type: "boolean",
+            description: "If true, clear any existing automation for this target first."
+          },
+          selectInView: {
+            type: "boolean",
+            description: "If true, focus the written envelope in Live after the write."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "parameterId", "steps"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        requireString(args.parameterId, "parameterId");
+        if (!Array.isArray(args.steps)) {
+          throw new McpError(ErrorCode.InvalidParams, "steps must be an array");
+        }
+        await policyAdapter.assertAllowed("set_clip_envelope", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await bridgeAdapter.setClipEnvelope(
+          {
+            clipId: args.clipId,
+            parameterId: args.parameterId,
+            steps: args.steps,
+            clearExisting: args.clearExisting !== false,
+            selectInView: Boolean(args.selectInView)
+          },
+          { dryRun: Boolean(args.dryRun) }
+        );
+        const after = await stateAdapter.refreshState(args.clipId);
+        return {
+          ...buildMutationResult(
+            `Clip envelope ${args.dryRun ? "write previewed" : "written"} for ${args.clipId}.`,
+            result.affectedObjects ?? [args.clipId, args.parameterId],
+            before.stateVersion,
+            after.stateVersion,
+            after.warnings ?? []
+          ),
+          clip_envelope: result
+        };
+      }
+    },
+    {
       name: "launch_clip",
       description: "Launch a Session View clip by canonical clip id.",
       inputSchema: createObjectSchema({

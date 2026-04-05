@@ -433,6 +433,65 @@ function createServer(options = {}) {
         affectedObjects: [payload.clipId]
       };
     },
+    async getClipEnvelopes(payload) {
+      return {
+        clip: {
+          id: payload.clipId
+        },
+        selected_parameter_id: payload.parameterId ?? "parameter:device:track:2:1:1",
+        available_targets: [
+          {
+            parameter_id: "parameter:device:track:2:1:1",
+            name: "Algorithm",
+            track_id: "track:2",
+            device_id: "device:track:2:1"
+          }
+        ],
+        envelopes: []
+      };
+    },
+    async showClipEnvelope(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async hideClipEnvelope(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async selectClipEnvelopeParameter(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId, payload.parameterId]
+      };
+    },
+    async clearClipEnvelope(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId, payload.parameterId]
+      };
+    },
+    async clearAllClipEnvelopes(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async setClipEnvelope(payload, options) {
+      return {
+        payload,
+        options,
+        affectedObjects: [payload.clipId, payload.parameterId]
+      };
+    },
     async launchClip(payload) {
       return {
         payload,
@@ -867,6 +926,13 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("sidecar_capture_device_snapshot"));
   assert.ok(byName.has("sidecar_apply_device_snapshot"));
   assert.ok(byName.has("sidecar_observe_device_parameters"));
+  assert.ok(byName.has("get_clip_envelopes"));
+  assert.ok(byName.has("set_clip_envelope"));
+  assert.ok(byName.has("show_clip_envelope"));
+  assert.ok(byName.has("hide_clip_envelope"));
+  assert.ok(byName.has("select_clip_envelope_parameter"));
+  assert.ok(byName.has("clear_clip_envelope"));
+  assert.ok(byName.has("clear_all_clip_envelopes"));
   assert.ok(byName.has("run_sidecar_workflow"));
   assert.ok(byName.has("list_ui_workflows"));
   assert.ok(byName.has("ui_capture_context"));
@@ -913,6 +979,89 @@ test("browser tools expose query and load flows", async () => {
     load.result.structuredContent.affected_objects.includes("track:1:device:new"),
     true
   );
+});
+
+test("clip envelope tools expose read, write, select, and clear flows", async () => {
+  const server = createServer();
+
+  const envelopes = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 20,
+    method: "tools/call",
+    params: {
+      name: "get_clip_envelopes",
+      arguments: {
+        clipId: "clip:session:track:1:slot:1",
+        parameterId: "parameter:device:track:2:1:1",
+        sampleStepBeats: 0.5
+      }
+    }
+  });
+
+  const setEnvelope = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 21,
+    method: "tools/call",
+    params: {
+      name: "set_clip_envelope",
+      arguments: {
+        clipId: "clip:session:track:1:slot:1",
+        parameterId: "parameter:device:track:2:1:1",
+        steps: [
+          { startBeats: 0, durationBeats: 1, value: 0.2 },
+          { startBeats: 2, durationBeats: 1, value: 0.8 }
+        ]
+      }
+    }
+  });
+
+  const selectEnvelope = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 22,
+    method: "tools/call",
+    params: {
+      name: "select_clip_envelope_parameter",
+      arguments: {
+        clipId: "clip:session:track:1:slot:1",
+        parameterId: "parameter:device:track:2:1:1"
+      }
+    }
+  });
+
+  const clearEnvelope = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 23,
+    method: "tools/call",
+    params: {
+      name: "clear_clip_envelope",
+      arguments: {
+        clipId: "clip:session:track:1:slot:1",
+        parameterId: "parameter:device:track:2:1:1",
+        confirm: true
+      }
+    }
+  });
+
+  const clearAllEnvelopes = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 24,
+    method: "tools/call",
+    params: {
+      name: "clear_all_clip_envelopes",
+      arguments: {
+        clipId: "clip:session:track:1:slot:1",
+        confirm: true
+      }
+    }
+  });
+
+  assert.equal(envelopes.result.isError, false);
+  assert.equal(envelopes.result.structuredContent.clip_envelopes.clip.id, "clip:session:track:1:slot:1");
+  assert.equal(setEnvelope.result.isError, false);
+  assert.equal(setEnvelope.result.structuredContent.clip_envelope.payload.parameterId, "parameter:device:track:2:1:1");
+  assert.equal(selectEnvelope.result.isError, false);
+  assert.equal(clearEnvelope.result.isError, false);
+  assert.equal(clearAllEnvelopes.result.isError, false);
 });
 
 test("mixer and routing tools expose return or master track access and mutations", async () => {

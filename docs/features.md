@@ -141,8 +141,8 @@ If Accessibility is not granted or the helper is not installed, `laive` returns 
 
 ## Current Limits
 
-- Arrangement View is only partially exposed today; clip editing and creation primitives are still incomplete.
-- Clip-envelope control is not yet exposed as first-class MCP tools.
+- Arrangement View is exposed through first-class MCP tools, but higher-level composition/navigation abstractions are still thin.
+- Clip-envelope tooling currently focuses on Session clips; arrangement-envelope editing is not a first-class path yet.
 - The sidecar is complementary, not required for the main control path.
 - The UI helper is a fallback, not the preferred path.
 

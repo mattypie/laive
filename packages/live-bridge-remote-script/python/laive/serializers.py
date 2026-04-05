@@ -206,6 +206,8 @@ def serialize_clip_state(clip, clip_id, track_id, slot_index, notes, location="s
         "loopEndBeats": loop_end,
         "looping": looping,
         "is_playing": bool(getattr(clip, "is_playing", False)),
+        "has_envelopes": bool(_safe_getattr(clip, "has_envelopes", False)),
+        "hasEnvelopes": bool(_safe_getattr(clip, "has_envelopes", False)),
         "is_midi": bool(_safe_getattr(clip, "is_midi_clip", False)),
         "isMidi": bool(_safe_getattr(clip, "is_midi_clip", False)),
         "is_audio": bool(_safe_getattr(clip, "is_audio_clip", False)),
@@ -246,4 +248,37 @@ def serialize_parameter_state(parameter, parameter_id):
         "valueItems": value_items,
         "display_value": display_value,
         "displayValue": display_value,
+    }
+
+
+def serialize_clip_envelope_target(parameter, parameter_id, track_id, device_id=None, device_name=None, target_kind="device"):
+    state = serialize_parameter_state(parameter, parameter_id)
+    state.update(
+        {
+            "track_id": track_id,
+            "trackId": track_id,
+            "device_id": device_id,
+            "deviceId": device_id,
+            "device_name": device_name,
+            "deviceName": device_name,
+            "target_kind": target_kind,
+            "targetKind": target_kind,
+        }
+    )
+    return state
+
+
+def serialize_clip_envelope(parameter, parameter_id, track_id, samples=None, device_id=None, device_name=None, target_kind="device"):
+    target = serialize_clip_envelope_target(
+        parameter,
+        parameter_id,
+        track_id,
+        device_id=device_id,
+        device_name=device_name,
+        target_kind=target_kind,
+    )
+    return {
+        **target,
+        "samples": list(samples or []),
+        "sampleCount": len(list(samples or [])),
     }

@@ -450,6 +450,45 @@ class LaiveControlSurface(AbletonControlSurface):
             )
         if target == "get_clip_notes":
             return self._live.get_clip_notes(arguments.get("clip_id"))
+        if target == "get_clip_envelopes":
+            return self._live.get_clip_envelopes(arguments.get("clip_id"))
+        if target == "show_clip_envelope":
+            return self._live.show_clip_envelope(
+                clip_id=arguments.get("clip_id"),
+                dry_run=dry_run,
+            )
+        if target == "hide_clip_envelope":
+            return self._live.hide_clip_envelope(
+                clip_id=arguments.get("clip_id"),
+                dry_run=dry_run,
+            )
+        if target == "select_clip_envelope_parameter":
+            return self._live.select_clip_envelope_parameter(
+                clip_id=arguments.get("clip_id"),
+                parameter_id=arguments.get("parameter_id"),
+                show_envelope=arguments.get("show_envelope", True),
+                dry_run=dry_run,
+            )
+        if target == "clear_clip_envelope":
+            return self._live.clear_clip_envelope(
+                clip_id=arguments.get("clip_id"),
+                parameter_id=arguments.get("parameter_id"),
+                dry_run=dry_run,
+            )
+        if target == "clear_all_clip_envelopes":
+            return self._live.clear_all_clip_envelopes(
+                clip_id=arguments.get("clip_id"),
+                dry_run=dry_run,
+            )
+        if target == "set_clip_envelope":
+            return self._live.set_clip_envelope(
+                clip_id=arguments.get("clip_id"),
+                parameter_id=arguments.get("parameter_id"),
+                steps=arguments.get("steps"),
+                clear_existing=arguments.get("clear_existing", True),
+                select_in_view=arguments.get("select_in_view", False),
+                dry_run=dry_run,
+            )
         raise RequestError("unknown_target", "Unknown call target: {0}".format(target))
 
     def _handle_mutation(self, handler, target, arguments, dry_run):

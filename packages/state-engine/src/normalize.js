@@ -196,6 +196,8 @@ export function normalizeSelection(snapshot, existingEntity, options = {}) {
     selectedClipLocation:
       pickFirst(snapshot.selected_clip_location, snapshot.selectedClipLocation) ?? null,
     selectedDeviceId: pickFirst(snapshot.selected_device_id, snapshot.selectedDeviceId) ?? null,
+    selectedParameterId:
+      pickFirst(snapshot.selected_parameter_id, snapshot.selectedParameterId) ?? null,
     detailView: pickFirst(snapshot.detail_view, snapshot.detailView) ?? null,
     detailViewTarget:
       pickFirst(snapshot.detail_view_target, snapshot.detailViewTarget) ?? null,
@@ -372,6 +374,7 @@ export function normalizeClip(clip, trackId, existingEntity, options = {}) {
     color: clip.color ?? null,
     isMidi: pickFirst(clip.is_midi, clip.isMidi) ?? null,
     isAudio: pickFirst(clip.is_audio, clip.isAudio) ?? null,
+    hasEnvelopes: Boolean(pickFirst(clip.has_envelopes, clip.hasEnvelopes)),
     isPlaying: Boolean(pickFirst(clip.is_playing, clip.isPlaying)),
     isTriggered: Boolean(pickFirst(clip.is_triggered, clip.isTriggered)),
     isRecording: Boolean(pickFirst(clip.is_recording, clip.isRecording)),

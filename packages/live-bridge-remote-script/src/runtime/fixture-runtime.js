@@ -265,6 +265,18 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.insertNotes(args, dryRun);
       case "replace_notes":
         return this.replaceNotes(args, dryRun);
+      case "get_clip_envelopes":
+        return this.getClipEnvelopes(args);
+      case "show_clip_envelope":
+        return this.showClipEnvelope(args, dryRun);
+      case "hide_clip_envelope":
+        return this.hideClipEnvelope(args, dryRun);
+      case "select_clip_envelope_parameter":
+        return this.selectClipEnvelopeParameter(args, dryRun);
+      case "clear_clip_envelope":
+        return this.clearClipEnvelope(args, dryRun);
+      case "clear_all_clip_envelopes":
+        return this.clearAllClipEnvelopes(args, dryRun);
       case "get_browser_items":
         return this.getBrowserItems(args);
       case "load_browser_item":
@@ -346,6 +358,127 @@ export class FixtureLiveRuntime extends EventEmitter {
       }
     }
     throw new Error(`Parameter not found: ${parameterId}`);
+  }
+
+  findEnvelopeTarget(parameterId) {
+    if (String(parameterId).startsWith("mixer:")) {
+      const match = String(parameterId).match(/^mixer:(track(?::(?:return|master))?:\d+|track:master):(volume|panning)$/);
+      if (!match) {
+        throw new Error(`Envelope parameter not found: ${parameterId}`);
+      }
+      const track = this.findTrack(match[1]);
+      const parameter = track?.[match[2]] ?? track?.mixer_device?.[match[2]];
+      if (!parameter) {
+        throw new Error(`Envelope parameter not found: ${parameterId}`);
+      }
+      return {
+        parameter_id: parameterId,
+        track_id: track.id,
+        scope: "mixer",
+        name: parameter.name ?? match[2],
+        parameter: clone(parameter)
+      };
+    }
+
+    if (String(parameterId).startsWith("send:")) {
+      const match = String(parameterId).match(/^send:(track:\d+):(\d+)$/);
+      if (!match) {
+        throw new Error(`Envelope parameter not found: ${parameterId}`);
+      }
+      const track = this.findTrack(match[1]);
+      const sendIndex = Number(match[2]) - 1;
+      const send = track.mixer_device?.sends?.[sendIndex];
+      if (!send) {
+        throw new Error(`Envelope parameter not found: ${parameterId}`);
+      }
+      return {
+        parameter_id: parameterId,
+        track_id: track.id,
+        scope: "send",
+        name: send.name ?? `Send ${sendIndex + 1}`,
+        send_index: sendIndex,
+        parameter: clone(send)
+      };
+    }
+
+    for (const track of this.allTracks()) {
+      for (const device of track.devices) {
+        const parameter = device.parameters.find((item) => item.id === parameterId);
+        if (parameter) {
+          return {
+            parameter_id: parameterId,
+            track_id: track.id,
+            device_id: device.id,
+            device_name: device.name,
+            scope: "device",
+            name: parameter.name,
+            parameter: clone(parameter)
+          };
+        }
+      }
+    }
+
+    throw new Error(`Envelope parameter not found: ${parameterId}`);
+  }
+
+  iterClipEnvelopeTargets(track) {
+    if (!track) {
+      return [];
+    }
+    const targets = [];
+    if (track.mixer_device?.volume) {
+      targets.push({
+        parameter_id: `mixer:${track.id}:volume`,
+        parameterId: `mixer:${track.id}:volume`,
+        track_id: track.id,
+        trackId: track.id,
+        scope: "mixer",
+        name: "Track Volume",
+        parameter: clone(track.mixer_device.volume)
+      });
+    }
+    if (track.mixer_device?.panning) {
+      targets.push({
+        parameter_id: `mixer:${track.id}:panning`,
+        parameterId: `mixer:${track.id}:panning`,
+        track_id: track.id,
+        trackId: track.id,
+        scope: "mixer",
+        name: "Track Panning",
+        parameter: clone(track.mixer_device.panning)
+      });
+    }
+    for (const [index, send] of (track.mixer_device?.sends ?? []).entries()) {
+      targets.push({
+        parameter_id: `send:${track.id}:${index + 1}`,
+        parameterId: `send:${track.id}:${index + 1}`,
+        track_id: track.id,
+        trackId: track.id,
+        scope: "send",
+        name: send.name ?? `Send ${index + 1}`,
+        send_index: index,
+        sendIndex: index,
+        parameter: clone(send)
+      });
+    }
+    for (const device of track.devices ?? []) {
+      for (const parameter of device.parameters ?? []) {
+        targets.push({
+          parameter_id: parameter.id,
+          parameterId: parameter.id,
+          track_id: track.id,
+          trackId: track.id,
+          device_id: device.id,
+          deviceId: device.id,
+          device_name: device.name,
+          deviceName: device.name,
+          scope: "device",
+          name: parameter.name,
+          parameter: clone(parameter)
+        });
+      }
+    }
+    return targets;
   }
 
   findClip(clipId) {
@@ -1409,6 +1542,102 @@ export class FixtureLiveRuntime extends EventEmitter {
       applied: !dryRun,
       clip_id: clip.id,
       note_count: notes.length
+    };
+  }
+
+  getClipEnvelopes(args) {
+    const clip = this.findClip(args.clip_id);
+    const track = this.allTracks().find((item) =>
+      item.session_clips.some((candidate) => candidate.id === clip.id) ||
+      (item.arrangement_clips ?? []).some((candidate) => candidate.id === clip.id)
+    );
+
+    return {
+      clip: clone(clip),
+      has_envelopes: Boolean(clip.has_envelopes),
+      hasEnvelopes: Boolean(clip.has_envelopes),
+      available_targets: this.iterClipEnvelopeTargets(track),
+      availableTargets: this.iterClipEnvelopeTargets(track)
+    };
+  }
+
+  showClipEnvelope(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (!dryRun) {
+      this.state.selected_context = {
+        ...(this.state.selected_context ?? {}),
+        selected_clip_id: clip.id,
+        selected_clip_location: clip.location ?? "session",
+        detail_view_target: "clip",
+        envelope_visible: true
+      };
+    }
+    return {
+      applied: !dryRun,
+      clip: clone(clip)
+    };
+  }
+
+  hideClipEnvelope(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (!dryRun) {
+      this.state.selected_context = {
+        ...(this.state.selected_context ?? {}),
+        selected_clip_id: clip.id,
+        selected_clip_location: clip.location ?? "session",
+        detail_view_target: "clip",
+        envelope_visible: false
+      };
+    }
+    return {
+      applied: !dryRun,
+      clip: clone(clip)
+    };
+  }
+
+  selectClipEnvelopeParameter(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    const target = this.findEnvelopeTarget(args.parameter_id);
+    if (!dryRun) {
+      this.state.selected_context = {
+        ...(this.state.selected_context ?? {}),
+        selected_clip_id: clip.id,
+        selected_clip_location: clip.location ?? "session",
+        detail_view_target: "clip",
+        selected_envelope_parameter_id: target.parameter_id,
+        envelope_visible: args.show_envelope !== false
+      };
+    }
+    return {
+      applied: !dryRun,
+      clip: clone(clip),
+      parameter_target: clone(target)
+    };
+  }
+
+  clearClipEnvelope(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    const target = this.findEnvelopeTarget(args.parameter_id);
+    if (!dryRun) {
+      clip.has_envelopes = false;
+      clip.hasEnvelopes = false;
+    }
+    return {
+      applied: !dryRun,
+      clip: clone(clip),
+      parameter_target: clone(target)
+    };
+  }
+
+  clearAllClipEnvelopes(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (!dryRun) {
+      clip.has_envelopes = false;
+      clip.hasEnvelopes = false;
+    }
+    return {
+      applied: !dryRun,
+      clip: clone(clip)
     };
   }
 

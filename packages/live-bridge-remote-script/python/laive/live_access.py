@@ -8,6 +8,9 @@ except ImportError:  # pragma: no cover - fake harness path
 from .clip_notes import ClipNoteAdapter
 from .protocol import RequestError
 from .serializers import (
+    _safe_getattr,
+    serialize_clip_envelope,
+    serialize_clip_envelope_target,
     serialize_clip_state,
     serialize_device_state,
     serialize_parameter_state,
@@ -50,6 +53,8 @@ class LiveSetAdapter(object):
         self.song = song
         self.application = application
         self._clip_notes = ClipNoteAdapter(live_module=Live)
+        self._selected_envelope_clip_id = None
+        self._selected_envelope_parameter_id = None
 
     @property
     def live_version(self):
@@ -60,6 +65,7 @@ class LiveSetAdapter(object):
             "read_state": True,
             "read_arrangement": True,
             "read_clip_notes": True,
+            "read_clip_envelopes": True,
             "set_transport": True,
             "set_arrangement_state": True,
             "set_arrangement_transport": True,
@@ -82,6 +88,12 @@ class LiveSetAdapter(object):
             "set_clip_loop_or_length": True,
             "insert_notes": True,
             "replace_notes": True,
+            "set_clip_envelope": True,
+            "show_clip_envelope": True,
+            "hide_clip_envelope": True,
+            "select_clip_envelope_parameter": True,
+            "clear_clip_envelope": True,
+            "clear_all_clip_envelopes": True,
             "launch_clip": True,
             "launch_scene": True,
             "stop_track_clips": True,
@@ -180,6 +192,19 @@ class LiveSetAdapter(object):
                 if detail_view_target is None:
                     detail_view_target = "device"
 
+        selected_parameter_id = None
+        selected_parameter = getattr(song_view, "selected_parameter", None)
+        if selected_parameter is not None:
+            parameter_ref = self._find_parameter_reference_by_object(selected_parameter)
+            if parameter_ref is not None:
+                selected_parameter_id = parameter_ref["parameter_id"]
+        if (
+            selected_parameter_id is None
+            and selected_clip_id is not None
+            and selected_clip_id == self._selected_envelope_clip_id
+        ):
+            selected_parameter_id = self._selected_envelope_parameter_id
+
         arrangement_position = getattr(
             self.song,
             "current_song_time",
@@ -193,6 +218,7 @@ class LiveSetAdapter(object):
             "selected_clip_id": selected_clip_id,
             "selected_clip_location": selected_clip_location,
             "selected_device_id": selected_device_id,
+            "selected_parameter_id": selected_parameter_id,
             "detail_view_target": detail_view_target,
             "current_song_time": arrangement_position,
             "arrangement_position_beats": arrangement_position,
@@ -211,6 +237,261 @@ class LiveSetAdapter(object):
         return {
             "clip": self._serialize_clip_reference(clip_ref),
             "notes": self._clip_notes.serialize_notes(clip_ref["clip"]),
+        }
+
+    def get_clip_envelopes(self, clip_id, parameter_id=None, sample_step_beats=None):
+        clip_ref = self._find_clip_reference(clip_id)
+        track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+        sample_step = 1.0 if sample_step_beats is None else float(sample_step_beats)
+        if sample_step <= 0:
+            raise RequestError("invalid_argument", "sample_step_beats must be positive")
+        selected_parameter_id = None
+        selected_parameter_name = None
+        song_view = getattr(self.song, "view", None)
+        selected_parameter = getattr(song_view, "selected_parameter", None) if song_view is not None else None
+        if selected_parameter is not None:
+            parameter_ref = self._find_parameter_reference_by_object(selected_parameter)
+            if parameter_ref is not None:
+                selected_parameter_id = parameter_ref["parameter_id"]
+                selected_parameter_name = parameter_ref["name"]
+        if (
+            selected_parameter_id is None
+            and clip_id == self._selected_envelope_clip_id
+            and self._selected_envelope_parameter_id is not None
+        ):
+            selected_parameter_id = self._selected_envelope_parameter_id
+            try:
+                cached_parameter_ref = self._find_envelope_parameter_reference(
+                    self._selected_envelope_parameter_id,
+                    expected_track_id=clip_ref["track_id"],
+                )
+            except RequestError:
+                cached_parameter_ref = None
+            if cached_parameter_ref is not None:
+                selected_parameter_name = cached_parameter_ref["name"]
+        supports_automation = clip_ref["location"] == "session"
+        available_target_refs = list(self._iter_clip_envelope_targets(track, clip_ref["track_id"]))
+        target_refs = available_target_refs
+        if parameter_id is not None:
+            target_refs = [
+                target_ref
+                for target_ref in available_target_refs
+                if target_ref["parameter_id"] == parameter_id
+            ]
+            if not target_refs:
+                raise RequestError("not_found", "Envelope parameter not found: {0}".format(parameter_id))
+
+        envelopes = []
+        if supports_automation:
+            for target_ref in target_refs:
+                envelope = self._get_clip_automation_envelope(
+                    clip_ref["clip"],
+                    target_ref["parameter"],
+                    create=False,
+                )
+                if envelope is None and parameter_id is None:
+                    continue
+                envelopes.append(
+                    serialize_clip_envelope(
+                        target_ref["parameter"],
+                        target_ref["parameter_id"],
+                        clip_ref["track_id"],
+                        samples=self._sample_clip_envelope(
+                            envelope,
+                            clip_ref["clip"],
+                            sample_step,
+                        ) if envelope is not None else [],
+                        device_id=target_ref.get("device_id"),
+                        device_name=target_ref.get("device_name"),
+                        target_kind=target_ref.get("scope", "device"),
+                    )
+                )
+        return {
+            "clip": self._serialize_clip_reference(clip_ref),
+            "supports_automation_envelopes": supports_automation,
+            "supportsAutomationEnvelopes": supports_automation,
+            "has_envelopes": bool(envelopes) if supports_automation else False,
+            "hasEnvelopes": bool(envelopes) if supports_automation else False,
+            "selected_parameter_id": selected_parameter_id,
+            "selectedParameterId": selected_parameter_id,
+            "selected_parameter_name": selected_parameter_name,
+            "selectedParameterName": selected_parameter_name,
+            "sample_step_beats": sample_step,
+            "sampleStepBeats": sample_step,
+            "available_targets": self._serialize_clip_envelope_targets(track, clip_ref["track_id"]),
+            "availableTargets": self._serialize_clip_envelope_targets(track, clip_ref["track_id"]),
+            "supports_point_editing": supports_automation,
+            "supportsPointEditing": supports_automation,
+            "envelopes": envelopes,
+        }
+
+    def show_clip_envelope(self, clip_id, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        self._focus_clip_detail(clip_ref, dry_run=dry_run)
+        clip_view = self._clip_view(clip_ref["clip"])
+        if not hasattr(clip_view, "show_envelope"):
+            raise RequestError("unsupported_runtime", "Clip envelope view is unavailable")
+        if not dry_run:
+            clip_view.show_envelope()
+        return {
+            "applied": not dry_run,
+            "clip": self._serialize_clip_reference(clip_ref),
+        }
+
+    def hide_clip_envelope(self, clip_id, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        self._focus_clip_detail(clip_ref, dry_run=dry_run)
+        clip_view = self._clip_view(clip_ref["clip"])
+        if not hasattr(clip_view, "hide_envelope"):
+            raise RequestError("unsupported_runtime", "Clip envelope view is unavailable")
+        if not dry_run:
+            clip_view.hide_envelope()
+        return {
+            "applied": not dry_run,
+            "clip": self._serialize_clip_reference(clip_ref),
+        }
+
+    def select_clip_envelope_parameter(self, clip_id, parameter_id, show_envelope=True, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        parameter_ref = self._find_envelope_parameter_reference(
+            parameter_id,
+            expected_track_id=clip_ref["track_id"],
+        )
+        self._focus_clip_detail(clip_ref, dry_run=dry_run)
+        clip_view = self._clip_view(clip_ref["clip"])
+        if not hasattr(clip_view, "select_envelope_parameter"):
+            raise RequestError("unsupported_runtime", "Clip envelope parameter selection is unavailable")
+        if not dry_run:
+            clip_view.select_envelope_parameter(parameter_ref["parameter"])
+            if show_envelope and hasattr(clip_view, "show_envelope"):
+                clip_view.show_envelope()
+            song_view = getattr(self.song, "view", None)
+            if song_view is not None and hasattr(song_view, "selected_parameter"):
+                try:
+                    song_view.selected_parameter = parameter_ref["parameter"]
+                except Exception:
+                    pass
+            if (
+                song_view is not None
+                and hasattr(song_view, "selected_device")
+                and parameter_ref.get("device_id") is not None
+            ):
+                device, _device_track_id, _device_index = self._find_device(parameter_ref["device_id"])
+                song_view.selected_device = device
+            self._selected_envelope_clip_id = clip_id
+            self._selected_envelope_parameter_id = parameter_ref["parameter_id"]
+        return {
+            "applied": not dry_run,
+            "clip": self._serialize_clip_reference(clip_ref),
+            "parameter_target": self._serialize_envelope_target(parameter_ref),
+        }
+
+    def clear_clip_envelope(self, clip_id, parameter_id, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        parameter_ref = self._find_envelope_parameter_reference(
+            parameter_id,
+            expected_track_id=clip_ref["track_id"],
+        )
+        clip = clip_ref["clip"]
+        clear_envelope = getattr(clip, "clear_envelope", None)
+        if not callable(clear_envelope):
+            raise RequestError("unsupported_runtime", "Clip envelope clearing is unavailable")
+        if not dry_run:
+            clear_envelope(parameter_ref["parameter"])
+            if (
+                self._selected_envelope_clip_id == clip_id
+                and self._selected_envelope_parameter_id == parameter_ref["parameter_id"]
+            ):
+                self._selected_envelope_parameter_id = None
+        return {
+            "applied": not dry_run,
+            "clip": self._serialize_clip_reference(clip_ref),
+            "parameter_target": self._serialize_envelope_target(parameter_ref),
+        }
+
+    def clear_all_clip_envelopes(self, clip_id, dry_run=False):
+        clip_ref = self._find_clip_reference(clip_id)
+        clip = clip_ref["clip"]
+        clear_all = getattr(clip, "clear_all_envelopes", None)
+        if not callable(clear_all):
+            raise RequestError("unsupported_runtime", "Clip envelope clearing is unavailable")
+        if not dry_run:
+            clear_all()
+            if self._selected_envelope_clip_id == clip_id:
+                self._selected_envelope_parameter_id = None
+        return {
+            "applied": not dry_run,
+            "clip": self._serialize_clip_reference(clip_ref),
+        }
+
+    def set_clip_envelope(
+        self,
+        clip_id,
+        parameter_id,
+        steps,
+        clear_existing=True,
+        select_in_view=False,
+        dry_run=False,
+    ):
+        clip_ref = self._find_clip_reference(clip_id)
+        if clip_ref["location"] != "session":
+            raise RequestError(
+                "unsupported_runtime",
+                "Clip envelopes are currently supported on Session clips only",
+            )
+
+        parameter_ref = self._find_envelope_parameter_reference(
+            parameter_id,
+            expected_track_id=clip_ref["track_id"],
+        )
+        normalized_steps = self._normalize_clip_envelope_steps(steps)
+        if not normalized_steps and not clear_existing:
+            raise RequestError(
+                "invalid_argument",
+                "Provide at least one envelope step or enable clear_existing",
+            )
+
+        if not dry_run:
+            self._focus_clip_detail(clip_ref, dry_run=False)
+            self._apply_clip_envelope_runtime(
+                clip_ref["clip"],
+                parameter_ref["parameter"],
+                normalized_steps,
+                clear_existing=bool(clear_existing),
+                select_in_view=bool(select_in_view),
+            )
+            if select_in_view:
+                song_view = getattr(self.song, "view", None)
+                if song_view is not None and hasattr(song_view, "selected_parameter"):
+                    try:
+                        song_view.selected_parameter = parameter_ref["parameter"]
+                    except Exception:
+                        pass
+                if (
+                    song_view is not None
+                    and hasattr(song_view, "selected_device")
+                    and parameter_ref.get("device_id") is not None
+                ):
+                    device, _device_track_id, _device_index = self._find_device(parameter_ref["device_id"])
+                    song_view.selected_device = device
+                self._selected_envelope_clip_id = clip_id
+                self._selected_envelope_parameter_id = parameter_ref["parameter_id"]
+
+        return {
+            "applied": not dry_run,
+            "clip": self._serialize_clip_reference(clip_ref),
+            "parameter_target": self._serialize_envelope_target(parameter_ref),
+            "envelope": serialize_clip_envelope(
+                parameter_ref["parameter"],
+                parameter_ref["parameter_id"],
+                clip_ref["track_id"],
+                samples=self._sample_clip_envelope_from_steps(normalized_steps),
+                device_id=parameter_ref.get("device_id"),
+                device_name=parameter_ref.get("device_name"),
+                target_kind=parameter_ref.get("scope", "device"),
+            ),
+            "steps": normalized_steps,
+            "cleared": bool(clear_existing),
         }
 
     def get_browser_tree(self):
@@ -1096,6 +1377,265 @@ class LiveSetAdapter(object):
             parameter,
             getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index),
         )
+
+    def _serialize_envelope_target(self, parameter_ref):
+        target = {
+            "parameter_id": parameter_ref["parameter_id"],
+            "parameterId": parameter_ref["parameter_id"],
+            "name": parameter_ref["name"],
+            "track_id": parameter_ref["track_id"],
+            "trackId": parameter_ref["track_id"],
+            "scope": parameter_ref["scope"],
+        }
+        if parameter_ref.get("device_id") is not None:
+            target["device_id"] = parameter_ref["device_id"]
+            target["deviceId"] = parameter_ref["device_id"]
+        if parameter_ref.get("device_name") is not None:
+            target["device_name"] = parameter_ref["device_name"]
+            target["deviceName"] = parameter_ref["device_name"]
+        if parameter_ref.get("send_index") is not None:
+            target["send_index"] = parameter_ref["send_index"]
+            target["sendIndex"] = parameter_ref["send_index"]
+        target["parameter"] = serialize_parameter_state(
+            parameter_ref["parameter"],
+            parameter_ref["parameter_id"],
+        )
+        return target
+
+    def _serialize_clip_envelope_targets(self, track, track_id):
+        return [self._serialize_envelope_target(item) for item in self._iter_clip_envelope_targets(track, track_id)]
+
+    def _iter_clip_envelope_targets(self, track, track_id):
+        mixer_device = getattr(track, "mixer_device", None)
+        if mixer_device is not None:
+            volume = getattr(mixer_device, "volume", None)
+            if volume is not None:
+                yield {
+                    "parameter": volume,
+                    "parameter_id": "mixer:{0}:volume".format(track_id),
+                    "track_id": track_id,
+                    "scope": "mixer",
+                    "name": "Track Volume",
+                }
+            panning = getattr(mixer_device, "panning", None)
+            if panning is not None:
+                yield {
+                    "parameter": panning,
+                    "parameter_id": "mixer:{0}:panning".format(track_id),
+                    "track_id": track_id,
+                    "scope": "mixer",
+                    "name": "Track Panning",
+                }
+            for send_index, send in enumerate(list(getattr(mixer_device, "sends", []) or [])):
+                yield {
+                    "parameter": send,
+                    "parameter_id": "send:{0}:{1}".format(track_id, send_index + 1),
+                    "track_id": track_id,
+                    "scope": "send",
+                    "name": getattr(send, "name", "Send {0}".format(send_index + 1)),
+                    "send_index": send_index,
+                }
+
+        for device_index, device in enumerate(getattr(track, "devices", [])):
+            device_id = getattr(device, "id", None) or _device_id(track_id, device_index)
+            for parameter_index, parameter in enumerate(getattr(device, "parameters", [])):
+                yield {
+                    "parameter": parameter,
+                    "parameter_id": getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index),
+                    "track_id": track_id,
+                    "device_id": device_id,
+                    "device_name": getattr(device, "name", "Device"),
+                    "scope": "device",
+                    "name": getattr(parameter, "name", "Parameter"),
+                }
+
+    def _clip_view(self, clip):
+        clip_view = getattr(clip, "view", None)
+        if clip_view is None:
+            raise RequestError("unsupported_runtime", "Clip view is unavailable")
+        return clip_view
+
+    def _focus_clip_detail(self, clip_ref, dry_run=False):
+        track, _index, _section = self._find_track(clip_ref["track_id"])
+        song_view = getattr(self.song, "view", None)
+        if song_view is None or not hasattr(song_view, "selected_track"):
+            raise RequestError("unsupported_runtime", "Song clip selection is unavailable")
+        if dry_run:
+            return
+        song_view.selected_track = track
+        if hasattr(song_view, "detail_clip"):
+            song_view.detail_clip = clip_ref["clip"]
+
+    def _find_envelope_parameter_reference(self, parameter_id, expected_track_id=None):
+        if isinstance(parameter_id, str) and parameter_id.startswith("mixer:"):
+            parts = parameter_id.split(":")
+            if len(parts) != 4:
+                raise RequestError("not_found", "Envelope parameter not found: {0}".format(parameter_id))
+            track_id = ":".join(parts[1:3])
+            parameter_name = parts[3]
+            track, _track_index, _track_section = self._find_track(track_id)
+            mixer_device = getattr(track, "mixer_device", None)
+            parameter = getattr(mixer_device, parameter_name, None)
+            if parameter is None:
+                raise RequestError("not_found", "Envelope parameter not found: {0}".format(parameter_id))
+            ref = {
+                "parameter": parameter,
+                "parameter_id": parameter_id,
+                "track_id": track_id,
+                "scope": "mixer",
+                "name": getattr(parameter, "name", parameter_name),
+            }
+        elif isinstance(parameter_id, str) and parameter_id.startswith("send:"):
+            parts = parameter_id.split(":")
+            if len(parts) != 4:
+                raise RequestError("not_found", "Envelope parameter not found: {0}".format(parameter_id))
+            track_id = ":".join(parts[1:3])
+            send_number = int(parts[3])
+            track, _track_index, _track_section = self._find_track(track_id)
+            sends = list(getattr(getattr(track, "mixer_device", None), "sends", []) or [])
+            send_index = send_number - 1
+            if send_index < 0 or send_index >= len(sends):
+                raise RequestError("not_found", "Envelope parameter not found: {0}".format(parameter_id))
+            ref = {
+                "parameter": sends[send_index],
+                "parameter_id": parameter_id,
+                "track_id": track_id,
+                "scope": "send",
+                "name": getattr(sends[send_index], "name", "Send {0}".format(send_number)),
+                "send_index": send_index,
+            }
+        else:
+            ref = self._find_parameter_reference(parameter_id)
+
+        if expected_track_id is not None and ref["track_id"] != expected_track_id:
+            raise RequestError(
+                "invalid_argument",
+                "Envelope parameter must belong to the same track as the clip",
+            )
+        return ref
+
+    def _normalize_clip_envelope_steps(self, steps):
+        normalized = []
+        for step in list(steps or []):
+            if not isinstance(step, dict):
+                raise RequestError("invalid_argument", "Envelope steps must be objects")
+            start_beats = step.get("start_beats", step.get("startBeats"))
+            duration_beats = step.get("duration_beats", step.get("durationBeats"))
+            value = step.get("value")
+            if start_beats is None or duration_beats is None or value is None:
+                raise RequestError(
+                    "invalid_argument",
+                    "Envelope steps require start_beats, duration_beats, and value",
+                )
+            start_beats = float(start_beats)
+            duration_beats = float(duration_beats)
+            value = float(value)
+            if start_beats < 0:
+                raise RequestError("invalid_argument", "Envelope step start_beats must be non-negative")
+            if duration_beats <= 0:
+                raise RequestError("invalid_argument", "Envelope step duration_beats must be positive")
+            normalized.append(
+                {
+                    "start_beats": start_beats,
+                    "startBeats": start_beats,
+                    "duration_beats": duration_beats,
+                    "durationBeats": duration_beats,
+                    "value": value,
+                }
+            )
+        normalized.sort(key=lambda step: (step["start_beats"], step["duration_beats"]))
+        return normalized
+
+    def _get_clip_automation_envelope(self, clip, parameter, create=False):
+        getter = getattr(clip, "automation_envelope", None)
+        envelope = getter(parameter) if callable(getter) else None
+        if envelope is not None or not create:
+            return envelope
+
+        creator = getattr(clip, "create_automation_envelope", None)
+        if not callable(creator):
+            raise RequestError("unsupported_runtime", "Clip automation envelopes are unavailable")
+        try:
+            return creator(parameter)
+        except Exception as error:
+            raise RequestError(
+                "unsupported_runtime",
+                "Clip automation envelopes could not be created: {0}".format(error),
+            )
+
+    def _sample_clip_envelope(self, envelope, clip, sample_step):
+        if envelope is None:
+            return []
+        sampler = getattr(envelope, "value_at_time", None)
+        if not callable(sampler):
+            return []
+
+        loop_start = float(_safe_getattr(clip, "loop_start", 0.0) or 0.0)
+        loop_end = _safe_getattr(clip, "loop_end", None)
+        if loop_end is None:
+            loop_end = _safe_getattr(clip, "length", loop_start + sample_step)
+        loop_end = float(loop_end)
+        if loop_end <= loop_start:
+            loop_end = loop_start + sample_step
+
+        points = []
+        beat = loop_start
+        epsilon = sample_step / 1000.0
+        while beat < loop_end - epsilon:
+            points.append(
+                {
+                    "beat": beat,
+                    "value": float(sampler(beat)),
+                }
+            )
+            beat += sample_step
+        points.append(
+            {
+                "beat": loop_end,
+                "value": float(sampler(loop_end)),
+            }
+        )
+        return points
+
+    def _sample_clip_envelope_from_steps(self, steps):
+        return [
+            {
+                "beat": step["start_beats"],
+                "value": step["value"],
+            }
+            for step in list(steps or [])
+        ]
+
+    def _apply_clip_envelope_runtime(
+        self,
+        clip,
+        parameter,
+        steps,
+        clear_existing=True,
+        select_in_view=False,
+    ):
+        if clear_existing:
+            clear_envelope = getattr(clip, "clear_envelope", None)
+            if callable(clear_envelope):
+                clear_envelope(parameter)
+
+        envelope = self._get_clip_automation_envelope(clip, parameter, create=True)
+        if envelope is None:
+            raise RequestError("unsupported_runtime", "Clip automation envelope is unavailable")
+
+        insert_step = getattr(envelope, "insert_step", None)
+        if not callable(insert_step):
+            raise RequestError("unsupported_runtime", "Envelope step insertion is unavailable")
+
+        for step in steps:
+            insert_step(step["start_beats"], step["duration_beats"], step["value"])
+
+        if select_in_view:
+            clip_view = self._clip_view(clip)
+            if hasattr(clip_view, "select_envelope_parameter"):
+                clip_view.select_envelope_parameter(parameter)
+            if hasattr(clip_view, "show_envelope"):
+                clip_view.show_envelope()
 
     def _set_song_arrangement_position(self, value):
         if hasattr(self.song, "current_song_time"):
@@ -2048,7 +2588,68 @@ class LiveSetAdapter(object):
                     }
         return None
 
+    def _find_parameter_reference_by_object(self, target_parameter):
+        for section, track_index, track in self._iter_tracks():
+            track_id = getattr(track, "id", None) or _track_id(track_index, section)
+            mixer_device = getattr(track, "mixer_device", None)
+            if mixer_device is not None:
+                volume = getattr(mixer_device, "volume", None)
+                if volume is not None and self._same_live_object(volume, target_parameter):
+                    return {
+                        "parameter": volume,
+                        "parameter_id": "mixer:{0}:volume".format(track_id),
+                        "track_id": track_id,
+                        "scope": "mixer",
+                        "name": getattr(volume, "name", "Track Volume"),
+                    }
+                panning = getattr(mixer_device, "panning", None)
+                if panning is not None and self._same_live_object(panning, target_parameter):
+                    return {
+                        "parameter": panning,
+                        "parameter_id": "mixer:{0}:panning".format(track_id),
+                        "track_id": track_id,
+                        "scope": "mixer",
+                        "name": getattr(panning, "name", "Track Panning"),
+                    }
+                for send_index, send in enumerate(list(getattr(mixer_device, "sends", []) or [])):
+                    if not self._same_live_object(send, target_parameter):
+                        continue
+                    return {
+                        "parameter": send,
+                        "parameter_id": "send:{0}:{1}".format(track_id, send_index + 1),
+                        "track_id": track_id,
+                        "scope": "send",
+                        "name": getattr(send, "name", "Send {0}".format(send_index + 1)),
+                        "send_index": send_index,
+                    }
+            for device_index, device in enumerate(getattr(track, "devices", [])):
+                device_id = getattr(device, "id", None) or _device_id(track_id, device_index)
+                for parameter_index, parameter in enumerate(getattr(device, "parameters", [])):
+                    if self._same_live_object(parameter, target_parameter):
+                        parameter_id = getattr(parameter, "id", None) or _parameter_id(
+                            device_id, parameter_index
+                        )
+                        return {
+                            "parameter": parameter,
+                            "parameter_id": parameter_id,
+                            "track_id": track_id,
+                            "device_id": device_id,
+                            "device_name": getattr(device, "name", "Device"),
+                            "scope": "device",
+                            "name": getattr(parameter, "name", "Parameter"),
+                            "parameter_index": parameter_index,
+                        }
+        return None
+
     def _find_parameter(self, parameter_id):
+        parameter_ref = self._find_parameter_reference(parameter_id)
+        return (
+            parameter_ref["parameter"],
+            parameter_ref["device_id"],
+            parameter_ref["parameter_index"],
+        )
+
+    def _find_parameter_reference(self, parameter_id):
         for section, track_index, track in self._iter_tracks():
             track_id = getattr(track, "id", None) or _track_id(track_index, section)
             for device_index, device in enumerate(getattr(track, "devices", [])):
@@ -2056,7 +2657,16 @@ class LiveSetAdapter(object):
                 for parameter_index, parameter in enumerate(getattr(device, "parameters", [])):
                     candidate = getattr(parameter, "id", None) or _parameter_id(device_id, parameter_index)
                     if candidate == parameter_id:
-                        return parameter, device_id, parameter_index
+                        return {
+                            "parameter": parameter,
+                            "parameter_id": candidate,
+                            "track_id": track_id,
+                            "device_id": device_id,
+                            "device_name": getattr(device, "name", "Device"),
+                            "scope": "device",
+                            "name": getattr(parameter, "name", "Parameter"),
+                            "parameter_index": parameter_index,
+                        }
         raise RequestError("not_found", "Parameter not found: {0}".format(parameter_id))
 
     def _browser_is_available(self):

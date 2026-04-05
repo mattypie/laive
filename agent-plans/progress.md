@@ -4,7 +4,7 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view; first selected-clip transform and device-snapshot slice landed locally
+- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view; selected-clip transforms, device snapshot/restore, and the first Session clip-envelope slice are landed locally
 
 ## Versioned Roadmap
 
@@ -13,7 +13,7 @@
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
 | `v0.7.0` | Arrangement view | Complete for release: arrangement summaries/details, transport and loop control, arrangement clip creation, session-to-arrangement duplication, arrangement-to-arrangement duplication, move, bounds editing, MIDI split, selection/jump, rename/delete, and arrangement-aware selected context are all validated locally |
-| `v0.8.0` | Envelopes + deeper sidecar workflows | In progress: selected-clip transforms and device snapshot/restore are landed locally; clip-envelope read/write and lightweight analysis remain |
+| `v0.8.0` | Envelopes + deeper sidecar workflows | In progress: selected-clip transforms, device snapshot/restore, and Session clip-envelope read/write are landed locally; arrangement-envelope support and lightweight analysis remain |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 | `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |
 

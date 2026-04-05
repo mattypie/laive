@@ -2,6 +2,38 @@ function valuesInOrder(ids, collection) {
   return ids.map((id) => collection[id]).filter(Boolean);
 }
 
+function resolveSelectedParameter(state, selection, track) {
+  if (!selection?.selectedParameterId) {
+    return null;
+  }
+
+  const directParameter = state.parameters[selection.selectedParameterId] ?? null;
+  if (directParameter) {
+    return directParameter;
+  }
+
+  const parameterId = String(selection.selectedParameterId);
+  if (parameterId.startsWith("mixer:")) {
+    const suffix = parameterId.split(":").at(-1);
+    if (suffix === "volume") {
+      return { id: parameterId, name: "Track Volume" };
+    }
+    if (suffix === "panning") {
+      return { id: parameterId, name: "Track Panning" };
+    }
+  }
+
+  if (parameterId.startsWith("send:") && track?.sends?.length) {
+    const sendIndex = Number(parameterId.split(":").at(-1)) - 1;
+    const send = Number.isInteger(sendIndex) ? track.sends[sendIndex] ?? null : null;
+    if (send) {
+      return { id: parameterId, name: send.name };
+    }
+  }
+
+  return { id: parameterId, name: null };
+}
+
 function resolvePlayingClips(state) {
   const playingClips = new Map();
 
@@ -176,6 +208,7 @@ export function getSelectedContext(state) {
   const device = selection.selectedDeviceId
     ? state.devices[selection.selectedDeviceId] ?? null
     : null;
+  const parameter = resolveSelectedParameter(state, selection, track);
   const scene = selection.selectedSceneId
     ? state.scenes[selection.selectedSceneId] ?? null
     : null;
@@ -194,6 +227,7 @@ export function getSelectedContext(state) {
           endBeats: clip.endBeats,
           loopStartBeats: clip.loopStartBeats,
           loopEndBeats: clip.loopEndBeats,
+          hasEnvelopes: clip.hasEnvelopes,
           isMidi: clip.isMidi,
           isAudio: clip.isAudio,
           noteCount: clip.noteCount
@@ -208,6 +242,7 @@ export function getSelectedContext(state) {
           slotIndex: clip.slotIndex,
           loopStartBeats: clip.loopStartBeats,
           loopEndBeats: clip.loopEndBeats,
+          hasEnvelopes: clip.hasEnvelopes,
           isMidi: clip.isMidi,
           isAudio: clip.isAudio,
           noteCount: clip.noteCount
@@ -222,6 +257,8 @@ export function getSelectedContext(state) {
     selectedSceneName: scene?.name ?? null,
     selectedClipId: clip?.id ?? selection.selectedClipId ?? null,
     selectedClipLocation,
+    selectedParameterId: parameter?.id ?? selection.selectedParameterId ?? null,
+    selectedParameterName: parameter?.name ?? null,
     detailViewTarget,
     arrangementSelection: {
       arrangementPositionBeats:
@@ -233,6 +270,7 @@ export function getSelectedContext(state) {
     track,
     clip,
     device,
+    parameter,
     scene
   };
 }

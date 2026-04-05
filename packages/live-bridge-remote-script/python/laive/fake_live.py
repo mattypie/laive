@@ -124,6 +124,51 @@ class FakeApplication(object):
         self.browser = browser or FakeBrowser()
 
 
+class FakeClipView(object):
+    def __init__(self, clip):
+        self.clip = clip
+        self.envelope_visible = False
+        self.selected_envelope_parameter = None
+
+    def show_envelope(self):
+        self.envelope_visible = True
+
+    def hide_envelope(self):
+        self.envelope_visible = False
+
+    def select_envelope_parameter(self, parameter):
+        self.selected_envelope_parameter = parameter
+
+
+class FakeAutomationEnvelope(object):
+    def __init__(self, clip, parameter):
+        self.clip = clip
+        self.parameter = parameter
+        self.steps = []
+
+    def insert_step(self, start_beats, duration_beats, value):
+        self.steps.append(
+            {
+                "beat": float(start_beats),
+                "duration": float(duration_beats),
+                "value": float(value),
+            }
+        )
+        self.steps.sort(key=lambda step: (step["beat"], step["duration"]))
+        self.clip.has_envelopes = True
+        self.clip.envelope_parameters.add(getattr(self.parameter, "name", None))
+
+    def value_at_time(self, beat):
+        beat = float(beat)
+        active_value = float(getattr(self.parameter, "value", 0.0))
+        for step in self.steps:
+            if beat >= step["beat"]:
+                active_value = step["value"]
+            else:
+                break
+        return active_value
+
+
 class FakeClip(object):
     def __init__(self, name="Clip 1", length=4):
         self.name = name
@@ -135,9 +180,13 @@ class FakeClip(object):
         self.end_time = float(length)
         self.is_playing = False
         self.notes = []
+        self.has_envelopes = False
+        self.envelope_parameters = set()
+        self._automation_envelopes = {}
         self.last_add_new_notes_payload = None
         self.last_remove_notes_by_id_payload = None
         self._next_note_id = 1
+        self.view = FakeClipView(self)
 
     def add_new_notes(self, notes):
         self.last_add_new_notes_payload = notes
@@ -182,6 +231,30 @@ class FakeClip(object):
 
     def set_notes(self, notes):
         self.notes = list(notes)
+
+    def clear_all_envelopes(self):
+        self.has_envelopes = False
+        self.envelope_parameters = set()
+        self._automation_envelopes = {}
+
+    def clear_envelope(self, parameter):
+        parameter_name = getattr(parameter, "name", None)
+        if parameter_name in self.envelope_parameters:
+            self.envelope_parameters.remove(parameter_name)
+        self._automation_envelopes.pop(id(parameter), None)
+        self.has_envelopes = bool(self.envelope_parameters)
+
+    def automation_envelope(self, parameter):
+        return self._automation_envelopes.get(id(parameter))
+
+    def create_automation_envelope(self, parameter):
+        envelope = self._automation_envelopes.get(id(parameter))
+        if envelope is None:
+            envelope = FakeAutomationEnvelope(self, parameter)
+            self._automation_envelopes[id(parameter)] = envelope
+        self.has_envelopes = True
+        self.envelope_parameters.add(getattr(parameter, "name", None))
+        return envelope
 
 
 class FakeClipSlot(object):
@@ -355,6 +428,11 @@ class FakeSongView(object):
         self.highlighted_clip_slot = None
         self.detail_clip = None
         self.selected_device = self.selected_track.devices[0] if self.selected_track and self.selected_track.devices else None
+        self.selected_parameter = (
+            self.selected_device.parameters[0]
+            if self.selected_device is not None and getattr(self.selected_device, "parameters", None)
+            else None
+        )
 
 
 class FakeScene(object):

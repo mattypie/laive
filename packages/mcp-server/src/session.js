@@ -751,6 +751,119 @@ export function createBridgeAdapter(target) {
         })
       ).result;
     },
+    async getClipEnvelopes(payload) {
+      const bridgeClient = await resolveBridgeClient(target);
+      return (
+        await bridgeClient.request("call", "get_clip_envelopes", {
+          clip_id: payload.clipId
+        })
+      ).result;
+    },
+    async showClipEnvelope(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "show_clip_envelope",
+          { clip_id: payload.clipId },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async hideClipEnvelope(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "hide_clip_envelope",
+          { clip_id: payload.clipId },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async selectClipEnvelopeParameter(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "select_clip_envelope_parameter",
+          {
+            clip_id: payload.clipId,
+            parameter_id: payload.parameterId,
+            show_envelope: payload.showEnvelope !== false
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+      return {
+        ...result,
+        affectedObjects: [payload.clipId, payload.parameterId]
+      };
+    },
+    async clearClipEnvelope(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "clear_clip_envelope",
+          {
+            clip_id: payload.clipId,
+            parameter_id: payload.parameterId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+      return {
+        ...result,
+        affectedObjects: [payload.clipId, payload.parameterId]
+      };
+    },
+    async clearAllClipEnvelopes(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "clear_all_clip_envelopes",
+          {
+            clip_id: payload.clipId
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+      return {
+        ...result,
+        affectedObjects: [payload.clipId]
+      };
+    },
+    async setClipEnvelope(payload, options = {}) {
+      const bridgeClient = await resolveBridgeClient(target);
+      const result = (
+        await bridgeClient.request(
+          "call",
+          "set_clip_envelope",
+          {
+            clip_id: payload.clipId,
+            parameter_id: payload.parameterId,
+            steps: payload.steps,
+            clear_existing: payload.clearExisting !== false,
+            select_in_view: Boolean(payload.selectInView)
+          },
+          { dryRun: Boolean(options.dryRun ?? payload.dryRun) }
+        )
+      ).result;
+      return {
+        ...result,
+        affectedObjects: [payload.clipId, payload.parameterId]
+      };
+    },
     async launchClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (

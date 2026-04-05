@@ -335,9 +335,62 @@ class LegacyNoteSequenceTests(unittest.TestCase):
 
         self.assertEqual(selection["selected_track_id"], "track:1")
         self.assertEqual(selection["selected_device_id"], "device:track:1:1")
+        self.assertEqual(selection["selected_parameter_id"], "parameter:device:track:1:1:1")
+
+    def test_get_clip_envelopes_reports_targets_and_selected_parameter(self):
+        song = FakeSong()
+        song.tracks[0].clip_slots[0].create_clip(4)
+        adapter = LiveSetAdapter(song)
+
+        envelopes = adapter.get_clip_envelopes("clip:session:track:1:slot:1")
+
+        self.assertEqual(envelopes["clip"]["id"], "clip:session:track:1:slot:1")
+        self.assertEqual(envelopes["selected_parameter_id"], "parameter:device:track:1:1:1")
+        target_ids = [target["parameter_id"] for target in envelopes["available_targets"]]
+        self.assertIn("parameter:device:track:1:1:1", target_ids)
+        self.assertIn("mixer:track:1:volume", target_ids)
+
+    def test_select_clip_envelope_parameter_updates_song_view(self):
+        song = FakeSong()
+        song.tracks[0].clip_slots[0].create_clip(4)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.select_clip_envelope_parameter(
+            "clip:session:track:1:slot:1",
+            "parameter:device:track:1:1:1",
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(song.view.selected_parameter.name, "Macro 1")
+        self.assertEqual(song.view.selected_device.name, "Instrument")
+        self.assertEqual(song.tracks[0].clip_slots[0].clip.view.selected_envelope_parameter.name, "Macro 1")
+        self.assertTrue(song.tracks[0].clip_slots[0].clip.view.envelope_visible)
+
+    def test_set_clip_envelope_writes_sampled_steps(self):
+        song = FakeSong()
+        song.tracks[0].clip_slots[0].create_clip(4)
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.set_clip_envelope(
+            "clip:session:track:1:slot:1",
+            "parameter:device:track:1:1:1",
+            [
+                {"startBeats": 0.0, "durationBeats": 1.0, "value": 0.2},
+                {"startBeats": 2.0, "durationBeats": 0.5, "value": 0.8},
+            ],
+            select_in_view=True,
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertTrue(song.tracks[0].clip_slots[0].clip.has_envelopes)
+        self.assertEqual(result["envelope"]["samples"][0]["value"], 0.2)
+        self.assertEqual(result["envelope"]["samples"][1]["value"], 0.8)
+        self.assertEqual(song.view.selected_parameter.name, "Macro 1")
+        self.assertEqual(song.tracks[0].clip_slots[0].clip.view.selected_envelope_parameter.name, "Macro 1")
+        self.assertTrue(song.tracks[0].clip_slots[0].clip.view.envelope_visible)
 
     def test_get_clip_notes_serializes_runtime_notes(self):
-        song = SongWithSingleClip(DirectSetNotesClip())
+        song = SongWithSingleClip(ExtendedNotesClip())
         adapter = LiveSetAdapter(song)
 
         notes = adapter.get_clip_notes("clip:session:track:1:slot:1")

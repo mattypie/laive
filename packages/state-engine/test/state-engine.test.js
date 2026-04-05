@@ -188,6 +188,7 @@ test("applyEvent and state engine queries update selected context and clip state
       selected_track_id: makeTrackId("visible", 0),
       selected_clip_id: makeSessionClipId(makeTrackId("visible", 0), 1),
       selected_device_id: makeDeviceId(makeTrackId("visible", 0), 0),
+      selected_parameter_id: makeParameterId(makeDeviceId(makeTrackId("visible", 0), 0), 0),
       selected_scene_index: 1
     }
   });
@@ -209,6 +210,9 @@ test("applyEvent and state engine queries update selected context and clip state
   assert.equal(context.track.name, "Drums");
   assert.equal(context.clip.name, "Groove");
   assert.equal(context.device.name, "Drum Rack");
+  assert.equal(context.parameter.name, "LFO Waveform");
+  assert.equal(context.selectedParameterId, makeParameterId(makeDeviceId(makeTrackId("visible", 0), 0), 0));
+  assert.equal(context.selectedParameterName, "LFO Waveform");
   assert.equal(context.selectedClipLocation, "session");
   assert.equal(context.detailViewTarget, "clip");
 
@@ -282,4 +286,34 @@ test("selected context exposes arrangement-specific selection details", () => {
   assert.equal(context.selectedArrangementClip.id, makeArrangementClipId(makeTrackId("visible", 0), 0));
   assert.equal(context.selectedArrangementClip.startBeats, 0);
   assert.equal(context.selectedArrangementClip.endBeats, 16);
+});
+
+test("selected context resolves mixer parameter names from track state", () => {
+  const engine = createStateEngine();
+  const snapshot = createRuntimeSnapshot();
+  snapshot.tracks[0].sends = [
+    {
+      index: 0,
+      name: "A-Reverb",
+      value: 0.25,
+      min: 0,
+      max: 1,
+      isQuantized: false,
+      displayValue: "0.25"
+    }
+  ];
+  engine.applySnapshot(snapshot);
+
+  engine.applyEvent({
+    event: "selection.changed",
+    observed_at: "2026-03-22T18:06:00.000Z",
+    payload: {
+      selected_track_id: makeTrackId("visible", 0),
+      selected_parameter_id: "mixer:track:1:volume"
+    }
+  });
+
+  const context = engine.query.getSelectedContext();
+  assert.equal(context.selectedParameterId, "mixer:track:1:volume");
+  assert.equal(context.selectedParameterName, "Track Volume");
 });
