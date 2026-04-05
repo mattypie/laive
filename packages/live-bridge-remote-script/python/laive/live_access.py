@@ -1362,28 +1362,43 @@ class LiveSetAdapter(object):
 
     def _split_arrangement_clip_runtime(self, clip_ref, track, split_beats):
         source_clip = clip_ref["clip"]
-        source_start = float(getattr(source_clip, "start_time", 0.0) or 0.0)
-        source_end = getattr(source_clip, "end_time", None)
-        if source_end is None:
-            source_end = source_start + self._arrangement_clip_length_beats(source_clip)
-        source_end = float(source_end)
-        source_name = getattr(source_clip, "name", None)
-        source_notes = self._clip_notes.serialize_notes(source_clip)
-        note_base = self._arrangement_note_base(source_notes, source_start)
-        left_notes = self._segment_arrangement_notes_from_notes(
-            source_notes,
-            source_start,
-            note_base,
-            source_start,
-            split_beats,
-        )
-        right_notes = self._segment_arrangement_notes_from_notes(
-            source_notes,
-            source_start,
-            note_base,
-            split_beats,
-            source_end,
-        )
+        try:
+            source_start = float(getattr(source_clip, "start_time", 0.0) or 0.0)
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_start: {0}".format(error))
+        try:
+            source_end = getattr(source_clip, "end_time", None)
+            if source_end is None:
+                source_end = source_start + self._arrangement_clip_length_beats(source_clip)
+            source_end = float(source_end)
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_end: {0}".format(error))
+        try:
+            source_name = getattr(source_clip, "name", None)
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_name: {0}".format(error))
+        try:
+            source_notes = self._clip_notes.serialize_notes(source_clip)
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_notes: {0}".format(error))
+        try:
+            note_base = self._arrangement_note_base(source_notes, source_start)
+            left_notes = self._segment_arrangement_notes_from_notes(
+                source_notes,
+                source_start,
+                note_base,
+                source_start,
+                split_beats,
+            )
+            right_notes = self._segment_arrangement_notes_from_notes(
+                source_notes,
+                source_start,
+                note_base,
+                split_beats,
+                source_end,
+            )
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at segment_notes: {0}".format(error))
         try:
             left_created = self.create_arrangement_clip(
                 clip_ref["track_id"],
