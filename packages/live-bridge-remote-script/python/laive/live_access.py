@@ -1512,16 +1512,38 @@ class LiveSetAdapter(object):
                 raise RequestError("runtime_error", "split_arrangement_clip failed at cleanup_leftover: {0}".format(error))
 
         try:
+            resolved_left = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                source_start,
+                split_beats,
+            )
+        except BaseException as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_result_left: {0}".format(error))
+        try:
+            resolved_right = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                split_beats,
+                source_end,
+                exclude_clip_ids=[resolved_left["clip_id"]] if resolved_left is not None else None,
+            )
+        except BaseException as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_result_right: {0}".format(error))
+        if resolved_left is None or resolved_right is None:
+            raise RequestError(
+                "runtime_error",
+                "split_arrangement_clip failed at resolve_result: expected split clips were not found",
+            )
+        try:
             return [
                 self._serialize_arrangement_clip(
-                    left_clip_ref["clip"],
+                    resolved_left["clip"],
                     clip_ref["track_id"],
-                    left_clip_ref["arrangement_index"],
+                    resolved_left["arrangement_index"],
                 ),
                 self._serialize_arrangement_clip(
-                    right_ref["clip"],
+                    resolved_right["clip"],
                     clip_ref["track_id"],
-                    right_ref["arrangement_index"],
+                    resolved_right["arrangement_index"],
                 ),
             ]
         except BaseException as error:
