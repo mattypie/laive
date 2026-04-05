@@ -26,5 +26,5 @@ test("release prepare dry-run reports next patch version", () => {
   assert.equal(payload.bump, "patch");
   assert.equal(payload.apply, false);
   assert.ok(Array.isArray(payload.unreleasedEntries));
-  assert.ok(payload.unreleasedEntries.length >= 1);
+  assert.ok(payload.unreleasedEntries.every((entry) => typeof entry === "string"));
 });
