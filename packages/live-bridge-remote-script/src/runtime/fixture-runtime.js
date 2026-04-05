@@ -245,6 +245,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.duplicateClip(args, dryRun);
       case "duplicate_clip_to_arrangement":
         return this.duplicateClipToArrangement(args, dryRun);
+      case "duplicate_arrangement_clip":
+        return this.duplicateArrangementClip(args, dryRun);
       case "set_arrangement_clip_bounds":
         return this.setArrangementClipBounds(args, dryRun);
       case "split_arrangement_clip":
@@ -994,6 +996,14 @@ export class FixtureLiveRuntime extends EventEmitter {
       track: clone(targetTrack),
       clip
     };
+  }
+
+  duplicateArrangementClip(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if (!clip || clip.location !== "arrangement") {
+      throw new Error("duplicate_arrangement_clip only supports arrangement clips");
+    }
+    return this.duplicateClipToArrangement(args, dryRun);
   }
 
   moveArrangementClip(args, dryRun) {

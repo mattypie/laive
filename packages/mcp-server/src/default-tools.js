@@ -1194,6 +1194,55 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "duplicate_arrangement_clip",
+      description: "Duplicate an Arrangement View clip to a new beat position.",
+      inputSchema: createObjectSchema({
+        properties: {
+          clipId: {
+            type: "string",
+            description: "Source arrangement clip id."
+          },
+          destinationBeats: {
+            type: "number",
+            minimum: 0,
+            description: "Arrangement destination position in beats."
+          },
+          targetTrackId: {
+            type: "string",
+            description: "Optional target arrangement-capable track id. Defaults to the source clip track."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["clipId", "destinationBeats"]
+      }),
+      async execute(args) {
+        requireString(args.clipId, "clipId");
+        if (!Number.isFinite(Number(args.destinationBeats)) || Number(args.destinationBeats) < 0) {
+          throw new McpServerError(
+            "invalid_request",
+            "destinationBeats must be a non-negative number"
+          );
+        }
+
+        await policyAdapter.assertAllowed("duplicate_arrangement_clip", args);
+        const before = await stateAdapter.getArrangementSummary();
+        const duplicated = await bridgeAdapter.duplicateArrangementClip({
+          clipId: args.clipId,
+          destinationBeats: Number(args.destinationBeats),
+          targetTrackId: args.targetTrackId ?? null,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(args.targetTrackId ?? "song");
+        return buildMutationResult(
+          `Arrangement clip duplication ${args.dryRun ? "previewed" : "created"} from ${args.clipId}.`,
+          duplicated.affectedObjects ?? [args.clipId],
+          before.stateVersion,
+          after.stateVersion,
+          after.warnings ?? []
+        );
+      }
+    },
+    {
       name: "move_arrangement_clip",
       description: "Move an Arrangement View clip to a new beat position.",
       inputSchema: createObjectSchema({

@@ -119,6 +119,23 @@ test("bridge can create arrangement clips and duplicate clips into arrangement",
   });
 });
 
+test("bridge can duplicate arrangement clips", async () => {
+  await withBridge(async ({ client }) => {
+    const duplicated = await client.request("call", "duplicate_arrangement_clip", {
+      clip_id: "clip:arrangement:track:1:index:1",
+      destination_beats: 24,
+      target_track_id: "track:1"
+    });
+    const track = await client.request("get", "track:1");
+
+    assert.equal(duplicated.result.clip.location, "arrangement");
+    assert.equal(duplicated.result.clip.start_beats, 24);
+    assert.equal(duplicated.result.clip.end_beats, 40);
+    assert.equal(track.result.arrangement_clips.length, 2);
+    assert.equal(track.result.arrangement_clips[1].start_beats, 24);
+  });
+});
+
 test("bridge can move arrangement clips", async () => {
   await withBridge(async ({ client }) => {
     const moved = await client.request("call", "move_arrangement_clip", {

@@ -50,6 +50,10 @@ Landed in the third work unit:
 Landed in the fourth work unit:
 - MIDI arrangement clip splitting with trimmed left/right note timing
 
+Landed in the fifth work unit:
+- arrangement-to-arrangement duplication as a first-class bridge and MCP tool
+- real Live validation for MIDI arrangement splitting on Live 11
+
 ### `v0.8.0`
 
 - clip-envelope read/write

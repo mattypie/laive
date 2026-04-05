@@ -358,6 +358,13 @@ class LaiveControlSurface(AbletonControlSurface):
                 target_track_id=arguments.get("target_track_id"),
                 dry_run=dry_run,
             )
+        if target == "duplicate_arrangement_clip":
+            return self._live.duplicate_arrangement_clip(
+                clip_id=arguments.get("clip_id"),
+                destination_beats=arguments.get("destination_beats"),
+                target_track_id=arguments.get("target_track_id"),
+                dry_run=dry_run,
+            )
         if target == "move_arrangement_clip":
             return self._live.move_arrangement_clip(
                 clip_id=arguments.get("clip_id"),

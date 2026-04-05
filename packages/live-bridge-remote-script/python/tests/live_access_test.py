@@ -575,6 +575,22 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(song.tracks[0].arrangement_clips[0].name, "Session Source")
         self.assertEqual(song.tracks[0].arrangement_clips[0].notes[0]["pitch"], 60)
 
+    def test_duplicate_arrangement_clip_copies_arrangement_source(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        result = adapter.duplicate_arrangement_clip(
+            "clip:arrangement:track:2:index:1",
+            destination_beats=20,
+            target_track_id="track:2",
+        )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["clip"]["start_beats"], 20.0)
+        self.assertEqual(result["clip"]["end_beats"], 28.0)
+        self.assertEqual(result["clip"]["name"], "Bass Arrangement")
+        self.assertEqual(song.tracks[1].arrangement_clips[-1].name, "Bass Arrangement")
+
     def test_move_arrangement_clip_updates_position_when_runtime_allows(self):
         song = FakeSong()
         adapter = LiveSetAdapter(song)

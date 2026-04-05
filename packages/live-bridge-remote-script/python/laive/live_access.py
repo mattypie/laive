@@ -71,6 +71,7 @@ class LiveSetAdapter(object):
             "rename_clip": True,
             "duplicate_clip": True,
             "duplicate_clip_to_arrangement": True,
+            "duplicate_arrangement_clip": True,
             "set_arrangement_clip_bounds": True,
             "split_arrangement_clip": True,
             "move_arrangement_clip": True,
@@ -586,6 +587,23 @@ class LiveSetAdapter(object):
             "track": self._serialize_track(target_track, track_index, track_section),
             "clip": self._serialize_arrangement_clip(duplicated_clip, target_track_id, arrangement_index),
         }
+
+    def duplicate_arrangement_clip(
+        self,
+        clip_id,
+        destination_beats,
+        target_track_id=None,
+        dry_run=False,
+    ):
+        clip_ref = self._find_clip_reference(clip_id)
+        if clip_ref["location"] != "arrangement":
+            raise RequestError("invalid_argument", "duplicate_arrangement_clip only supports arrangement clips")
+        return self.duplicate_clip_to_arrangement(
+            clip_id=clip_id,
+            destination_beats=destination_beats,
+            target_track_id=target_track_id,
+            dry_run=dry_run,
+        )
 
     def move_arrangement_clip(self, clip_id, destination_beats, dry_run=False):
         clip_ref = self._find_clip_reference(clip_id)

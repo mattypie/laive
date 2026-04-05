@@ -142,4 +142,6 @@
 - Added arrangement-facing MCP tools for `get_arrangement_summary` and `set_arrangement_transport`.
 - Extended the fixture runtime and fake Live harness so arrangement readback and arrangement loop/position writes are exercised in tests rather than only in the real bridge.
 - Added explicit arrangement clip bound editing through `set_arrangement_clip_bounds`, so agents can trim or extend arrangement clips by start and end beat instead of relying on Session-oriented loop controls.
-- Added MIDI arrangement clip splitting through `split_arrangement_clip`, using a deterministic rewrite flow that trims note timing into left/right arrangement clips when direct runtime split support is unavailable.
+- Added MIDI arrangement clip splitting through `split_arrangement_clip`, using Live-native overlap behavior first and falling back to bridge-side rewrites when the runtime does not split clips for us.
+- Live-validated the arrangement split path on Live 11: a probe clip on `track:1` now splits cleanly into `8..12` and `12..16` arrangement clips with trimmed note counts in each half.
+- Added `duplicate_arrangement_clip` as a first-class arrangement primitive so agents can duplicate Arrangement clips without routing through the broader session-to-arrangement tool name.
