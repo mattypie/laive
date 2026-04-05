@@ -1403,12 +1403,15 @@ class LiveSetAdapter(object):
         except Exception as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at write_left_notes: {0}".format(error))
 
-        right_ref = self._find_arrangement_clip_with_bounds(
-            clip_ref["track_id"],
-            split_beats,
-            source_end,
-            exclude_clip_ids=[left_clip_ref["clip_id"]],
-        )
+        try:
+            right_ref = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                split_beats,
+                source_end,
+                exclude_clip_ids=[left_clip_ref["clip_id"]],
+            )
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at scan_right_overlap: {0}".format(error))
         if right_ref is None:
             source_ref = self._find_arrangement_clip_with_bounds(
                 clip_ref["track_id"],
@@ -1507,11 +1510,14 @@ class LiveSetAdapter(object):
         exclude_clip_ids = set(exclude_clip_ids or [])
         track, _track_index, _track_section = self._find_track(track_id)
         for arrangement_index, clip in enumerate(self._get_arrangement_clips(track)):
-            clip_id = getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index)
+            try:
+                clip_id = getattr(clip, "id", None) or _arrangement_clip_id(track_id, arrangement_index)
+                clip_start = float(getattr(clip, "start_time", 0.0) or 0.0)
+                clip_end = getattr(clip, "end_time", None)
+            except Exception:
+                continue
             if clip_id in exclude_clip_ids:
                 continue
-            clip_start = float(getattr(clip, "start_time", 0.0) or 0.0)
-            clip_end = getattr(clip, "end_time", None)
             if clip_end is None:
                 clip_end = clip_start + self._arrangement_clip_length_beats(clip)
             clip_end = float(clip_end)
