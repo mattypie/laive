@@ -1444,17 +1444,22 @@ class LiveSetAdapter(object):
         except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at scan_right_overlap: {0}".format(error))
         if right_ref is None:
-            source_ref = self._find_arrangement_clip_with_bounds(
-                clip_ref["track_id"],
-                source_start,
-                source_end,
-                exclude_clip_ids=[left_clip_ref["clip_id"]],
-            )
+            try:
+                source_ref = self._find_arrangement_clip_with_bounds(
+                    clip_ref["track_id"],
+                    source_start,
+                    source_end,
+                    exclude_clip_ids=[left_clip_ref["clip_id"]],
+                )
+            except BaseException as error:
+                raise RequestError("runtime_error", "split_arrangement_clip failed at scan_source_overlap: {0}".format(error))
             if source_ref is None:
                 try:
                     source_ref = self._find_clip_reference(clip_ref["clip_id"])
                 except RequestError:
                     source_ref = None
+                except BaseException as error:
+                    raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_source_after_split: {0}".format(error))
             if source_ref is not None:
                 try:
                     right_clip, right_index = self._set_arrangement_clip_bounds_runtime(
@@ -1491,30 +1496,36 @@ class LiveSetAdapter(object):
         except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at write_right_notes: {0}".format(error))
 
-        leftover_source = self._find_arrangement_clip_with_bounds(
-            clip_ref["track_id"],
-            source_start,
-            source_end,
-            exclude_clip_ids=[left_clip_ref["clip_id"], right_ref["clip_id"]],
-        )
+        try:
+            leftover_source = self._find_arrangement_clip_with_bounds(
+                clip_ref["track_id"],
+                source_start,
+                source_end,
+                exclude_clip_ids=[left_clip_ref["clip_id"], right_ref["clip_id"]],
+            )
+        except BaseException as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at scan_leftover: {0}".format(error))
         if leftover_source is not None:
             try:
                 self.delete_clip(leftover_source["clip_id"], dry_run=False)
             except BaseException as error:
                 raise RequestError("runtime_error", "split_arrangement_clip failed at cleanup_leftover: {0}".format(error))
 
-        return [
-            self._serialize_arrangement_clip(
-                left_clip_ref["clip"],
-                clip_ref["track_id"],
-                left_clip_ref["arrangement_index"],
-            ),
-            self._serialize_arrangement_clip(
-                right_ref["clip"],
-                clip_ref["track_id"],
-                right_ref["arrangement_index"],
-            ),
-        ]
+        try:
+            return [
+                self._serialize_arrangement_clip(
+                    left_clip_ref["clip"],
+                    clip_ref["track_id"],
+                    left_clip_ref["arrangement_index"],
+                ),
+                self._serialize_arrangement_clip(
+                    right_ref["clip"],
+                    clip_ref["track_id"],
+                    right_ref["arrangement_index"],
+                ),
+            ]
+        except BaseException as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at serialize_result: {0}".format(error))
 
     def _replace_notes_resilient(self, clip, notes):
         normalized_notes = [self._clip_notes.normalize_input(note) for note in notes]
