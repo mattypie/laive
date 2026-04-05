@@ -826,16 +826,17 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(right_clip["start_beats"], 12.0)
         self.assertEqual(right_clip["end_beats"], 16.0)
         self.assertEqual(len(song.tracks[1].arrangement_clips), 2)
-        self.assertEqual(song.tracks[1].arrangement_clips[0].start_time, 8.0)
-        self.assertEqual(song.tracks[1].arrangement_clips[0].end_time, 12.0)
-        self.assertEqual(song.tracks[1].arrangement_clips[1].start_time, 12.0)
-        self.assertEqual(song.tracks[1].arrangement_clips[1].end_time, 16.0)
+        arrangement_clips = sorted(song.tracks[1].arrangement_clips, key=lambda clip: clip.start_time)
+        self.assertEqual(arrangement_clips[0].start_time, 8.0)
+        self.assertEqual(arrangement_clips[0].end_time, 12.0)
+        self.assertEqual(arrangement_clips[1].start_time, 12.0)
+        self.assertEqual(arrangement_clips[1].end_time, 16.0)
         self.assertEqual(
-            [(note["pitch"], note["start_time"], note["duration"]) for note in song.tracks[1].arrangement_clips[0].notes],
+            [(note["pitch"], note["start_time"], note["duration"]) for note in arrangement_clips[0].notes],
             [(36, 0.0, 2.0), (38, 3.0, 1.0)],
         )
         self.assertEqual(
-            [(note["pitch"], note["start_time"], note["duration"]) for note in song.tracks[1].arrangement_clips[1].notes],
+            [(note["pitch"], note["start_time"], note["duration"]) for note in arrangement_clips[1].notes],
             [(38, 0.0, 1.0), (40, 2.0, 1.0)],
         )
 

@@ -1384,16 +1384,14 @@ class LiveSetAdapter(object):
             split_beats,
             source_end,
         )
-
-        left_clip, left_index = self._set_arrangement_clip_bounds_runtime(
-            clip_ref,
-            track,
+        left_created = self.create_arrangement_clip(
+            clip_ref["track_id"],
             source_start,
-            split_beats,
+            float(split_beats) - float(source_start),
+            name=source_name,
+            dry_run=False,
         )
-        left_clip_ref = self._find_clip_reference(
-            getattr(left_clip, "id", None) or _arrangement_clip_id(clip_ref["track_id"], left_index)
-        )
+        left_clip_ref = self._find_clip_reference(left_created["clip"]["id"])
         self._replace_notes_resilient(left_clip_ref["clip"], left_notes)
 
         right_ref = self._find_arrangement_clip_with_bounds(
@@ -1403,15 +1401,46 @@ class LiveSetAdapter(object):
             exclude_clip_ids=[left_clip_ref["clip_id"]],
         )
         if right_ref is None:
-            right_created = self.create_arrangement_clip(
+            source_ref = self._find_arrangement_clip_with_bounds(
                 clip_ref["track_id"],
-                split_beats,
-                float(source_end) - float(split_beats),
-                name=source_name,
-                dry_run=False,
+                source_start,
+                source_end,
+                exclude_clip_ids=[left_clip_ref["clip_id"]],
             )
-            right_ref = self._find_clip_reference(right_created["clip"]["id"])
+            if source_ref is None:
+                try:
+                    source_ref = self._find_clip_reference(clip_ref["clip_id"])
+                except RequestError:
+                    source_ref = None
+            if source_ref is not None:
+                right_clip, right_index = self._set_arrangement_clip_bounds_runtime(
+                    source_ref,
+                    track,
+                    split_beats,
+                    source_end,
+                )
+                right_ref = self._find_clip_reference(
+                    getattr(right_clip, "id", None) or _arrangement_clip_id(clip_ref["track_id"], right_index)
+                )
+            else:
+                right_created = self.create_arrangement_clip(
+                    clip_ref["track_id"],
+                    split_beats,
+                    float(source_end) - float(split_beats),
+                    name=source_name,
+                    dry_run=False,
+                )
+                right_ref = self._find_clip_reference(right_created["clip"]["id"])
         self._replace_notes_resilient(right_ref["clip"], right_notes)
+
+        leftover_source = self._find_arrangement_clip_with_bounds(
+            clip_ref["track_id"],
+            source_start,
+            source_end,
+            exclude_clip_ids=[left_clip_ref["clip_id"], right_ref["clip_id"]],
+        )
+        if leftover_source is not None:
+            self.delete_clip(leftover_source["clip_id"], dry_run=False)
 
         return [
             self._serialize_arrangement_clip(
