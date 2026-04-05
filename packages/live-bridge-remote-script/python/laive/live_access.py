@@ -679,7 +679,7 @@ class LiveSetAdapter(object):
     def split_arrangement_clip(self, clip_id, split_beats, dry_run=False):
         try:
             clip_ref = self._find_clip_reference(clip_id)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at lookup_clip: {0}".format(error))
         if clip_ref["location"] != "arrangement":
             raise RequestError(
@@ -690,7 +690,7 @@ class LiveSetAdapter(object):
         clip = clip_ref["clip"]
         try:
             is_audio_clip = bool(getattr(clip, "is_audio_clip", False))
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at read_clip_type: {0}".format(error))
         if is_audio_clip:
             raise RequestError(
@@ -705,7 +705,7 @@ class LiveSetAdapter(object):
                 current_end = current_start + self._arrangement_clip_length_beats(clip)
             current_end = float(current_end)
             split_beats = float(split_beats)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at read_bounds: {0}".format(error))
 
         if split_beats <= current_start or split_beats >= current_end:
@@ -743,7 +743,7 @@ class LiveSetAdapter(object):
 
         try:
             track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at lookup_track: {0}".format(error))
         clips = self._split_arrangement_clip_runtime(clip_ref, track, split_beats)
         return {
@@ -1377,22 +1377,22 @@ class LiveSetAdapter(object):
         source_clip = clip_ref["clip"]
         try:
             source_start = float(getattr(source_clip, "start_time", 0.0) or 0.0)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_start: {0}".format(error))
         try:
             source_end = getattr(source_clip, "end_time", None)
             if source_end is None:
                 source_end = source_start + self._arrangement_clip_length_beats(source_clip)
             source_end = float(source_end)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_end: {0}".format(error))
         try:
             source_name = getattr(source_clip, "name", None)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_name: {0}".format(error))
         try:
             source_notes = self._clip_notes.serialize_notes(source_clip)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at read_source_notes: {0}".format(error))
         try:
             note_base = self._arrangement_note_base(source_notes, source_start)
@@ -1410,7 +1410,7 @@ class LiveSetAdapter(object):
                 split_beats,
                 source_end,
             )
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at segment_notes: {0}".format(error))
         try:
             left_created = self.create_arrangement_clip(
@@ -1420,15 +1420,15 @@ class LiveSetAdapter(object):
                 name=source_name,
                 dry_run=False,
             )
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at create_left: {0}".format(error))
         try:
             left_clip_ref = self._find_clip_reference(left_created["clip"]["id"])
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_left: {0}".format(error))
         try:
             self._replace_notes_resilient(left_clip_ref["clip"], left_notes)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at write_left_notes: {0}".format(error))
 
         try:
@@ -1438,7 +1438,7 @@ class LiveSetAdapter(object):
                 source_end,
                 exclude_clip_ids=[left_clip_ref["clip_id"]],
             )
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at scan_right_overlap: {0}".format(error))
         if right_ref is None:
             source_ref = self._find_arrangement_clip_with_bounds(
@@ -1460,13 +1460,13 @@ class LiveSetAdapter(object):
                         split_beats,
                         source_end,
                     )
-                except Exception as error:
+                except BaseException as error:
                     raise RequestError("runtime_error", "split_arrangement_clip failed at rewrite_right: {0}".format(error))
                 try:
                     right_ref = self._find_clip_reference(
                         getattr(right_clip, "id", None) or _arrangement_clip_id(clip_ref["track_id"], right_index)
                     )
-                except Exception as error:
+                except BaseException as error:
                     raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_right_after_rewrite: {0}".format(error))
             else:
                 try:
@@ -1477,15 +1477,15 @@ class LiveSetAdapter(object):
                         name=source_name,
                         dry_run=False,
                     )
-                except Exception as error:
+                except BaseException as error:
                     raise RequestError("runtime_error", "split_arrangement_clip failed at create_right: {0}".format(error))
                 try:
                     right_ref = self._find_clip_reference(right_created["clip"]["id"])
-                except Exception as error:
+                except BaseException as error:
                     raise RequestError("runtime_error", "split_arrangement_clip failed at resolve_right_after_create: {0}".format(error))
         try:
             self._replace_notes_resilient(right_ref["clip"], right_notes)
-        except Exception as error:
+        except BaseException as error:
             raise RequestError("runtime_error", "split_arrangement_clip failed at write_right_notes: {0}".format(error))
 
         leftover_source = self._find_arrangement_clip_with_bounds(
@@ -1497,7 +1497,7 @@ class LiveSetAdapter(object):
         if leftover_source is not None:
             try:
                 self.delete_clip(leftover_source["clip_id"], dry_run=False)
-            except Exception as error:
+            except BaseException as error:
                 raise RequestError("runtime_error", "split_arrangement_clip failed at cleanup_leftover: {0}".format(error))
 
         return [
