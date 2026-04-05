@@ -679,20 +679,34 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
       let method = null;
       let bridgeLoad = null;
       let uiWorkflow = null;
+      const warnings = [];
 
       if (nativeBrowserItem && typeof bridgeAdapter.loadBrowserItem === "function") {
-        method = "bridge_browser_load_item";
-        bridgeLoad = dryRun
-          ? {
-              preview: true,
-              item: nativeBrowserItem
-            }
-          : await bridgeAdapter.loadBrowserItem({
-              trackId,
-              uri: nativeBrowserItem.uri ?? null,
-              path: nativeBrowserItem.path ?? null
-            });
-      } else {
+        try {
+          method = "bridge_browser_load_item";
+          bridgeLoad = dryRun
+            ? {
+                preview: true,
+                item: nativeBrowserItem
+              }
+            : await bridgeAdapter.loadBrowserItem({
+                trackId,
+                uri: nativeBrowserItem.uri ?? null,
+                path: nativeBrowserItem.path ?? null
+              });
+        } catch (error) {
+          warnings.push(
+            `Native browser loading failed for the sidecar; falling back to UI helper: ${error.message || "unknown error"}`
+          );
+          method = null;
+          bridgeLoad = {
+            error: error.message || "unknown error",
+            item: nativeBrowserItem
+          };
+        }
+      }
+
+      if (!method) {
         const effectiveUiStatus = uiStatus ?? await resolvedUiAdapter.getStatus();
         requireConfigured(effectiveUiStatus, "UI helper");
         method = "ui_browser_search_and_load";
@@ -727,8 +741,9 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         bridge_load: bridgeLoad,
         ui_workflow: uiWorkflow,
         warnings: activeInstance
-          ? []
+          ? warnings
           : [
+              ...warnings,
               "The sidecar load action was dispatched but the device was not confirmed on the target track yet."
             ],
         setup_instructions: nextStatus.setup_instructions

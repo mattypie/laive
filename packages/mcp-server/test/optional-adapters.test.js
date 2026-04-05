@@ -253,3 +253,67 @@ test("createSidecarAdapter.ensureOnTrack falls back to UI browser search when na
   assert.equal(result.activeInstance.trackId, "track:1");
   assert.deepEqual(result.warnings, []);
 });
+
+test("createSidecarAdapter.ensureOnTrack falls back to UI browser search when native load errors", async () => {
+  const stateAdapter = createStateAdapter();
+  const bridgeAdapter = {
+    async selectTrack() {
+      return { ok: true };
+    },
+    async getBrowserTree() {
+      return {
+        roots: [{ path: "user_library", name: "User Library" }]
+      };
+    },
+    async getBrowserItems(payload = {}) {
+      if (payload.path === "user_library") {
+        return {
+          path: payload.path,
+          item: { name: "User Library", path: "user_library", is_folder: true, is_loadable: false },
+          items: [
+            {
+              name: "laive-sidecar",
+              path: "user_library/laive-sidecar",
+              uri: "browser:user_library:laive-sidecar",
+              is_folder: false,
+              is_loadable: true
+            }
+          ]
+        };
+      }
+      return { path: payload.path, items: [] };
+    },
+    async loadBrowserItem() {
+      throw new Error("");
+    }
+  };
+  const uiAutomationAdapter = {
+    async getStatus() {
+      return {
+        configured: true,
+        workflows: []
+      };
+    },
+    async executeWorkflow(name, parameters) {
+      stateAdapter.markLoaded("track:1");
+      return {
+        workflow: name,
+        parameters
+      };
+    }
+  };
+
+  const adapter = createSidecarAdapter({
+    stateAdapter,
+    bridgeAdapter,
+    uiAutomationAdapter
+  });
+
+  const result = await adapter.ensureOnTrack({ trackId: "track:1" });
+
+  assert.equal(result.method, "ui_browser_search_and_load");
+  assert.equal(result.active, true);
+  assert.equal(result.activeInstance.trackId, "track:1");
+  assert.equal(result.bridge_load.item.path, "user_library/laive-sidecar");
+  assert.equal(result.warnings.length, 1);
+});
