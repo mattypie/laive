@@ -677,7 +677,10 @@ class LiveSetAdapter(object):
         }
 
     def split_arrangement_clip(self, clip_id, split_beats, dry_run=False):
-        clip_ref = self._find_clip_reference(clip_id)
+        try:
+            clip_ref = self._find_clip_reference(clip_id)
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at lookup_clip: {0}".format(error))
         if clip_ref["location"] != "arrangement":
             raise RequestError(
                 "invalid_argument",
@@ -685,18 +688,25 @@ class LiveSetAdapter(object):
             )
 
         clip = clip_ref["clip"]
-        if bool(getattr(clip, "is_audio_clip", False)):
+        try:
+            is_audio_clip = bool(getattr(clip, "is_audio_clip", False))
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at read_clip_type: {0}".format(error))
+        if is_audio_clip:
             raise RequestError(
                 "unsupported_runtime",
                 "split_arrangement_clip currently supports MIDI arrangement clips only",
             )
 
-        current_start = float(getattr(clip, "start_time", 0.0) or 0.0)
-        current_end = getattr(clip, "end_time", None)
-        if current_end is None:
-            current_end = current_start + self._arrangement_clip_length_beats(clip)
-        current_end = float(current_end)
-        split_beats = float(split_beats)
+        try:
+            current_start = float(getattr(clip, "start_time", 0.0) or 0.0)
+            current_end = getattr(clip, "end_time", None)
+            if current_end is None:
+                current_end = current_start + self._arrangement_clip_length_beats(clip)
+            current_end = float(current_end)
+            split_beats = float(split_beats)
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at read_bounds: {0}".format(error))
 
         if split_beats <= current_start or split_beats >= current_end:
             raise RequestError(
@@ -731,7 +741,10 @@ class LiveSetAdapter(object):
                 "clips": [left_clip, right_clip],
             }
 
-        track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+        try:
+            track, _track_index, _track_section = self._find_track(clip_ref["track_id"])
+        except Exception as error:
+            raise RequestError("runtime_error", "split_arrangement_clip failed at lookup_track: {0}".format(error))
         clips = self._split_arrangement_clip_runtime(clip_ref, track, split_beats)
         return {
             "applied": True,
