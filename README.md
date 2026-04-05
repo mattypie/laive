@@ -25,7 +25,7 @@ Grouped capability summary:
 - Session workflows: create clips and scenes, edit notes, launch clips and scenes, stop clip playback
 - Mixer and routing: return/master discovery, send levels, monitor state, routing, return-track creation
 - Device workflows: browser-backed device loading, parameter writes, enum-label targeting where metadata exists
-- Optional helpers: sidecar placement and sidecar/UI-helper workflow setup guidance
+- Optional helpers: sidecar placement, selected-clip transforms, device snapshot/restore, and sidecar/UI-helper workflow setup guidance
 
 Full feature breakdown:
 - [Features](./docs/features.md)

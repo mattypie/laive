@@ -97,10 +97,12 @@ These are the current planned work units for the next product slices. They are i
 ### Target `v0.8.0`
 
 - envelopes and deeper sidecar workflows:
+  - landed in the first work unit:
+    - selected-clip note transforms
+    - device snapshot capture
+    - device snapshot restore
   - clip-envelope inspection
   - clip-envelope editing
-  - selected-clip transforms
-  - parameter snapshot/restore
   - lightweight analysis workflows
 
 ### Target `v0.9.0`

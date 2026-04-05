@@ -7,7 +7,7 @@ This is the user-facing roadmap summary. The deeper execution tracker lives in:
 
 - `v0.6.0` delivered the mixer and routing slice
 - `v0.7.0` delivered the arrangement view slice
-- `v0.8.0` is next: envelopes and deeper sidecar workflows
+- `v0.8.0` is in progress: envelopes and deeper sidecar workflows
 
 ## Delivered
 
@@ -38,10 +38,10 @@ This is the user-facing roadmap summary. The deeper execution tracker lives in:
 
 ### `v0.8.0`
 
+- selected-clip transforms
+- device snapshot capture and restore
 - clip-envelope read/write
 - deeper sidecar workflows
-- selected-clip transforms
-- parameter snapshots
 - lightweight analysis
 
 ### `v0.9.0`

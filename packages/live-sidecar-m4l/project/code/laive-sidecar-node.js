@@ -19,6 +19,12 @@ const workflows = {
     requiredCapabilities: ["objectObservation"],
     queryPaths: ["live_set view selected_track", "live_set view detail_clip"]
   },
+  transformSelectedClip: {
+    description:
+      "Rewrite the currently selected MIDI clip with note-level transforms such as transposition, velocity scaling, and timing shifts.",
+    requiredCapabilities: ["objectObservation", "noteEditing"],
+    target: "clip:selected"
+  },
   replaceClipNotes: {
     description: "Apply a note payload to a target MIDI clip in a single sidecar transaction.",
     requiredCapabilities: ["noteEditing"],
@@ -28,6 +34,17 @@ const workflows = {
     description: "Start a parameter observation stream for the selected device.",
     requiredCapabilities: ["objectObservation", "deviceIntrospection"],
     target: "device:selected"
+  },
+  captureDeviceSnapshot: {
+    description:
+      "Capture a parameter snapshot for a selected or explicitly targeted device so it can be restored later.",
+    requiredCapabilities: ["objectObservation", "deviceIntrospection"],
+    target: "device"
+  },
+  applyDeviceSnapshot: {
+    description: "Apply a previously captured device-parameter snapshot back onto a target device.",
+    requiredCapabilities: ["deviceIntrospection"],
+    target: "device"
   }
 };
 

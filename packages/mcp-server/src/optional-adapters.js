@@ -53,6 +53,78 @@ function requireConfigured(status, label) {
   }
 }
 
+function normalizeLookup(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function buildLookupAliases(name) {
+  const aliases = new Set();
+  let current = String(name ?? "").trim();
+  while (current) {
+    aliases.add(normalizeLookup(current));
+    const trimmed = current.replace(/^[A-Za-z][-\s]/, "").trim();
+    if (trimmed === current) {
+      break;
+    }
+    current = trimmed;
+  }
+  return [...aliases];
+}
+
+function candidateLookupAliases(candidate) {
+  const aliases = new Set();
+  for (const value of [candidate?.name, candidate?.shortName, candidate?.identifier]) {
+    for (const alias of buildLookupAliases(value)) {
+      aliases.add(alias);
+    }
+  }
+  for (const value of candidate?.aliases ?? []) {
+    for (const alias of buildLookupAliases(value)) {
+      aliases.add(alias);
+    }
+  }
+  return [...aliases];
+}
+
+function pickUniqueMatch(candidates, requested, label) {
+  const normalizedRequested = normalizeLookup(requested);
+  if (!normalizedRequested) {
+    return null;
+  }
+
+  const exactMatches = candidates.filter((candidate) =>
+    candidateLookupAliases(candidate).includes(normalizedRequested)
+  );
+  if (exactMatches.length === 1) {
+    return exactMatches[0];
+  }
+  if (exactMatches.length > 1) {
+    throw new McpServerError(
+      "ambiguous_target",
+      `${label} name matched multiple objects: ${exactMatches.map((candidate) => candidate.name).join(", ")}`
+    );
+  }
+
+  const partialMatches = candidates.filter((candidate) =>
+    candidateLookupAliases(candidate).some((alias) => alias.includes(normalizedRequested))
+  );
+  if (partialMatches.length === 1) {
+    return partialMatches[0];
+  }
+  if (partialMatches.length > 1) {
+    throw new McpServerError(
+      "ambiguous_target",
+      `${label} name matched multiple objects: ${partialMatches.map((candidate) => candidate.name).join(", ")}`
+    );
+  }
+
+  throw new McpServerError("not_found", `${label} not found for name: ${requested}`);
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
 function isSidecarDeviceName(name) {
   const normalized = String(name ?? "")
     .trim()
@@ -190,6 +262,182 @@ async function confirmSidecarActiveOnTrack(stateAdapter, trackId, options = {}) 
   };
 }
 
+function resolveContextClip(context, explicitClipId = null) {
+  const selectedClip = context?.clip ?? null;
+  const clipId = explicitClipId ?? context?.selectedClipId ?? selectedClip?.id ?? null;
+  if (!clipId || !selectedClip || selectedClip.id !== clipId) {
+    throw new McpServerError(
+      "invalid_request",
+      "A selected clip is required in Live for this sidecar workflow"
+    );
+  }
+  return selectedClip;
+}
+
+function requireMidiClip(clip) {
+  if (!clip?.isMidi && !clip?.is_midi) {
+    throw new McpServerError(
+      "invalid_request",
+      "The selected clip must be a MIDI clip for this sidecar workflow"
+    );
+  }
+}
+
+function requireClipNotes(clip) {
+  const notes = clip?.notes ?? [];
+  if (!Array.isArray(notes)) {
+    throw new McpServerError("runtime_error", "Selected clip notes are unavailable in the current state mirror");
+  }
+  return notes;
+}
+
+function buildTransformedNotes(notes, transform) {
+  return notes.map((note) => {
+    const nextStart = clamp(
+      Number(note.start_time ?? note.startBeats ?? 0) + Number(transform.startOffsetBeats ?? 0),
+      0,
+      Number.MAX_SAFE_INTEGER
+    );
+    const nextDuration = clamp(
+      Number(note.duration ?? note.durationBeats ?? 0.25) * Number(transform.durationScale ?? 1),
+      0.03125,
+      Number.MAX_SAFE_INTEGER
+    );
+    const nextVelocity = clamp(
+      Math.round(
+        Number(note.velocity ?? 100) * Number(transform.velocityScale ?? 1) +
+          Number(transform.velocityOffset ?? 0)
+      ),
+      1,
+      127
+    );
+    const nextPitch = clamp(
+      Math.round(Number(note.pitch ?? 60) + Number(transform.transposeSemitones ?? 0)),
+      0,
+      127
+    );
+
+    return {
+      ...note,
+      pitch: nextPitch,
+      start_time: nextStart,
+      startBeats: nextStart,
+      duration: nextDuration,
+      durationBeats: nextDuration,
+      velocity: nextVelocity
+    };
+  });
+}
+
+function ensureTransformRequested(transform) {
+  const keys = [
+    "transposeSemitones",
+    "velocityScale",
+    "velocityOffset",
+    "startOffsetBeats",
+    "durationScale"
+  ];
+  if (!keys.some((key) => transform[key] !== undefined && transform[key] !== null)) {
+    throw new McpServerError(
+      "invalid_request",
+      "Provide at least one transform parameter for sidecar clip transforms"
+    );
+  }
+}
+
+async function resolveDeviceSnapshotTarget(stateAdapter, parameters = {}) {
+  if (!stateAdapter) {
+    throw new McpServerError("adapter_unavailable", "state adapter is not configured");
+  }
+
+  const context = await stateAdapter.getSelectedContext();
+  const selectedTrack = context?.track ?? null;
+  const selectedDevice = context?.device ?? null;
+
+  let trackId = parameters.trackId ?? selectedTrack?.id ?? null;
+  if (!trackId && parameters.trackName) {
+    const tracks = await stateAdapter.listTracks();
+    trackId = pickUniqueMatch(tracks, parameters.trackName, "Track").id;
+  }
+  if (!trackId) {
+    throw new McpServerError(
+      "invalid_request",
+      "trackId or trackName is required when no track is selected in Live"
+    );
+  }
+
+  const details = await stateAdapter.getTrackDetails(trackId);
+  const devices = details.devices ?? [];
+  let device = null;
+
+  if (parameters.deviceId) {
+    device = devices.find((candidate) => candidate.id === parameters.deviceId) ?? null;
+    if (!device) {
+      throw new McpServerError("not_found", `Device not found: ${parameters.deviceId}`);
+    }
+  } else if (parameters.deviceName) {
+    device = pickUniqueMatch(devices, parameters.deviceName, "Device");
+  } else if (selectedDevice) {
+    device = devices.find((candidate) => candidate.id === selectedDevice.id) ?? null;
+  } else if (devices.length === 1) {
+    device = devices[0];
+  } else if (devices.length === 0) {
+    throw new McpServerError("not_found", `No devices found on track ${trackId}`);
+  } else {
+    throw new McpServerError(
+      "ambiguous_target",
+      "deviceId or deviceName is required when the selected track contains multiple devices"
+    );
+  }
+
+  return {
+    context,
+    track: details.track,
+    device
+  };
+}
+
+function buildDeviceSnapshot(target) {
+  return {
+    capturedAt: new Date().toISOString(),
+    trackId: target.track.id,
+    trackName: target.track.name,
+    deviceId: target.device.id,
+    deviceName: target.device.name,
+    parameters: (target.device.parameters ?? []).map((parameter) => ({
+      id: parameter.id,
+      name: parameter.name,
+      value: parameter.value,
+      displayValue: parameter.displayValue ?? parameter.display_value ?? null,
+      isQuantized: parameter.isQuantized ?? parameter.is_quantized ?? false
+    }))
+  };
+}
+
+async function readClipNotes(stateAdapter, bridgeAdapter, context) {
+  const clipId = context?.selectedClipId ?? context?.clip?.id ?? null;
+  if (!clipId) {
+    throw new McpServerError(
+      "invalid_request",
+      "A selected clip is required in Live for this sidecar workflow"
+    );
+  }
+
+  if (bridgeAdapter && typeof bridgeAdapter.getClipNotes === "function") {
+    const clipSnapshot = await bridgeAdapter.getClipNotes({ clipId });
+    return {
+      clip: clipSnapshot?.clip ?? context?.clip ?? null,
+      notes: Array.isArray(clipSnapshot?.notes) ? clipSnapshot.notes : []
+    };
+  }
+
+  const clip = resolveContextClip(context, clipId);
+  return {
+    clip,
+    notes: requireClipNotes(clip)
+  };
+}
+
 function requireActiveSidecar(status) {
   requireConfigured(status, "Max for Live sidecar");
   if (!status.active) {
@@ -239,6 +487,55 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         context
       };
     },
+    async transformSelectedClip({
+      transposeSemitones,
+      velocityScale,
+      velocityOffset,
+      startOffsetBeats,
+      durationScale,
+      dryRun = false
+    } = {}) {
+      const status = await getSidecarStatus(stateAdapter);
+      requireActiveSidecar(status);
+      if (!stateAdapter || !bridgeAdapter) {
+        throw new McpServerError("adapter_unavailable", "state or bridge adapter is not configured");
+      }
+
+      const transform = {
+        transposeSemitones,
+        velocityScale,
+        velocityOffset,
+        startOffsetBeats,
+        durationScale
+      };
+      ensureTransformRequested(transform);
+
+      const context = await stateAdapter.getSelectedContext();
+      const clipSnapshot = await readClipNotes(stateAdapter, bridgeAdapter, context);
+      const clip = clipSnapshot.clip;
+      requireMidiClip(clip);
+      const notes = clipSnapshot.notes;
+      const transformedNotes = buildTransformedNotes(notes, transform);
+      const result = await bridgeAdapter.replaceNotes(
+        {
+          clipId: clip.id,
+          notes: transformedNotes
+        },
+        { dryRun }
+      );
+
+      return {
+        workflow: "transformSelectedClip",
+        configured: true,
+        selectedClipId: clip.id,
+        selectedClipLocation: context.selectedClipLocation ?? clip.location ?? null,
+        transform,
+        noteCountBefore: notes.length,
+        noteCountAfter: transformedNotes.length,
+        transformedNotes,
+        bridgeResult: result
+      };
+    },
     async replaceClipNotes({ clipId, notes, dryRun = false }) {
       const status = await getSidecarStatus(stateAdapter);
       requireActiveSidecar(status);
@@ -275,6 +572,70 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         ],
         selectedDeviceId: context.device?.id ?? null,
         deviceTree: await stateAdapter.getDeviceTree(resolvedTrackId)
+      };
+    },
+    async captureDeviceSnapshot(parameters = {}) {
+      const status = await getSidecarStatus(stateAdapter);
+      requireActiveSidecar(status);
+      const target = await resolveDeviceSnapshotTarget(stateAdapter, parameters);
+      return {
+        workflow: "captureDeviceSnapshot",
+        configured: true,
+        snapshot: buildDeviceSnapshot(target)
+      };
+    },
+    async applyDeviceSnapshot({ snapshot, trackId, trackName, deviceId, deviceName, dryRun = false } = {}) {
+      const status = await getSidecarStatus(stateAdapter);
+      requireActiveSidecar(status);
+      if (!bridgeAdapter || typeof bridgeAdapter.setParameter !== "function") {
+        throw new McpServerError("adapter_unavailable", "bridge adapter cannot apply parameter snapshots");
+      }
+      if (!snapshot || typeof snapshot !== "object") {
+        throw new McpServerError("invalid_request", "snapshot is required");
+      }
+
+      const target = await resolveDeviceSnapshotTarget(stateAdapter, {
+        trackId: trackId ?? snapshot.trackId ?? null,
+        trackName: trackName ?? snapshot.trackName ?? null,
+        deviceId: deviceId ?? snapshot.deviceId ?? null,
+        deviceName: deviceName ?? snapshot.deviceName ?? null
+      });
+
+      const appliedParameters = [];
+      for (const parameterSnapshot of snapshot.parameters ?? []) {
+        if (typeof parameterSnapshot?.value !== "number") {
+          continue;
+        }
+        const liveParameter =
+          (target.device.parameters ?? []).find((parameter) => parameter.id === parameterSnapshot.id) ??
+          pickUniqueMatch(target.device.parameters ?? [], parameterSnapshot.name, "Parameter");
+        await bridgeAdapter.setParameter(
+          {
+            trackId: target.track.id,
+            deviceId: target.device.id,
+            parameterId: liveParameter.id,
+            value: parameterSnapshot.value
+          },
+          { dryRun }
+        );
+        appliedParameters.push({
+          parameterId: liveParameter.id,
+          parameterName: liveParameter.name,
+          value: parameterSnapshot.value
+        });
+      }
+
+      return {
+        workflow: "applyDeviceSnapshot",
+        configured: true,
+        target: {
+          trackId: target.track.id,
+          trackName: target.track.name,
+          deviceId: target.device.id,
+          deviceName: target.device.name
+        },
+        appliedParameters,
+        snapshot
       };
     },
     async ensureOnTrack({ trackId, dryRun = false } = {}) {
@@ -383,9 +744,34 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
             notes: parameters.notes,
             dryRun: Boolean(parameters.dryRun)
           });
+        case "transformSelectedClip":
+          return await this.transformSelectedClip({
+            transposeSemitones: parameters.transposeSemitones,
+            velocityScale: parameters.velocityScale,
+            velocityOffset: parameters.velocityOffset,
+            startOffsetBeats: parameters.startOffsetBeats,
+            durationScale: parameters.durationScale,
+            dryRun: Boolean(parameters.dryRun)
+          });
         case "observeDeviceParameters":
           return await this.observeDeviceParameters({
             trackId: parameters.trackId
+          });
+        case "captureDeviceSnapshot":
+          return await this.captureDeviceSnapshot({
+            trackId: parameters.trackId,
+            trackName: parameters.trackName,
+            deviceId: parameters.deviceId,
+            deviceName: parameters.deviceName
+          });
+        case "applyDeviceSnapshot":
+          return await this.applyDeviceSnapshot({
+            snapshot: parameters.snapshot,
+            trackId: parameters.trackId,
+            trackName: parameters.trackName,
+            deviceId: parameters.deviceId,
+            deviceName: parameters.deviceName,
+            dryRun: Boolean(parameters.dryRun)
           });
         case "ensureOnTrack":
           return await this.ensureOnTrack({

@@ -9,6 +9,8 @@ Format:
 
 ### Features
 
+- Start the `v0.8.0` slice with sidecar-backed selected-clip transforms plus device snapshot capture and restore, exposed as first-class MCP tools (`0570880`).
+
 ### Fixes
 
 ### Maintenance

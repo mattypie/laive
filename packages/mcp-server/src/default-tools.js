@@ -387,6 +387,56 @@ const noteItemSchema = {
   additionalProperties: false
 };
 
+const parameterSnapshotItemSchema = {
+  type: "object",
+  properties: {
+    id: {
+      type: "string"
+    },
+    name: {
+      type: "string"
+    },
+    value: {
+      type: "number"
+    },
+    displayValue: {
+      type: ["string", "null"]
+    },
+    isQuantized: {
+      type: "boolean"
+    }
+  },
+  required: ["id", "name", "value"],
+  additionalProperties: true
+};
+
+const deviceSnapshotSchema = {
+  type: "object",
+  properties: {
+    capturedAt: {
+      type: "string"
+    },
+    trackId: {
+      type: "string"
+    },
+    trackName: {
+      type: "string"
+    },
+    deviceId: {
+      type: "string"
+    },
+    deviceName: {
+      type: "string"
+    },
+    parameters: {
+      type: "array",
+      items: parameterSnapshotItemSchema
+    }
+  },
+  required: ["trackId", "deviceId", "parameters"],
+  additionalProperties: true
+};
+
 const dryRunProperty = {
   type: "boolean",
   description: "If true, preview the action without mutating Live."
@@ -2421,6 +2471,59 @@ export function buildDefaultTools({
       }
     },
     {
+      name: "sidecar_transform_selected_clip",
+      description:
+        "Apply note-level transforms to the currently selected MIDI clip through the optional Max for Live sidecar.",
+      inputSchema: createObjectSchema({
+        properties: {
+          transposeSemitones: {
+            type: "integer",
+            description: "Optional semitone shift to apply to every note in the selected MIDI clip."
+          },
+          velocityScale: {
+            type: "number",
+            description: "Optional multiplier applied to note velocities."
+          },
+          velocityOffset: {
+            type: "number",
+            description: "Optional offset added to note velocities after scaling."
+          },
+          startOffsetBeats: {
+            type: "number",
+            description: "Optional beat offset applied to note start times."
+          },
+          durationScale: {
+            type: "number",
+            description: "Optional multiplier applied to note durations."
+          },
+          dryRun: dryRunProperty
+        }
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("sidecar_transform_selected_clip", args);
+        const before = await stateAdapter.getProjectSummary();
+        const transformed = await sidecarAdapter.transformSelectedClip({
+          transposeSemitones: args.transposeSemitones,
+          velocityScale: args.velocityScale,
+          velocityOffset: args.velocityOffset,
+          startOffsetBeats: args.startOffsetBeats,
+          durationScale: args.durationScale,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState("project");
+        return {
+          ...buildMutationResult(
+            `Sidecar selected-clip transform ${args.dryRun ? "previewed" : "applied"}.`,
+            [transformed.selectedClipId].filter(Boolean),
+            before.stateVersion,
+            after.stateVersion,
+            after.warnings ?? []
+          ),
+          sidecar_workflow: transformed
+        };
+      }
+    },
+    {
       name: "sidecar_replace_clip_notes",
       description:
         "Apply a note payload through the optional Max for Live sidecar, or return setup instructions if it is unavailable.",
@@ -2457,6 +2560,101 @@ export function buildDefaultTools({
           after.stateVersion,
           after.warnings ?? []
         );
+      }
+    },
+    {
+      name: "sidecar_capture_device_snapshot",
+      description:
+        "Capture a parameter snapshot for a selected or explicitly targeted device through the optional Max for Live sidecar.",
+      inputSchema: createObjectSchema({
+        properties: {
+          trackId: {
+            type: "string",
+            description: "Optional track identifier when no track is selected in Live."
+          },
+          trackName: {
+            type: "string",
+            description: "Optional track name when trackId is unknown."
+          },
+          deviceId: {
+            type: "string",
+            description: "Optional device identifier when the target device is known."
+          },
+          deviceName: {
+            type: "string",
+            description: "Optional device name when deviceId is unknown."
+          }
+        }
+      }),
+      async execute(args) {
+        const result = await sidecarAdapter.captureDeviceSnapshot({
+          trackId: args.trackId ?? null,
+          trackName: args.trackName ?? null,
+          deviceId: args.deviceId ?? null,
+          deviceName: args.deviceName ?? null
+        });
+        return buildInformationalResult(
+          "Sidecar device snapshot captured.",
+          {
+            affected_objects: [result.snapshot.trackId, result.snapshot.deviceId].filter(Boolean),
+            sidecar_workflow: result
+          },
+          ["sidecar_apply_device_snapshot", "get_device_tree"]
+        );
+      }
+    },
+    {
+      name: "sidecar_apply_device_snapshot",
+      description:
+        "Apply a captured device-parameter snapshot through the optional Max for Live sidecar.",
+      inputSchema: createObjectSchema({
+        properties: {
+          snapshot: {
+            ...deviceSnapshotSchema,
+            description: "Snapshot payload previously returned by sidecar_capture_device_snapshot."
+          },
+          trackId: {
+            type: "string",
+            description: "Optional target track override."
+          },
+          trackName: {
+            type: "string",
+            description: "Optional target track name override."
+          },
+          deviceId: {
+            type: "string",
+            description: "Optional target device override."
+          },
+          deviceName: {
+            type: "string",
+            description: "Optional target device name override."
+          },
+          dryRun: dryRunProperty
+        },
+        required: ["snapshot"]
+      }),
+      async execute(args) {
+        await policyAdapter.assertAllowed("sidecar_apply_device_snapshot", args);
+        const before = await stateAdapter.getProjectSummary();
+        const result = await sidecarAdapter.applyDeviceSnapshot({
+          snapshot: args.snapshot,
+          trackId: args.trackId ?? null,
+          trackName: args.trackName ?? null,
+          deviceId: args.deviceId ?? null,
+          deviceName: args.deviceName ?? null,
+          dryRun: Boolean(args.dryRun)
+        });
+        const after = await stateAdapter.refreshState(result.target.trackId);
+        return {
+          ...buildMutationResult(
+            `Sidecar device snapshot ${args.dryRun ? "previewed" : "applied"} for ${result.target.deviceName}.`,
+            [result.target.trackId, result.target.deviceId].filter(Boolean),
+            before.stateVersion,
+            after.stateVersion,
+            after.warnings ?? []
+          ),
+          sidecar_workflow: result
+        };
       }
     },
     {

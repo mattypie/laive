@@ -35,3 +35,21 @@ test("sidecar runtime materializes note workflow and executes handlers", async (
   assert.equal(calls.length, 1);
   assert.equal(calls[0].target, "clip");
 });
+
+test("sidecar runtime materializes transform and snapshot workflows", async () => {
+  const runtime = createSidecarRuntime();
+
+  const transform = await runtime.handleCommand("materialize_workflow", {
+    name: "transformSelectedClip",
+    parameters: {
+      transposeSemitones: 7
+    }
+  });
+  const snapshot = await runtime.handleCommand("materialize_workflow", {
+    name: "captureDeviceSnapshot"
+  });
+
+  assert.equal(transform.type, "query");
+  assert.equal(transform.payload.workflow.steps[0].target, "clip:selected");
+  assert.equal(snapshot.payload.workflow.steps[1].queryPath, "live_set view detail_device");
+});

@@ -59,6 +59,7 @@ class LiveSetAdapter(object):
         return {
             "read_state": True,
             "read_arrangement": True,
+            "read_clip_notes": True,
             "set_transport": True,
             "set_arrangement_state": True,
             "set_arrangement_transport": True,
@@ -156,6 +157,7 @@ class LiveSetAdapter(object):
         selected_clip_id = None
         selected_clip_location = None
         detail_view_target = None
+        selected_device_id = None
         detail_clip = getattr(song_view, "detail_clip", None)
         if detail_clip is not None:
             clip_ref = self._find_clip_reference_by_object(detail_clip)
@@ -163,6 +165,20 @@ class LiveSetAdapter(object):
                 selected_clip_id = clip_ref["clip_id"]
                 selected_clip_location = clip_ref["location"]
                 detail_view_target = "clip"
+
+        selected_device = getattr(song_view, "selected_device", None)
+        if selected_device is None and selected_track is not None:
+            track_view = getattr(selected_track, "view", None)
+            if track_view is not None:
+                selected_device = getattr(track_view, "selected_device", None)
+        if selected_device is None:
+            selected_device = getattr(self.song, "appointed_device", None)
+        if selected_device is not None:
+            device_ref = self._find_device_reference_by_object(selected_device)
+            if device_ref is not None:
+                selected_device_id = device_ref["device_id"]
+                if detail_view_target is None:
+                    detail_view_target = "device"
 
         arrangement_position = getattr(
             self.song,
@@ -176,6 +192,7 @@ class LiveSetAdapter(object):
             "selected_scene_index": selected_scene_index,
             "selected_clip_id": selected_clip_id,
             "selected_clip_location": selected_clip_location,
+            "selected_device_id": selected_device_id,
             "detail_view_target": detail_view_target,
             "current_song_time": arrangement_position,
             "arrangement_position_beats": arrangement_position,
@@ -188,6 +205,13 @@ class LiveSetAdapter(object):
     def get_parameter(self, parameter_id):
         parameter, device_id, parameter_index = self._find_parameter(parameter_id)
         return self._serialize_parameter(parameter, device_id, parameter_index)
+
+    def get_clip_notes(self, clip_id):
+        clip_ref = self._find_clip_reference(clip_id)
+        return {
+            "clip": self._serialize_clip_reference(clip_ref),
+            "notes": self._clip_notes.serialize_notes(clip_ref["clip"]),
+        }
 
     def get_browser_tree(self):
         browser = self._browser()
@@ -2009,6 +2033,20 @@ class LiveSetAdapter(object):
                 if candidate == device_id:
                     return device, track_id, device_index
         raise RequestError("not_found", "Device not found: {0}".format(device_id))
+
+    def _find_device_reference_by_object(self, target_device):
+        for section, track_index, track in self._iter_tracks():
+            track_id = getattr(track, "id", None) or _track_id(track_index, section)
+            for device_index, device in enumerate(getattr(track, "devices", [])):
+                if self._same_live_object(device, target_device):
+                    device_id = getattr(device, "id", None) or _device_id(track_id, device_index)
+                    return {
+                        "device": device,
+                        "device_id": device_id,
+                        "track_id": track_id,
+                        "device_index": device_index,
+                    }
+        return None
 
     def _find_parameter(self, parameter_id):
         for section, track_index, track in self._iter_tracks():

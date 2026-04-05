@@ -110,10 +110,19 @@ Current sidecar-related tools:
 - `run_sidecar_workflow`
 - `ensure_sidecar_on_track`
 - `sidecar_snapshot_selection_context`
+- `sidecar_transform_selected_clip`
 - `sidecar_replace_clip_notes`
+- `sidecar_capture_device_snapshot`
+- `sidecar_apply_device_snapshot`
 - `sidecar_observe_device_parameters`
 
 If the sidecar is not installed or not active in the set, `laive` returns structured setup guidance instead of silently failing.
+
+Current sidecar workflow focus:
+- selected-clip note transforms on the currently selected MIDI clip
+- selected or explicitly targeted device-parameter snapshots
+- applying previously captured device snapshots back onto a device
+- selected-context snapshots and device observation
 
 ### macOS UI Helper
 

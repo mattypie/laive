@@ -743,6 +743,14 @@ export function createBridgeAdapter(target) {
         affectedObjects: [payload.clipId]
       };
     },
+    async getClipNotes(payload) {
+      const bridgeClient = await resolveBridgeClient(target);
+      return (
+        await bridgeClient.request("call", "get_clip_notes", {
+          clip_id: payload.clipId
+        })
+      ).result;
+    },
     async launchClip(payload, options = {}) {
       const bridgeClient = await resolveBridgeClient(target);
       const result = (

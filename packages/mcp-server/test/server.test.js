@@ -605,6 +605,18 @@ function createServer(options = {}) {
           {
             name: "replaceClipNotes",
             description: "Apply notes to a clip."
+          },
+          {
+            name: "transformSelectedClip",
+            description: "Transform the selected clip."
+          },
+          {
+            name: "captureDeviceSnapshot",
+            description: "Capture a device snapshot."
+          },
+          {
+            name: "applyDeviceSnapshot",
+            description: "Apply a device snapshot."
           }
         ],
         setup_instructions: ["Install the sidecar device."]
@@ -624,6 +636,54 @@ function createServer(options = {}) {
         component: "sidecar",
         setup_instructions: ["Install the sidecar device."]
       });
+    },
+    async transformSelectedClip() {
+      if (!(options.sidecarConfigured ?? false)) {
+        throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+          component: "sidecar",
+          setup_instructions: ["Install the sidecar device."]
+        });
+      }
+      return {
+        workflow: "transformSelectedClip",
+        selectedClipId: "clip:session:track:1:slot:1",
+        transformedNotes: [{ pitch: 72, startBeats: 0, durationBeats: 1, velocity: 100 }]
+      };
+    },
+    async captureDeviceSnapshot() {
+      if (!(options.sidecarConfigured ?? false)) {
+        throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+          component: "sidecar",
+          setup_instructions: ["Install the sidecar device."]
+        });
+      }
+      return {
+        workflow: "captureDeviceSnapshot",
+        snapshot: {
+          trackId: "track:1",
+          trackName: "Track 1",
+          deviceId: "device:track:1:1",
+          deviceName: "Operator",
+          parameters: [{ id: "parameter:device:track:1:1:1", name: "Volume", value: 0.5 }]
+        }
+      };
+    },
+    async applyDeviceSnapshot() {
+      if (!(options.sidecarConfigured ?? false)) {
+        throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
+          component: "sidecar",
+          setup_instructions: ["Install the sidecar device."]
+        });
+      }
+      return {
+        workflow: "applyDeviceSnapshot",
+        target: {
+          trackId: "track:1",
+          deviceId: "device:track:1:1",
+          deviceName: "Operator"
+        },
+        appliedParameters: [{ parameterId: "parameter:device:track:1:1:1", value: 0.5 }]
+      };
     },
     async observeDeviceParameters() {
       throw new McpServerError("setup_required", "Max for Live sidecar is not configured", {
@@ -659,6 +719,15 @@ function createServer(options = {}) {
       }
       if (name === "snapshotSelectionContext") {
         return await this.snapshotSelectionContext();
+      }
+      if (name === "transformSelectedClip") {
+        return await this.transformSelectedClip();
+      }
+      if (name === "captureDeviceSnapshot") {
+        return await this.captureDeviceSnapshot();
+      }
+      if (name === "applyDeviceSnapshot") {
+        return await this.applyDeviceSnapshot();
       }
       if (name === "ensureOnTrack") {
         return await this.ensureOnTrack({ trackId: "track:1" });
@@ -793,7 +862,10 @@ test("tools/list returns registered tools", async () => {
   assert.ok(byName.has("list_sidecar_workflows"));
   assert.ok(byName.has("ensure_sidecar_on_track"));
   assert.ok(byName.has("sidecar_snapshot_selection_context"));
+  assert.ok(byName.has("sidecar_transform_selected_clip"));
   assert.ok(byName.has("sidecar_replace_clip_notes"));
+  assert.ok(byName.has("sidecar_capture_device_snapshot"));
+  assert.ok(byName.has("sidecar_apply_device_snapshot"));
   assert.ok(byName.has("sidecar_observe_device_parameters"));
   assert.ok(byName.has("run_sidecar_workflow"));
   assert.ok(byName.has("list_ui_workflows"));
@@ -1942,4 +2014,65 @@ test("sidecar_replace_clip_notes surfaces setup instructions when sidecar is una
 
   assert.equal(response.result.isError, true);
   assert.equal(response.result.structuredContent.error.code, "setup_required");
+});
+
+test("sidecar_transform_selected_clip executes when the sidecar is active", async () => {
+  const server = createServer({ sidecarConfigured: true });
+  const response = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 10,
+    method: "tools/call",
+    params: {
+      name: "sidecar_transform_selected_clip",
+      arguments: {
+        transposeSemitones: 12
+      }
+    }
+  });
+
+  assert.equal(response.result.isError, false);
+  assert.equal(
+    response.result.structuredContent.sidecar_workflow.workflow,
+    "transformSelectedClip"
+  );
+});
+
+test("sidecar device snapshot tools execute when the sidecar is active", async () => {
+  const server = createServer({ sidecarConfigured: true });
+  const capture = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 11,
+    method: "tools/call",
+    params: {
+      name: "sidecar_capture_device_snapshot",
+      arguments: {
+        trackId: "track:1",
+        deviceName: "Operator"
+      }
+    }
+  });
+
+  assert.equal(capture.result.isError, false);
+  assert.equal(
+    capture.result.structuredContent.sidecar_workflow.snapshot.deviceName,
+    "Operator"
+  );
+
+  const apply = await server.safeHandleRpcMessage({
+    jsonrpc: "2.0",
+    id: 12,
+    method: "tools/call",
+    params: {
+      name: "sidecar_apply_device_snapshot",
+      arguments: {
+        snapshot: capture.result.structuredContent.sidecar_workflow.snapshot
+      }
+    }
+  });
+
+  assert.equal(apply.result.isError, false);
+  assert.equal(
+    apply.result.structuredContent.sidecar_workflow.workflow,
+    "applyDeviceSnapshot"
+  );
 });

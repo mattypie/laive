@@ -4,7 +4,7 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view
+- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view; first selected-clip transform and device-snapshot slice landed locally
 
 ## Versioned Roadmap
 
@@ -13,7 +13,7 @@
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
 | `v0.7.0` | Arrangement view | Complete for release: arrangement summaries/details, transport and loop control, arrangement clip creation, session-to-arrangement duplication, arrangement-to-arrangement duplication, move, bounds editing, MIDI split, selection/jump, rename/delete, and arrangement-aware selected context are all validated locally |
-| `v0.8.0` | Envelopes + deeper sidecar workflows | Clip-envelope read/write, selected-clip transforms, parameter snapshots, lightweight analysis |
+| `v0.8.0` | Envelopes + deeper sidecar workflows | In progress: selected-clip transforms and device snapshot/restore are landed locally; clip-envelope read/write and lightweight analysis remain |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 | `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |
 
@@ -148,3 +148,10 @@
 - Added `select_clip` and `jump_to_arrangement_clip` so agents can target Arrangement clips semantically instead of composing low-level selection and transport writes by hand.
 - Added arrangement-focused MCP wrappers for `rename_arrangement_clip` and `delete_arrangement_clip`, while keeping the underlying generic clip operations available for Session and Arrangement clips alike.
 - Enriched `get_selected_context` so arrangement selections now report the selected arrangement clip, its bounds, and the current arrangement position instead of a mostly empty selection mirror.
+
+### 2026-04-05
+
+- Started the first `v0.8.0` slice by adding sidecar-backed selected-clip transforms, so the currently selected MIDI clip can be transposed, velocity-scaled, shifted in time, or duration-scaled through a single MCP workflow.
+- Added sidecar-backed device snapshot capture and restore workflows, with explicit track/device targeting plus selected-track fallback when the target is unambiguous.
+- Promoted those new sidecar workflows into first-class MCP tools: `sidecar_transform_selected_clip`, `sidecar_capture_device_snapshot`, and `sidecar_apply_device_snapshot`.
+- Updated sidecar workflow definitions, the shipped Node-for-Max source script, MCP optional-adapter behavior, and docs so the `v0.8.0` slice is visible in the runtime surface instead of living only in roadmap prose.
