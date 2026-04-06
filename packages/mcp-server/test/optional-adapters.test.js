@@ -205,6 +205,39 @@ test("createSidecarAdapter.applyDeviceSnapshot restores captured parameter value
   assert.equal(calls[1].payload.value, 4);
 });
 
+test("createSidecarAdapter.applyDeviceSnapshot skips unchanged parameter values", async () => {
+  const stateAdapter = createStateAdapter();
+  stateAdapter.markLoaded("track:1");
+  const calls = [];
+  const bridgeAdapter = {
+    async setParameter(payload, options) {
+      calls.push({ payload, options });
+      return { ok: true };
+    }
+  };
+
+  const adapter = createSidecarAdapter({
+    stateAdapter,
+    bridgeAdapter
+  });
+
+  const result = await adapter.applyDeviceSnapshot({
+    snapshot: {
+      trackId: "track:1",
+      deviceId: "device:track:1:1",
+      parameters: [
+        { id: "parameter:device:track:1:1:1", name: "Volume", value: 0.4 },
+        { id: "parameter:device:track:1:1:2", name: "Algorithm", value: 4 }
+      ]
+    }
+  });
+
+  assert.equal(result.workflow, "applyDeviceSnapshot");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].payload.parameterId, "parameter:device:track:1:1:2");
+  assert.equal(result.appliedParameters.length, 1);
+});
+
 test("createSidecarAdapter.ensureOnTrack falls back to UI browser search when native resolution misses", async () => {
   const stateAdapter = createStateAdapter();
   const bridgeAdapter = {

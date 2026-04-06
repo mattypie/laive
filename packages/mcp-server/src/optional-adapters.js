@@ -414,6 +414,24 @@ function buildDeviceSnapshot(target) {
   };
 }
 
+function parameterValueMatchesSnapshot(liveParameter, snapshotParameter) {
+  if (!liveParameter || !snapshotParameter) {
+    return false;
+  }
+
+  const liveValue = Number(liveParameter.value);
+  const snapshotValue = Number(snapshotParameter.value);
+  if (!Number.isFinite(liveValue) || !Number.isFinite(snapshotValue)) {
+    return false;
+  }
+
+  if (liveParameter.isQuantized ?? liveParameter.is_quantized) {
+    return Math.round(liveValue) === Math.round(snapshotValue);
+  }
+
+  return Math.abs(liveValue - snapshotValue) <= 1e-6;
+}
+
 async function readClipNotes(stateAdapter, bridgeAdapter, context) {
   const clipId = context?.selectedClipId ?? context?.clip?.id ?? null;
   if (!clipId) {
@@ -609,6 +627,9 @@ export function createSidecarAdapter({ stateAdapter, bridgeAdapter, uiAutomation
         const liveParameter =
           (target.device.parameters ?? []).find((parameter) => parameter.id === parameterSnapshot.id) ??
           pickUniqueMatch(target.device.parameters ?? [], parameterSnapshot.name, "Parameter");
+        if (parameterValueMatchesSnapshot(liveParameter, parameterSnapshot)) {
+          continue;
+        }
         await bridgeAdapter.setParameter(
           {
             trackId: target.track.id,
