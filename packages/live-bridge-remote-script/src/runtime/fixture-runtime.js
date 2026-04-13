@@ -277,6 +277,8 @@ export class FixtureLiveRuntime extends EventEmitter {
         return this.clearClipEnvelope(args, dryRun);
       case "clear_all_clip_envelopes":
         return this.clearAllClipEnvelopes(args, dryRun);
+      case "set_clip_envelope":
+        return this.setClipEnvelope(args, dryRun);
       case "get_browser_items":
         return this.getBrowserItems(args);
       case "load_browser_item":
@@ -1551,13 +1553,42 @@ export class FixtureLiveRuntime extends EventEmitter {
       item.session_clips.some((candidate) => candidate.id === clip.id) ||
       (item.arrangement_clips ?? []).some((candidate) => candidate.id === clip.id)
     );
+    const sampleStep = Number(args.sample_step_beats ?? args.sampleStepBeats ?? 1);
+    const parameterId = args.parameter_id ?? args.parameterId ?? null;
+    const selectedParameterId = this.state.selected_context?.selected_envelope_parameter_id ?? null;
+    const availableTargets = this.iterClipEnvelopeTargets(track);
+    const target = parameterId
+      ? availableTargets.find((candidate) => candidate.parameter_id === parameterId)
+      : null;
+    const supportsAutomation = (clip.location ?? "session") === "session";
+    const envelopes = [];
+    if (supportsAutomation && target && clip.envelope_steps?.[target.parameter_id]) {
+      envelopes.push({
+        parameter_id: target.parameter_id,
+        parameterId: target.parameter_id,
+        name: target.name,
+        track_id: target.track_id,
+        trackId: target.track_id,
+        samples: clone(clip.envelope_steps[target.parameter_id]),
+        scope: target.scope,
+        ...(target.device_id ? { device_id: target.device_id, deviceId: target.device_id } : {}),
+        ...(target.device_name ? { device_name: target.device_name, deviceName: target.device_name } : {})
+      });
+    }
 
     return {
       clip: clone(clip),
+      supports_automation_envelopes: supportsAutomation,
+      supportsAutomationEnvelopes: supportsAutomation,
       has_envelopes: Boolean(clip.has_envelopes),
       hasEnvelopes: Boolean(clip.has_envelopes),
-      available_targets: this.iterClipEnvelopeTargets(track),
-      availableTargets: this.iterClipEnvelopeTargets(track)
+      selected_parameter_id: selectedParameterId,
+      selectedParameterId: selectedParameterId,
+      sample_step_beats: sampleStep,
+      sampleStepBeats: sampleStep,
+      available_targets: availableTargets,
+      availableTargets: availableTargets,
+      envelopes
     };
   }
 
@@ -1619,8 +1650,18 @@ export class FixtureLiveRuntime extends EventEmitter {
     const clip = this.findClip(args.clip_id);
     const target = this.findEnvelopeTarget(args.parameter_id);
     if (!dryRun) {
-      clip.has_envelopes = false;
-      clip.hasEnvelopes = false;
+      clip.envelope_steps = {
+        ...(clip.envelope_steps ?? {})
+      };
+      delete clip.envelope_steps[target.parameter_id];
+      clip.has_envelopes = Object.keys(clip.envelope_steps).length > 0;
+      clip.hasEnvelopes = clip.has_envelopes;
+      if (this.state.selected_context?.selected_envelope_parameter_id === target.parameter_id) {
+        this.state.selected_context = {
+          ...(this.state.selected_context ?? {}),
+          selected_envelope_parameter_id: null
+        };
+      }
     }
     return {
       applied: !dryRun,
@@ -1634,10 +1675,68 @@ export class FixtureLiveRuntime extends EventEmitter {
     if (!dryRun) {
       clip.has_envelopes = false;
       clip.hasEnvelopes = false;
+      clip.envelope_steps = {};
+      if (this.state.selected_context?.selected_clip_id === clip.id) {
+        this.state.selected_context = {
+          ...(this.state.selected_context ?? {}),
+          selected_envelope_parameter_id: null
+        };
+      }
     }
     return {
       applied: !dryRun,
       clip: clone(clip)
+    };
+  }
+
+  setClipEnvelope(args, dryRun) {
+    const clip = this.findClip(args.clip_id);
+    if ((clip.location ?? "session") !== "session") {
+      throw new Error("Clip envelopes are currently supported on Session clips only");
+    }
+    const target = this.findEnvelopeTarget(args.parameter_id);
+    const steps = Array.isArray(args.steps)
+      ? args.steps.map((step) => ({
+          beat: Number(step.start_beats ?? step.startBeats ?? 0),
+          duration: Number(step.duration_beats ?? step.durationBeats ?? 0),
+          value: Number(step.value)
+        }))
+      : [];
+
+    if (!dryRun) {
+      if (args.clear_existing !== false && args.clearExisting !== false) {
+        clip.envelope_steps = {
+          ...(clip.envelope_steps ?? {})
+        };
+        delete clip.envelope_steps[target.parameter_id];
+      }
+      clip.envelope_steps = {
+        ...(clip.envelope_steps ?? {}),
+        [target.parameter_id]: steps
+      };
+      clip.has_envelopes = Object.keys(clip.envelope_steps).length > 0;
+      clip.hasEnvelopes = clip.has_envelopes;
+      if (args.select_in_view || args.selectInView) {
+        this.state.selected_context = {
+          ...(this.state.selected_context ?? {}),
+          selected_clip_id: clip.id,
+          selected_clip_location: clip.location ?? "session",
+          detail_view_target: "clip",
+          selected_envelope_parameter_id: target.parameter_id,
+          envelope_visible: true
+        };
+      }
+    }
+
+    return {
+      applied: !dryRun,
+      clip: clone(clip),
+      parameter_target: clone(target),
+      envelope: {
+        parameter_id: target.parameter_id,
+        parameterId: target.parameter_id,
+        samples: clone(steps)
+      }
     };
   }
 

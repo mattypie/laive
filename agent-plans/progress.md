@@ -4,7 +4,7 @@
 
 - Date started: 2026-03-22
 - Repository state: initialized
-- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view; selected-clip transforms, device snapshot/restore, and the first Session clip-envelope slice are landed locally
+- Active phase: `v0.8.0` envelopes and deeper sidecar workflows after delivering `v0.7.0` arrangement view; selected-clip transforms, device snapshot/restore, and Session clip-envelope tooling are landed locally while arrangement envelope editing is blocked on the real Live runtime
 
 ## Versioned Roadmap
 
@@ -13,7 +13,7 @@
 | `v0.5.0` | Session editing + parameter metadata | Complete: clip rename/move/loop tools, gated duplicate/delete, enum labels/allowed values for quantized device parameters |
 | `v0.6.0` | Mixer and routing | Complete for release: return/master discovery, mixer-target listing, return/master device loading, return-track creation, volume/panning, send control, monitor control, routing writes, return/master-aware parameter targeting, and mixer alias/discovery hardening have all been validated locally |
 | `v0.7.0` | Arrangement view | Complete for release: arrangement summaries/details, transport and loop control, arrangement clip creation, session-to-arrangement duplication, arrangement-to-arrangement duplication, move, bounds editing, MIDI split, selection/jump, rename/delete, and arrangement-aware selected context are all validated locally |
-| `v0.8.0` | Envelopes + deeper sidecar workflows | In progress: selected-clip transforms, device snapshot/restore, and Session clip-envelope read/write are landed locally; arrangement-envelope support and lightweight analysis remain |
+| `v0.8.0` | Envelopes + deeper sidecar workflows | In progress: selected-clip transforms, device snapshot/restore, and Session clip-envelope read/write are landed locally; arrangement-envelope editing is blocked on the real Live runtime and lightweight analysis remains |
 | `v0.9.0` | Score / sheet-music ingest | Research and prototype score-to-MIDI ingestion, with emphasis on melodic correctness over brittle direct image transcription |
 | `v1.0.0` | Overall ergonomics | Generic agent ergonomics, unrelated editing workflows, and larger abstractions that should land after the mixer, Arrangement, envelope, and score-ingest slices |
 
@@ -155,3 +155,5 @@
 - Added sidecar-backed device snapshot capture and restore workflows, with explicit track/device targeting plus selected-track fallback when the target is unambiguous.
 - Promoted those new sidecar workflows into first-class MCP tools: `sidecar_transform_selected_clip`, `sidecar_capture_device_snapshot`, and `sidecar_apply_device_snapshot`.
 - Updated sidecar workflow definitions, the shipped Node-for-Max source script, MCP optional-adapter behavior, and docs so the `v0.8.0` slice is visible in the runtime surface instead of living only in roadmap prose.
+- Filled the fixture-runtime gap for `set_clip_envelope` so the smoke-test runtime now mirrors the real MCP surface instead of omitting envelope writes entirely.
+- Confirmed through real Live validation that arrangement clip-envelope selection works but envelope creation does not: Live 11 returns `Not a session clip or parameter belongs to another track.` when the bridge calls `create_automation_envelope(...)` on an arrangement clip, so arrangement-envelope editing remains a runtime-limited follow-up rather than a shipped `v0.8.0` feature.

@@ -101,8 +101,9 @@ These are the current planned work units for the next product slices. They are i
     - selected-clip note transforms
     - device snapshot capture
     - device snapshot restore
-  - clip-envelope inspection
-  - clip-envelope editing
+  - landed in the current work unit:
+    - Session clip-envelope inspection and editing
+  - arrangement clip-envelope editing remains blocked by the real Live 11 bridge runtime and needs a different implementation path
   - lightweight analysis workflows
 
 ### Target `v0.9.0`

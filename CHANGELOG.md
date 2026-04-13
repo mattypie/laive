@@ -14,7 +14,12 @@ Format:
 
 ### Fixes
 
+- Optimize sidecar snapshot restore so only changed parameters are written back, avoiding MCP timeouts on large devices like Operator (`38d7d6c`).
+- Fall back from native browser-side sidecar loading to UI search when Live rejects the native load call on a real set (`48ce515`).
+
 ### Maintenance
+
+- Fill the fixture-runtime gap for `set_clip_envelope` and record the real Live 11 limitation that arrangement clip-envelope creation is still unsupported through the current Remote Script API path.
 
 ## v0.7.0 - 2026-04-05
 

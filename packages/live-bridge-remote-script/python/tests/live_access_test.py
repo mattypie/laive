@@ -389,6 +389,37 @@ class LegacyNoteSequenceTests(unittest.TestCase):
         self.assertEqual(song.tracks[0].clip_slots[0].clip.view.selected_envelope_parameter.name, "Macro 1")
         self.assertTrue(song.tracks[0].clip_slots[0].clip.view.envelope_visible)
 
+    def test_get_arrangement_clip_envelopes_reports_targets_but_not_automation_support(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        envelopes = adapter.get_clip_envelopes(
+            "clip:arrangement:track:2:index:1",
+        )
+
+        self.assertFalse(envelopes["supports_automation_envelopes"])
+        self.assertEqual(envelopes["clip"]["id"], "clip:arrangement:track:2:index:1")
+        target_ids = [target["parameter_id"] for target in envelopes["available_targets"]]
+        self.assertIn("parameter:device:track:2:1:1", target_ids)
+        self.assertEqual(envelopes["envelopes"], [])
+
+    def test_set_arrangement_clip_envelope_raises_unsupported_runtime(self):
+        song = FakeSong()
+        adapter = LiveSetAdapter(song)
+
+        with self.assertRaises(RequestError) as context:
+            adapter.set_clip_envelope(
+                "clip:arrangement:track:2:index:1",
+                "parameter:device:track:2:1:1",
+                [
+                    {"startBeats": 8.0, "durationBeats": 2.0, "value": 0.3},
+                    {"startBeats": 12.0, "durationBeats": 1.0, "value": 0.7},
+                ],
+                select_in_view=True,
+            )
+
+        self.assertIn("Session clips only", str(context.exception))
+
     def test_get_clip_notes_serializes_runtime_notes(self):
         song = SongWithSingleClip(ExtendedNotesClip())
         adapter = LiveSetAdapter(song)

@@ -142,7 +142,7 @@ If Accessibility is not granted or the helper is not installed, `laive` returns 
 ## Current Limits
 
 - Arrangement View is exposed through first-class MCP tools, but higher-level composition/navigation abstractions are still thin.
-- Clip-envelope tooling currently focuses on Session clips; arrangement-envelope editing is not a first-class path yet.
+- Clip-envelope editing currently focuses on Session clips. Arrangement clips expose target discovery and selection, but real Live 11 rejects envelope creation through the current Remote Script API path.
 - The sidecar is complementary, not required for the main control path.
 - The UI helper is a fallback, not the preferred path.
 
