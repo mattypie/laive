@@ -10,7 +10,7 @@ Format:
 ### Features
 
 - Start the `v0.8.0` slice with sidecar-backed selected-clip transforms plus device snapshot capture and restore, exposed as first-class MCP tools (`c1137c7`).
-- Add first-class Session clip-envelope tooling across the bridge, fixture runtime, state selection context, and MCP surface, including target discovery, write/select/show/hide, and clear flows (`de2f06e`, `48ce515`).
+- Add first-class Session clip-envelope tooling across the bridge, fixture runtime, state selection context, and MCP surface, including target discovery, write/select/show/hide, and clear flows (`6449e29`).
 
 ### Fixes
 
@@ -19,7 +19,7 @@ Format:
 
 ### Maintenance
 
-- Fill the fixture-runtime gap for `set_clip_envelope` and record the real Live 11 limitation that arrangement clip-envelope creation is still unsupported through the current Remote Script API path.
+- Fill the fixture-runtime gap for `set_clip_envelope` and record the real Live 11 limitation that arrangement clip-envelope creation is still unsupported through the current Remote Script API path (`e175112`).
 
 ## v0.7.0 - 2026-04-05
 

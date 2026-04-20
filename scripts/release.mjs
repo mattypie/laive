@@ -72,9 +72,15 @@ function finalizeChangelog(changelog, nextVersion, releaseDate) {
   const replacement = [
     "## Unreleased",
     "",
+    "### Features",
+    "",
+    "### Fixes",
+    "",
+    "### Maintenance",
+    "",
     `## v${nextVersion} - ${releaseDate}`,
     "",
-    ...unreleased.entries,
+    unreleased.body.trim(),
     ""
   ].join("\n");
 
