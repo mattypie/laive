@@ -9,6 +9,14 @@ Format:
 
 ### Features
 
+### Fixes
+
+### Maintenance
+
+## v0.8.0 - 2026-04-20
+
+### Features
+
 - Start the `v0.8.0` slice with sidecar-backed selected-clip transforms plus device snapshot capture and restore, exposed as first-class MCP tools (`c1137c7`).
 - Add first-class Session clip-envelope tooling across the bridge, fixture runtime, state selection context, and MCP surface, including target discovery, write/select/show/hide, and clear flows (`6449e29`).
 
@@ -216,3 +224,4 @@ Format:
 ### Features
 
 - Ship the initial public package with MCP config output, helper/device delivery, and publish/release tooling under the `laive-mcp` package name (`c5b38c5`).
+
